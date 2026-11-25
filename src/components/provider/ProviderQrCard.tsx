@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { tr } from "@/lib/tr";
 
 /**
  * The business's own QR, for a counter, a flyer or a door: it opens the public
@@ -61,7 +62,7 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
     },
   });
 
-  const shareText = `${name} is on EverySub — see our plans and subscribe here: ${url}`;
+  const shareText = tr("{name} is on EverySub — see our plans and subscribe here: {url}", { name, url });
   const svgMarkup = () => {
     const svg = holder.current?.querySelector("svg");
     return svg ? new XMLSerializer().serializeToString(svg) : null;
@@ -70,9 +71,9 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copied");
+      toast.success(tr("Link copied"));
     } catch {
-      toast.error("Could not copy the link");
+      toast.error(tr("Could not copy the link"));
     }
   };
 
@@ -96,7 +97,7 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
-    img.onerror = () => toast.error("Could not create the image");
+    img.onerror = () => toast.error(tr("Could not create the image"));
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
   };
 
@@ -141,28 +142,27 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
           <QRCodeSVG value={url} size={120} level="M" />
         </div>
         <div className="min-w-0 flex-1">
-          {!embedded && <h2 className="text-heading font-semibold text-foreground">Your QR code</h2>}
+          {!embedded && <h2 className="text-heading font-semibold text-foreground">{tr("Your QR code")}</h2>}
           <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
             {isPublic
-              ? "Put it on a counter or a flyer. A scan opens your page with all your plans."
-              : "It starts working once your page is live. Until then the code opens nothing."}
+              ? tr("Put it on a counter or a flyer. A scan opens your page with all your plans.")
+              : tr("It starts working once your page is live. Until then the code opens nothing.")}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={print} className="gap-1.5"><Printer className="h-4 w-4" />Print</Button>
+            <Button size="sm" onClick={print} className="gap-1.5"><Printer className="h-4 w-4" />{tr("Print")}</Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="secondary" className="gap-1.5">
-                  <Share2 className="h-4 w-4" />Share<ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                  <Share2 className="h-4 w-4" />{tr("Share")}<ChevronDown className="h-3.5 w-3.5 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem onSelect={copy}><Copy className="h-4 w-4" />Copy link</DropdownMenuItem>
+                <DropdownMenuItem onSelect={copy}><Copy className="h-4 w-4" />{tr("Copy link")}</DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
-                    <MessageCircle className="h-4 w-4" />Send on WhatsApp
-                  </a>
+                    <MessageCircle className="h-4 w-4" />{tr("Send on WhatsApp")}</a>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={download}><Download className="h-4 w-4" />Download image</DropdownMenuItem>
+                <DropdownMenuItem onSelect={download}><Download className="h-4 w-4" />{tr("Download image")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -173,14 +173,13 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
       {clientCode && (
         <div className="mt-4 rounded-radius-md bg-inset px-3 py-2.5">
           <p className="text-meta text-foreground">
-            <span className="font-semibold">0% commission</span> on anyone who signs up through this code
-            (<span className="font-semibold">{clientCode}</span>).
+            <span className="font-semibold">{tr("0% commission")}</span>{" "}{tr("on anyone who signs up through this code (")}<span className="font-semibold">{clientCode}</span>).
           </p>
           {clients && (
             <p className="mt-0.5 text-meta text-muted-foreground">
               {clients.count === 0
-                ? "No clients through it yet."
-                : `${clients.count} client${clients.count === 1 ? "" : "s"} so far${clients.clients[0] ? ` · latest: ${clients.clients[0].name}` : ""}.`}
+                ? tr("No clients through it yet.")
+                : (clients.count === 1 ? tr("{count} client so far{value2}.", { count: clients.count, value2: clients.clients[0] ? tr(" · latest: {name}", { name: clients.clients[0].name }) : "" }) : tr("{count} clients so far{value2}.", { count: clients.count, value2: clients.clients[0] ? tr(" · latest: {name}", { name: clients.clients[0].name }) : "" }))}
             </p>
           )}
         </div>

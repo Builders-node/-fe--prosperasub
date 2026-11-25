@@ -20,6 +20,7 @@ import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialo
 import { toast } from "sonner";
 import type { FoodMenuMeal } from "@/types/food";
 import { addDaysISO, formatDateHN, todayHN } from "@/lib/timezone";
+import { tr, trx } from "@/lib/tr";
 
 type EffStatus = "active" | "expiring_soon" | "expired" | "paused" | "cancelled" | "pending";
 
@@ -139,18 +140,18 @@ export default function FoodSubscriptionDetail() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Meals updated");
+      toast.success(tr("Meals updated"));
       queryClient.invalidateQueries({ queryKey: ["food-subscription-meals", id] });
       queryClient.invalidateQueries({ queryKey: ["food-subscription-access", id] });
       setMealsSheetOpen(false);
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
 
   const performRenewNavigation = async () => {
     const sub = data?.subscription;
     if (!sub?.provider_id || !sub?.meal_plan_id) {
-      toast.error("This plan can't be renewed online. Please contact support.");
+      toast.error(tr("This plan can't be renewed online. Please contact support."));
       return;
     }
     setRenewChecking(true);
@@ -162,7 +163,7 @@ export default function FoodSubscriptionDetail() {
         .maybeSingle();
       if (error) throw error;
       if (!plan || plan.is_active === false) {
-        toast.error("This plan is no longer offered. Browse other plans to continue.");
+        toast.error(tr("This plan is no longer offered. Browse other plans to continue."));
         navigate(restaurantHref(sub.provider_id));
         return;
       }
@@ -178,7 +179,7 @@ export default function FoodSubscriptionDetail() {
 
   if (isLoading) {
     return (
-      <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions">
+      <UserLayout title={tr("Subscription")} showBackButton backTo="/my-subscriptions">
         <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
           <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
           <div className="h-72 animate-pulse rounded-radius-lg bg-muted" />
@@ -189,13 +190,11 @@ export default function FoodSubscriptionDetail() {
 
   if (isError || !data) {
     return (
-      <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions">
+      <UserLayout title={tr("Subscription")} showBackButton backTo="/my-subscriptions">
         <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
           <ChefHat className="mb-3 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">Subscription not found</p>
-          <Button className="mt-4" onClick={() => navigate("/my-subscriptions")}>
-            Back to my bookings
-          </Button>
+          <p className="font-semibold text-foreground">{tr("Subscription not found")}</p>
+          <Button className="mt-4" onClick={() => navigate("/my-subscriptions")}>{tr("Back to my bookings")}</Button>
         </div>
       </UserLayout>
     );
@@ -230,15 +229,13 @@ export default function FoodSubscriptionDetail() {
       className={`gap-2 rounded-full ${block ? "w-full" : ""}`}
       onClick={goRenew}
       loading={renewChecking}
-      loadingText="Checking plan…"
+      loadingText={tr("Checking plan…")}
     >
-      <RefreshCw className="h-4 w-4" />
-      Renew subscription
-    </Button>
+      <RefreshCw className="h-4 w-4" />{tr("Renew subscription")}</Button>
   );
 
   return (
-    <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions">
+    <UserLayout title={tr("Subscription")} showBackButton backTo="/my-subscriptions">
       <div className="mx-auto max-w-xl space-y-4 px-4 py-4 md:py-8">
         {/* Header — mobile-first: icon + stacked title/plan/status, external
             link is an icon-only pill so the title never has to wrap around it. */}
@@ -248,7 +245,7 @@ export default function FoodSubscriptionDetail() {
           </span>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-foreground">
-              {provider?.name ?? "Meal plan"}
+              {provider?.name ?? tr("Meal plan")}
             </h1>
             {plan?.name && (
               <p className="mt-0.5 truncate text-sm text-muted-foreground">{plan.name}</p>
@@ -260,7 +257,7 @@ export default function FoodSubscriptionDetail() {
           {provider && (
             <button
               type="button"
-              aria-label="Open restaurant page"
+              aria-label={tr("Open restaurant page")}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/50 text-foreground transition-colors hover:bg-muted"
               onClick={() => window.open(restaurantHref(provider.id), "_blank")}
             >
@@ -286,9 +283,7 @@ export default function FoodSubscriptionDetail() {
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-attention" />
               <div>
                 <p className="font-bold text-foreground">{reason}</p>
-                <p className="text-sm text-muted-foreground">
-                  Renew now to keep your meals without interruption — ends {fmtDate(sub.end_date)}.
-                </p>
+                <p className="text-sm text-muted-foreground">{trx("Renew now to keep your meals without interruption — ends {end_date}.", { end_date: fmtDate(sub.end_date) })}</p>
               </div>
             </div>
             <RenewButton />
@@ -304,30 +299,28 @@ export default function FoodSubscriptionDetail() {
               </span>
               <h2 className="text-xl font-semibold text-foreground">
                 {status === "expired"
-                  ? "Your subscription has expired"
+                  ? tr("Your subscription has expired")
                   : status === "paused"
-                    ? "Your subscription is paused"
+                    ? tr("Your subscription is paused")
                     : status === "pending"
-                      ? "Payment pending"
-                      : "Subscription cancelled"}
+                      ? tr("Payment pending")
+                      : tr("Subscription cancelled")}
               </h2>
               <p className="max-w-sm text-sm text-muted-foreground">
                 {status === "expired"
-                  ? "Access to this week's menu and your meal plan is locked. Renew your subscription to continue."
+                  ? tr("Access to this week's menu and your meal plan is locked. Renew your subscription to continue.")
                   : status === "paused"
-                    ? "Your plan is paused. Contact the restaurant to resume it."
+                    ? tr("Your plan is paused. Contact the restaurant to resume it.")
                     : status === "pending"
-                      ? "We're waiting for your payment to confirm. Once paid, your meals unlock automatically."
-                      : "This subscription has been cancelled."}
+                      ? tr("We're waiting for your payment to confirm. Once paid, your meals unlock automatically.")
+                      : tr("This subscription has been cancelled.")}
               </p>
               {canRenew && (
                 <div className="mt-2 w-full max-w-xs">
                   <RenewButton block />
                 </div>
               )}
-              <Button variant="ghost" onClick={() => navigate("/services/food")}>
-                Browse meal plans
-              </Button>
+              <Button variant="ghost" onClick={() => navigate("/services/food")}>{tr("Browse meal plans")}</Button>
             </div>
           </section>
         )}
@@ -335,14 +328,14 @@ export default function FoodSubscriptionDetail() {
         {/* Details */}
         <section className="overflow-hidden rounded-radius-lg bg-card">
           <div className="p-5">
-            <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">Subscription details</h2>
+            <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">{tr("Subscription details")}</h2>
           </div>
           <div className="divide-y divide-border/60 border-t border-border/60">
-            {plan && <DetailRow label="Plan" value={`${plan.name} · ${plan.meals_per_day} meals/day`} />}
+            {plan && <DetailRow label={tr("Plan")} value={`${plan.name} · ${plan.meals_per_day} meals/day`} />}
             {/* Structured meal choice — tap to reopen the picker. Falls back
                 to the plan default when the row hasn't been saved yet (legacy). */}
             <div className="flex items-center justify-between gap-4 px-5 py-3">
-              <span className="text-sm text-muted-foreground">Meals per day</span>
+              <span className="text-sm text-muted-foreground">{tr("Meals per day")}</span>
               <div className="flex items-center gap-2">
                 <span className="text-right text-sm font-medium text-foreground">
                   {formatMeals(
@@ -363,21 +356,19 @@ export default function FoodSubscriptionDetail() {
                       );
                       setMealsSheetOpen(true);
                     }}
-                  >
-                    Change
-                  </Button>
+                  >{tr("Change")}</Button>
                 )}
               </div>
             </div>
-            <DetailRow label="Weekly price" value={formatUSD(sub.weekly_price_cents || 0)} />
-            <DetailRow label="Duration" value={`${sub.commitment_weeks || 1} week${(sub.commitment_weeks || 1) > 1 ? "s" : ""}`} />
-            <DetailRow label="Current period" value={`${fmtDate(sub.started_at)} → ${fmtDate(sub.end_date)}`} />
-            {sub.delivery_address && <DetailRow label="Delivery address" value={sub.delivery_address} />}
-            {sub.customer_whatsapp && <DetailRow label="WhatsApp" value={sub.customer_whatsapp} />}
-            {sub.notes && <DetailRow label="Notes" value={sub.notes} />}
+            <DetailRow label={tr("Weekly price")} value={formatUSD(sub.weekly_price_cents || 0)} />
+            <DetailRow label={tr("Duration")} value={((sub.commitment_weeks || 1) > 1 ? tr("{value} weeks", { value: sub.commitment_weeks || 1 }) : tr("{value} week", { value: sub.commitment_weeks || 1 }))} />
+            <DetailRow label={tr("Current period")} value={`${fmtDate(sub.started_at)} → ${fmtDate(sub.end_date)}`} />
+            {sub.delivery_address && <DetailRow label={tr("Delivery address")} value={sub.delivery_address} />}
+            {sub.customer_whatsapp && <DetailRow label={tr("WhatsApp")} value={sub.customer_whatsapp} />}
+            {sub.notes && <DetailRow label={tr("Notes")} value={sub.notes} />}
           </div>
           <div className="flex items-center justify-between gap-3 border-t border-border/60 p-5">
-            <span className="text-base font-semibold text-foreground">Total</span>
+            <span className="text-base font-semibold text-foreground">{tr("Total")}</span>
             <span className="text-xl font-semibold tabular-nums text-primary">{formatUSD(totalCents)}</span>
           </div>
         </section>
@@ -388,7 +379,7 @@ export default function FoodSubscriptionDetail() {
           <RenewPreviewDialog
             open={renewPreviewOpen}
             onOpenChange={setRenewPreviewOpen}
-            title={plan?.name ?? provider?.name ?? "Meal plan"}
+            title={plan?.name ?? provider?.name ?? tr("Meal plan")}
             currentEndDate={sub.end_date}
             newStartDate={renewPreview.newStart}
             newEndDate={renewPreview.newEnd}
@@ -402,19 +393,15 @@ export default function FoodSubscriptionDetail() {
         {access && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold tracking-[-0.02em] text-foreground">My ration</h2>
+              <h2 className="text-lg font-semibold tracking-[-0.02em] text-foreground">{tr("My ration")}</h2>
               {menu && (
                 <Badge variant="secondary" className="rounded-full text-xs">
-                  <CalendarDays className="mr-1 h-3 w-3" />
-                  Week of {formatWeekLabel(menu.week_start_date)}
-                </Badge>
+                  <CalendarDays className="mr-1 h-3 w-3" />{trx("Week of {week_start_date}", { week_start_date: formatWeekLabel(menu.week_start_date) })}</Badge>
               )}
             </div>
             {/* The week's menu, a day at a time. It was fetched and never drawn. */}
             {!menu || menuDays.length === 0 ? (
-              <p className="rounded-radius-lg bg-card p-5 text-sm text-muted-foreground">
-                This week's menu isn't published yet. The restaurant usually posts it before the week starts.
-              </p>
+              <p className="rounded-radius-lg bg-card p-5 text-sm text-muted-foreground">{tr("This week's menu isn't published yet. The restaurant usually posts it before the week starts.")}</p>
             ) : (
               <>
                 <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
@@ -435,7 +422,7 @@ export default function FoodSubscriptionDetail() {
                         <p className="text-xs font-semibold uppercase tracking-wide text-primary">{itemLabel(m.meal_type, providerItems)}</p>
                         <p className="text-base font-semibold text-foreground">{m.meal_name}</p>
                         {m.meal_description && <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{m.meal_description}</p>}
-                        {m.calories ? <span className="mt-1 inline-block rounded-full bg-inset px-2 py-0.5 text-xs text-muted-foreground">{m.calories} kcal</span> : null}
+                        {m.calories ? <span className="mt-1 inline-block rounded-full bg-inset px-2 py-0.5 text-xs text-muted-foreground">{trx("{calories} kcal", { calories: m.calories })}</span> : null}
                       </div>
                     </div>
                   ))}
@@ -453,14 +440,12 @@ export default function FoodSubscriptionDetail() {
       <ResponsiveDialog
         open={mealsSheetOpen}
         onOpenChange={setMealsSheetOpen}
-        title="Change your meals"
-        description="Changes apply from the next delivery day."
+        title={tr("Change your meals")}
+        description={tr("Changes apply from the next delivery day.")}
         footer={
           plan ? (
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" className="flex-1" onClick={() => setMealsSheetOpen(false)}>
-                Cancel
-              </Button>
+              <Button type="button" variant="ghost" className="flex-1" onClick={() => setMealsSheetOpen(false)}>{tr("Cancel")}</Button>
               <Button
                 type="button"
                 className="flex-1"
@@ -471,10 +456,8 @@ export default function FoodSubscriptionDetail() {
                   || saveMeals.isPending
                 }
                 loading={saveMeals.isPending}
-                loadingText="Saving…"
-              >
-                Save
-              </Button>
+                loadingText={tr("Saving…")}
+              >{tr("Save")}</Button>
             </div>
           ) : undefined
         }

@@ -16,6 +16,7 @@ import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
+import { tr } from "@/lib/tr";
 
 interface Row {
   id: string;
@@ -109,13 +110,13 @@ export function AdminBusinessStrip({ providerId }: { providerId: string }) {
       }
     },
     onSuccess: () => {
-      toast.success("Moved. Customers now find it under the new service.");
+      toast.success(tr("Moved. Customers now find it under the new service."));
       setChanging(false);
       qc.invalidateQueries({ queryKey: ["admin-business-strip", providerId] });
       qc.invalidateQueries({ queryKey: ["marketplace-providers"] });
       qc.invalidateQueries({ queryKey: ["universal-provider", providerId] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not move it"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not move it")),
   });
 
   if (!row) return null;
@@ -123,12 +124,12 @@ export function AdminBusinessStrip({ providerId }: { providerId: string }) {
   const category = categories.find((c) => c.key === row.category_key);
   const live = row.status === "active" || row.status === "approved";
   const ownerText = row.admin_user_id
-    ? owner ?? "Has an owner"
-    : !invite || invite.state === "revoked" ? "No owner yet"
-    : invite.state === "expired" ? "Invite expired"
-    : invite.state === "claimed" ? "Claimed"
-    : invite.openedAt ? `Invite opened${invite.invitedEmail ? ` · ${invite.invitedEmail}` : ""}`
-    : `Invite sent${invite.invitedEmail ? ` · ${invite.invitedEmail}` : ""}`;
+    ? owner ?? tr("Has an owner")
+    : !invite || invite.state === "revoked" ? tr("No owner yet")
+    : invite.state === "expired" ? tr("Invite expired")
+    : invite.state === "claimed" ? tr("Claimed")
+    : invite.openedAt ? tr("Invite opened{value}", { value: invite.invitedEmail ? ` · ${invite.invitedEmail}` : "" })
+    : tr("Invite sent{value}", { value: invite.invitedEmail ? ` · ${invite.invitedEmail}` : "" });
   const scoped = categories.filter((c) => c.archetype_key === svc);
 
   const openChange = () => {
@@ -140,52 +141,49 @@ export function AdminBusinessStrip({ providerId }: { providerId: string }) {
   return (
     <section className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-radius-lg bg-card px-4 py-3 text-meta">
       <StatusPill status={live ? "active" : row.status} />
-      {!live && row.review_requested_at && <span className="font-semibold text-primary">Owner asked for review</span>}
-      <span className="text-muted-foreground">Owner <span className="font-semibold text-foreground">{ownerText}</span></span>
-      <span className="text-muted-foreground">
-        Listed in <span className="font-semibold text-foreground">{arche?.label ?? "Unassigned"}{category ? ` · ${category.label}` : ""}</span>
-        <button type="button" onClick={openChange} className="ml-2 font-semibold text-primary hover:underline">Change…</button>
+      {!live && row.review_requested_at && <span className="font-semibold text-primary">{tr("Owner asked for review")}</span>}
+      <span className="text-muted-foreground">{tr("Owner")}{" "}<span className="font-semibold text-foreground">{ownerText}</span></span>
+      <span className="text-muted-foreground">{tr("Listed in")}{" "}<span className="font-semibold text-foreground">{arche?.label ?? "Unassigned"}{category ? ` · ${category.label}` : ""}</span>
+        <button type="button" onClick={openChange} className="ml-2 font-semibold text-primary hover:underline">{tr("Change…")}</button>
       </span>
       <span className="flex flex-1 flex-wrap justify-end gap-1">
         <Button asChild size="sm" variant="ghost">
           <Link to={`/admin/marketplace/subscriptions?business=${encodeURIComponent(providerId)}`}>
-            <ReceiptText className="h-4 w-4" /> Orders{typeof orderCount === "number" ? ` ${orderCount}` : ""}
+            <ReceiptText className="h-4 w-4" />{" "}{tr("Orders")}{typeof orderCount === "number" ? ` ${orderCount}` : ""}
           </Link>
         </Button>
         <Button asChild size="sm" variant="ghost">
-          <Link to="/admin/payments?tab=payouts"><Wallet className="h-4 w-4" /> Payouts</Link>
+          <Link to="/admin/payments?tab=payouts"><Wallet className="h-4 w-4" />{" "}{tr("Payouts")}</Link>
         </Button>
         <Button asChild size="sm" variant="ghost">
-          <Link to={`/admin/audit-logs?q=${encodeURIComponent(providerId)}`}><History className="h-4 w-4" /> History</Link>
+          <Link to={`/admin/audit-logs?q=${encodeURIComponent(providerId)}`}><History className="h-4 w-4" />{" "}{tr("History")}</Link>
         </Button>
       </span>
 
       <AlertDialog open={changing} onOpenChange={(o) => { if (!o && !move.isPending) setChanging(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><Layers className="h-5 w-5" /> Where is it listed</AlertDialogTitle>
-            <AlertDialogDescription>
-              Customers find the business under this service and category. Its plans and orders stay as they are.
-            </AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center gap-2"><Layers className="h-5 w-5" />{" "}{tr("Where is it listed")}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("Customers find the business under this service and category. Its plans and orders stay as they are.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Service</Label>
+              <Label>{tr("Service")}</Label>
               <Select value={svc || undefined} onValueChange={(v) => { setSvc(v); setCat(categories.find((c) => c.archetype_key === v)?.key ?? ""); }}>
-                <SelectTrigger><SelectValue placeholder="Pick a service" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tr("Pick a service")} /></SelectTrigger>
                 <SelectContent>
                   {archetypes.map((a) => (
                     <SelectItem key={a.key} value={a.key} disabled={!!a.source_service_key && a.key !== row.archetype_key}>
-                      {a.label}{a.source_service_key && a.key !== row.archetype_key ? " · has its own page" : ""}
+                      {a.label}{a.source_service_key && a.key !== row.archetype_key ? tr(" · has its own page") : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Category</Label>
+              <Label>{tr("Category")}</Label>
               <Select value={cat || undefined} onValueChange={setCat} disabled={!svc || scoped.length === 0}>
-                <SelectTrigger><SelectValue placeholder={svc && scoped.length === 0 ? "This service has no categories" : "Pick a category"} /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={svc && scoped.length === 0 ? tr("This service has no categories") : tr("Pick a category")} /></SelectTrigger>
                 <SelectContent>
                   {scoped.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
                 </SelectContent>
@@ -193,12 +191,12 @@ export function AdminBusinessStrip({ providerId }: { providerId: string }) {
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={move.isPending}>Back</AlertDialogCancel>
+            <AlertDialogCancel disabled={move.isPending}>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={!svc || !cat || move.isPending || (svc === row.archetype_key && cat === row.category_key)}
               onClick={(e) => { e.preventDefault(); move.mutate(); }}
             >
-              {move.isPending ? "Moving…" : "Move it"}
+              {move.isPending ? tr("Moving…") : tr("Move it")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

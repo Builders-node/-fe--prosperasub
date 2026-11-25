@@ -22,6 +22,7 @@ import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { QueryError } from "@/components/patterns/QueryError";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { toast } from "sonner";
+import { tr, trx } from "@/lib/tr";
 
 interface Residence {
   id: string;
@@ -69,7 +70,7 @@ const Locations = () => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = { name: form.name.trim(), sort_order: form.sort_order, is_active: form.is_active };
-      if (!payload.name) throw new Error("Name is required");
+      if (!payload.name) throw new Error(tr("Name is required"));
       const { error } = editing === "new"
         ? await adminApi("/admin/locations", { method: "POST", body: JSON.stringify(payload) })
         : await adminApi(`/admin/locations/${(editing as Residence).id}`, {
@@ -78,12 +79,12 @@ const Locations = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Location saved");
+      toast.success(tr("Location saved"));
       qc.invalidateQueries({ queryKey: ["admin-food-residences-all"] });
       qc.invalidateQueries({ queryKey: ["food-residences"] });
       setEditing(null);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not save"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not save")),
   });
 
   // Was a bare `await` outside React Query: no pending state, no audit entry.
@@ -96,11 +97,11 @@ const Locations = () => {
       return !r.is_active;
     },
     onSuccess: (nowActive) => {
-      toast.success(nowActive ? "Location enabled" : "Location hidden");
+      toast.success(nowActive ? tr("Location enabled") : tr("Location hidden"));
       qc.invalidateQueries({ queryKey: ["admin-food-residences-all"] });
       qc.invalidateQueries({ queryKey: ["food-residences"] });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not update"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not update")),
   });
   const toggleActive = (r: Residence) => toggleMutation.mutate(r);
 
@@ -110,16 +111,16 @@ const Locations = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Location deleted");
+      toast.success(tr("Location deleted"));
       qc.invalidateQueries({ queryKey: ["admin-food-residences-all"] });
       qc.invalidateQueries({ queryKey: ["food-residences"] });
       setDeleteTarget(null);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not delete"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not delete")),
   });
 
   return (
-    <SuperAdminLayout title="Locations" subtitle="Residences and delivery zones where the platform operates">
+    <SuperAdminLayout title={tr("Locations")} subtitle={tr("Residences and delivery zones where the platform operates")}>
       <div className="space-y-6">
         {/* The same scaffold every admin list uses — this page kept its own
             loading rows, its own bordered empty state and a lone right-hung
@@ -130,12 +131,11 @@ const Locations = () => {
           error={error}
           onRetry={() => void refetch()}
           isEmpty={residences.length === 0}
-          emptyTitle="No locations yet"
-          emptySubtitle="Add your first residence to start delivering there."
+          emptyTitle={tr("No locations yet")}
+          emptySubtitle={tr("Add your first residence to start delivering there.")}
           actions={
             <Button onClick={openNew} className="gap-2">
-              <Plus className="h-4 w-4" /> New Location
-            </Button>
+              <Plus className="h-4 w-4" />{" "}{tr("New Location")}</Button>
           }
         >
           <div className="space-y-3">
@@ -149,8 +149,7 @@ const Locations = () => {
                     <span className="font-bold text-foreground">{r.name}</span>
                     <StatusPill status={r.is_active ? "active" : "inactive"} />
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Sort #{r.sort_order} · {counts[r.name] ?? 0} active subscription{(counts[r.name] ?? 0) !== 1 ? "s" : ""}
+                  <p className="mt-0.5 text-xs text-muted-foreground">{(counts[r.name] ?? 0) !== 1 ? trx("Sort #{sort_order} · {value} active subscriptions", { sort_order: r.sort_order, value: counts[r.name] ?? 0 }) : trx("Sort #{sort_order} · {value} active subscription", { sort_order: r.sort_order, value: counts[r.name] ?? 0 })}
                   </p>
                 </div>
                 {/* Three unlabelled 32px icons whose only explanation was a
@@ -160,23 +159,21 @@ const Locations = () => {
                   <Button size="sm" variant="ghost" disabled={toggleMutation.isPending} onClick={() => toggleActive(r)}
                     aria-label={`${r.is_active ? "Hide" : "Enable"} ${r.name}`}>
                     {r.is_active ? <EyeOff /> : <Eye />}
-                    {r.is_active ? "Hide" : "Enable"}
+                    {r.is_active ? tr("Hide") : tr("Enable")}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(r)} aria-label={`Edit ${r.name}`}>
-                    <Pencil /> Edit
-                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => openEdit(r)} aria-label={tr("Edit {name}", { name: r.name })}>
+                    <Pencil />{" "}{tr("Edit")}</Button>
                   <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(r)}
-                    aria-label={`Delete ${r.name}`}>
-                    <Trash2 /> Delete
-                  </Button>
+                    aria-label={tr("Delete {name}", { name: r.name })}>
+                    <Trash2 />{" "}{tr("Delete")}</Button>
                 </div>
                 <MobileActionSheet
                   title={r.name}
                   className="h-11 w-11 shrink-0 md:hidden"
                   actions={[
-                    { label: r.is_active ? "Hide" : "Enable", icon: r.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />, onClick: () => toggleActive(r), disabled: toggleMutation.isPending },
-                    { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => openEdit(r) },
-                    { label: "Delete…", icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDeleteTarget(r) },
+                    { label: r.is_active ? tr("Hide") : tr("Enable"), icon: r.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />, onClick: () => toggleActive(r), disabled: toggleMutation.isPending },
+                    { label: tr("Edit"), icon: <Pencil className="h-4 w-4" />, onClick: () => openEdit(r) },
+                    { label: tr("Delete…"), icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDeleteTarget(r) },
                   ]}
                 />
               </div>
@@ -187,33 +184,33 @@ const Locations = () => {
         {/* Create / edit */}
         <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>{editing === "new" ? "New location" : "Edit location"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing === "new" ? tr("New location") : tr("Edit location")}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Name *</Label>
-                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Pristine Bay" />
+                <Label>{tr("Name *")}</Label>
+                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={tr("e.g. Pristine Bay")} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Sort order</Label>
+                  <Label>{tr("Sort order")}</Label>
                   <Input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
                 </div>
                 <div>
-                  <Label>Status</Label>
+                  <Label>{tr("Status")}</Label>
                   <select className={fieldClass}
                     value={form.is_active ? "active" : "hidden"}
                     onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "active" }))}>
-                    <option value="active">Active</option>
-                    <option value="hidden">Hidden</option>
+                    <option value="active">{tr("Active")}</option>
+                    <option value="hidden">{tr("Hidden")}</option>
                   </select>
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setEditing(null)}>{tr("Cancel")}</Button>
               <Button onClick={() => saveMutation.mutate()} disabled={!form.name.trim() || saveMutation.isPending}>
                 {saveMutation.isPending && <Spinner size="sm" className="mr-2" />}
-                {editing === "new" ? "Create" : "Save"}
+                {editing === "new" ? tr("Create") : tr("Save")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -223,18 +220,13 @@ const Locations = () => {
         <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete location?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This permanently deletes <strong>{deleteTarget?.name}</strong> and removes it from provider service areas and plan availability.
-                Existing subscriptions keep their stored address text. Consider hiding instead.
-              </AlertDialogDescription>
+              <AlertDialogTitle>{tr("Delete location?")}</AlertDialogTitle>
+              <AlertDialogDescription>{tr("This permanently deletes")}{" "}<strong>{deleteTarget?.name}</strong>{" "}{tr("and removes it from provider service areas and plan availability. Existing subscriptions keep their stored address text. Consider hiding instead.")}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
               <AlertDialogAction variant="destructive"
-                onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}>
-                Delete
-              </AlertDialogAction>
+                onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}>{tr("Delete")}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

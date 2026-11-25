@@ -1,4 +1,5 @@
 import { formatUSD } from "@/lib/pricing";
+import { tr } from "@/lib/tr";
 
 export type CleaningFrequencyUnit = "day" | "week" | "month" | "custom";
 export type CleaningPricingMode =
@@ -47,8 +48,8 @@ export const resolveMonthlyPriceCents = (plan: CleaningPlanPricingInput) => {
 
 export const formatFrequencyLabel = (plan: CleaningPlanPricingInput) => {
   const unit = normalizeFrequencyUnit(plan.frequency_unit);
-  if (unit === "custom") return plan.custom_frequency_label?.trim() || "Custom schedule";
-  return `${Number(plan.frequency_count ?? plan.cleanings_per_month ?? 0)}x per ${unit}`;
+  if (unit === "custom") return plan.custom_frequency_label?.trim() || tr("Custom schedule");
+  return tr("{Number}x per {unit}", { Number: Number(plan.frequency_count ?? plan.cleanings_per_month ?? 0), unit });
 };
 
 export const formatPricingLabel = (plan: CleaningPlanPricingInput) => {
@@ -57,8 +58,8 @@ export const formatPricingLabel = (plan: CleaningPlanPricingInput) => {
   if (mode === "price_per_cleaning" && pricePer > 0) return `${formatUSD(pricePer)} per cleaning`;
   const monthly = resolveMonthlyPriceCents(plan);
   if (monthly > 0) return `${formatUSD(monthly)}/month`;
-  if (mode === "custom_manual") return "Custom pricing";
-  return "Price pending";
+  if (mode === "custom_manual") return tr("Custom pricing");
+  return tr("Price pending");
 };
 
 export function validateCleaningPlanPricing(plan: CleaningPlanPricingInput) {
@@ -68,10 +69,10 @@ export function validateCleaningPlanPricing(plan: CleaningPlanPricingInput) {
   const monthly = Number(plan.monthly_price_cents ?? 0);
   const pricePer = Number(plan.price_per_cleaning_cents ?? 0);
 
-  if (unit !== "custom" && count <= 0) return "Frequency count must be positive.";
-  if (unit === "custom" && !plan.custom_frequency_label?.trim()) return "Custom frequency label is required.";
-  if ((mode === "fixed_monthly_price" || mode === "custom_manual") && monthly <= 0) return "Monthly price is required for this pricing mode.";
-  if (mode === "price_per_cleaning" && pricePer <= 0) return "Price per cleaning is required for this pricing mode.";
-  if (mode === "calculated_estimate" && monthly <= 0 && pricePer <= 0) return "Monthly price or price per cleaning is required.";
+  if (unit !== "custom" && count <= 0) return tr("Frequency count must be positive.");
+  if (unit === "custom" && !plan.custom_frequency_label?.trim()) return tr("Custom frequency label is required.");
+  if ((mode === "fixed_monthly_price" || mode === "custom_manual") && monthly <= 0) return tr("Monthly price is required for this pricing mode.");
+  if (mode === "price_per_cleaning" && pricePer <= 0) return tr("Price per cleaning is required for this pricing mode.");
+  if (mode === "calculated_estimate" && monthly <= 0 && pricePer <= 0) return tr("Monthly price or price per cleaning is required.");
   return null;
 }

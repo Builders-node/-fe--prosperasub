@@ -11,6 +11,7 @@ import { OAUTH_RETURN_KEY, useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 const getSafeRedirect = (value: string | null) => {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
@@ -42,7 +43,7 @@ const OAuthCallback = () => {
 
     (async () => {
       if (googleError) {
-        toast.error("Google login was cancelled or failed.");
+        toast.error(tr("Google login was cancelled or failed."));
         if (isMounted) { setDone(true); navigate("/", { replace: true }); openAuthModal("login"); }
         return;
       }
@@ -64,7 +65,7 @@ const OAuthCallback = () => {
       setDone(true);
 
       if (error) {
-        toast.error(error.message || "Google login failed.");
+        toast.error(error.message || tr("Google login failed."));
         navigate("/", { replace: true });
         openAuthModal("login");
       }

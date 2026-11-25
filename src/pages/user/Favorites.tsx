@@ -19,6 +19,7 @@ import { normPeriod, periodNoun } from "@/lib/services/planPeriod";
 import { businessHref, planHref, planSegment } from "@/lib/services/serviceUrls";
 import { carPath, vehiclePath } from "@/features/vehicles";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * `/favorites` — what the customer saved to come back to.
@@ -49,10 +50,10 @@ interface Row {
 
 type Filter = "all" | FavoriteKind;
 const FILTERS: Array<{ key: Filter; label: string; icon: typeof Heart }> = [
-  { key: "all", label: "All", icon: Heart },
-  { key: "plan", label: "Plans", icon: LayoutGrid },
-  { key: "provider", label: "Businesses", icon: Building2 },
-  { key: "vehicle", label: "Vehicles", icon: CarFront },
+  { key: "all", label: tr("All"), icon: Heart },
+  { key: "plan", label: tr("Plans"), icon: LayoutGrid },
+  { key: "provider", label: tr("Businesses"), icon: Building2 },
+  { key: "vehicle", label: tr("Vehicles"), icon: CarFront },
 ];
 
 async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
@@ -77,7 +78,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
       const row: Row = {
         kind: "plan",
         id: String(p.id),
-        title: p.name ?? "Plan",
+        title: p.name ?? tr("Plan"),
         subtitle: prov.name ?? null,
         price: typeof p.price_cents === "number" && p.price_cents > 0 ? `${formatUSD(p.price_cents)}${noun ? ` / ${noun}` : ""}` : null,
         photo: first(p.gallery_urls) ?? first(prov.gallery_urls) ?? prov.avatar_url ?? null,
@@ -100,7 +101,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
       out.set(`provider:${p.id}`, {
         kind: "provider",
         id: String(p.id),
-        title: p.name ?? "Business",
+        title: p.name ?? tr("Business"),
         subtitle: p.description ? String(p.description).split("\n")[0] : null,
         price: null,
         photo: p.avatar_url ?? first(p.gallery_urls) ?? p.banner_url ?? null,
@@ -120,7 +121,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
       out.set(`vehicle:${v.id}`, {
         kind: "vehicle",
         id: String(v.id),
-        title: v.name ?? "Vehicle",
+        title: v.name ?? tr("Vehicle"),
         subtitle: null,
         price: typeof v.daily_price_cents === "number" ? `${formatUSD(v.daily_price_cents)} / day` : null,
         photo: v.image_url ?? first(v.gallery_urls),
@@ -135,11 +136,11 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
 const ICON: Record<FavoriteKind, typeof Heart> = { plan: LayoutGrid, provider: Building2, vehicle: CarFront };
 
 export default function Favorites() {
-  useSeo({ title: "Favorites" });
+  useSeo({ title: tr("Favorites") });
   return (
-    <UserLayout title="Favorites" allowGuest>
+    <UserLayout title={tr("Favorites")} allowGuest>
       <div className="app-container space-y-4 py-space-4 md:py-space-6">
-        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favorites</h1>
+        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">{tr("Favorites")}</h1>
         <FavoritesPanel />
       </div>
     </UserLayout>
@@ -177,8 +178,8 @@ export function FavoritesPanel() {
       <div className="space-y-4">
         {!isAuthenticated && items.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4">
-            <p className="text-body text-muted-foreground">Saved on this device. Sign in to keep them on your phone and laptop alike.</p>
-            <Button size="sm" onClick={() => openAuthModal("login", "/favorites")}>Log in</Button>
+            <p className="text-body text-muted-foreground">{tr("Saved on this device. Sign in to keep them on your phone and laptop alike.")}</p>
+            <Button size="sm" onClick={() => openAuthModal("login", "/favorites")}>{tr("Log in")}</Button>
           </div>
         )}
 
@@ -187,9 +188,9 @@ export function FavoritesPanel() {
         ) : items.length === 0 ? (
           <YdEmptyState
             icon={Heart}
-            title="Nothing saved yet"
-            subtitle="Tap the heart on a plan, a business or a car and it waits for you here."
-            action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
+            title={tr("Nothing saved yet")}
+            subtitle={tr("Tap the heart on a plan, a business or a car and it waits for you here.")}
+            action={<Button onClick={() => navigate("/discovery")}>{tr("Browse services")}</Button>}
           />
         ) : (
           <>
@@ -238,13 +239,13 @@ export function FavoritesPanel() {
                         <Photo src={row?.photo} icon={Icon} className="absolute inset-0" iconClassName="h-6 w-6 min-h-6 min-w-6" />
                       </div>
                       <div className={cn("min-w-0 flex-1", !row?.available && "opacity-60")}>
-                        <p className="truncate text-body font-semibold text-foreground">{row?.title ?? "No longer listed"}</p>
+                        <p className="truncate text-body font-semibold text-foreground">{row?.title ?? tr("No longer listed")}</p>
                         <p className="truncate text-meta text-muted-foreground">
                           {!row
-                            ? "The business removed it"
+                            ? tr("The business removed it")
                             : !row.available
-                              ? "No longer available"
-                              : row.subtitle ?? (f.kind === "provider" ? "Business" : "")}
+                              ? tr("No longer available")
+                              : row.subtitle ?? (f.kind === "provider" ? tr("Business") : "")}
                         </p>
                       </div>
                       {row?.available && row.price && (

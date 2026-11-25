@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * Does this look like somewhere we can send money — and does it match the rail
  * the person picked?
@@ -24,8 +25,8 @@ export function bareDestination(raw: string): string {
 }
 
 export const RAIL_LABEL: Record<PayoutRail, string> = {
-  lightning: "Lightning",
-  onchain: "Bitcoin",
+  lightning: tr("Lightning"),
+  onchain: tr("Bitcoin"),
 };
 
 export const RAIL_PLACEHOLDER: Record<PayoutRail, string> = {
@@ -34,8 +35,8 @@ export const RAIL_PLACEHOLDER: Record<PayoutRail, string> = {
 };
 
 export const RAIL_HINT: Record<PayoutRail, string> = {
-  lightning: "Instant, tiny fee. Your wallet's Lightning address — the one shaped like an email.",
-  onchain: "Slower and costs a network fee. A Bitcoin address from your wallet's Receive screen.",
+  lightning: tr("Instant, tiny fee. Your wallet's Lightning address — the one shaped like an email."),
+  onchain: tr("Slower and costs a network fee. A Bitcoin address from your wallet's Receive screen."),
 };
 
 /**
@@ -51,18 +52,18 @@ export function destinationProblem(rail: PayoutRail, raw: string): string | null
   if (!value) return null; // Not an error yet — just not filled in.
 
   if (INVOICE.test(value)) {
-    return "That's an invoice, not an address. It has its own amount and expires — use your Lightning address instead.";
+    return tr("That's an invoice, not an address. It has its own amount and expires — use your Lightning address instead.");
   }
 
   if (rail === "lightning") {
     if (LN_ADDRESS.test(value)) return null;
-    if (ONCHAIN.test(value)) return "That's a Bitcoin address — switch to Bitcoin above to send it there.";
-    return "A Lightning address looks like an email: you@wallet.com.";
+    if (ONCHAIN.test(value)) return tr("That's a Bitcoin address — switch to Bitcoin above to send it there.");
+    return tr("A Lightning address looks like an email: you@wallet.com.");
   }
 
   if (ONCHAIN.test(value)) return null;
-  if (LN_ADDRESS.test(value)) return "That's a Lightning address — switch to Lightning above to send it there.";
-  return "A Bitcoin address starts with bc1, 1 or 3.";
+  if (LN_ADDRESS.test(value)) return tr("That's a Lightning address — switch to Lightning above to send it there.");
+  return tr("A Bitcoin address starts with bc1, 1 or 3.");
 }
 
 export function isPayable(rail: PayoutRail, raw: string): boolean {

@@ -19,6 +19,7 @@ import { IconGrid, slugKey } from "@/components/admin/ServiceArchetypeDialog";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
+import { tr } from "@/lib/tr";
 
 /**
  * The category panel, opened from a chip on the Services list.
@@ -75,9 +76,9 @@ export function CategoryPanel({
   const save = useMutation({
     mutationFn: async () => {
       const key = (form.key || slugKey(form.label)).trim();
-      if (!form.label.trim()) throw new Error("Give the category a name");
-      if (!key) throw new Error("The id can't be empty");
-      if (!form.archetype_key) throw new Error("Pick the service it belongs to");
+      if (!form.label.trim()) throw new Error(tr("Give the category a name"));
+      if (!key) throw new Error(tr("The id can't be empty"));
+      if (!form.archetype_key) throw new Error(tr("Pick the service it belongs to"));
       const payload = {
         key, label: form.label.trim(), archetype_key: form.archetype_key, icon: form.icon, accent: form.accent,
         is_active: form.is_active, sort_order: form.sort_order, image_url: form.image_url,
@@ -88,7 +89,7 @@ export function CategoryPanel({
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, isNew ? "create" : "edit", "service_category", key, payload);
     },
-    onSuccess: () => { toast.success("Saved"); onClose(); refresh(); },
+    onSuccess: () => { toast.success(tr("Saved")); onClose(); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -98,17 +99,17 @@ export function CategoryPanel({
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "delete", "service_category", editing!.key, {});
     },
-    onSuccess: () => { toast.success("Category deleted"); onClose(); refresh(); },
+    onSuccess: () => { toast.success(tr("Category deleted")); onClose(); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const askDelete = async () => {
     const ok = await confirm({
-      title: `Delete ${form.label || "this category"}?`,
+      title: tr("Delete {value}?", { value: form.label || tr("this category") }),
       description: businessCount === 0
-        ? "No businesses are in this category."
-        : `${businessCount} ${businessCount === 1 ? "business is" : "businesses are"} in it. They stay in the service and show under "Other" on the site until you move them.`,
-      confirmLabel: "Delete",
+        ? tr("No businesses are in this category.")
+        : tr("{businessCount} {value} in it. They stay in the service and show under \"Other\" on the site until you move them.", { businessCount, value: businessCount === 1 ? tr("business is") : tr("businesses are") }),
+      confirmLabel: tr("Delete"),
     });
     if (ok) remove.mutate();
   };
@@ -121,27 +122,25 @@ export function CategoryPanel({
       <ResponsiveDialog
         open={!!target}
         onOpenChange={(v) => !v && onClose()}
-        title={isNew ? "New category" : form.label || "Category"}
+        title={isNew ? tr("New category") : form.label || tr("Category")}
         className="sm:max-w-[520px]"
         footer={
           <div className="flex items-center gap-2">
             {!isNew && (
               <Button variant="ghost" className="gap-1.5 text-negative hover:text-negative" onClick={askDelete} disabled={remove.isPending}>
-                <Trash2 className="h-4 w-4" /> Delete
-              </Button>
+                <Trash2 className="h-4 w-4" />{" "}{tr("Delete")}</Button>
             )}
-            <Button variant="ghost" className="ml-auto" onClick={onClose}>Cancel</Button>
+            <Button variant="ghost" className="ml-auto" onClick={onClose}>{tr("Cancel")}</Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending && <Spinner size="sm" className="mr-1" />} Save
-            </Button>
+              {save.isPending && <Spinner size="sm" className="mr-1" />}{" "}{tr("Save")}</Button>
           </div>
         }
       >
         <DialogBlock>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="cat-name">Name</Label>
-              <Input id="cat-name" value={form.label} placeholder="Car wash"
+              <Label htmlFor="cat-name">{tr("Name")}</Label>
+              <Input id="cat-name" value={form.label} placeholder={tr("Car wash")}
                 onChange={(e) => {
                   const label = e.target.value;
                   // A new category's id follows its name: nobody should have to invent "car_wash".
@@ -149,22 +148,22 @@ export function CategoryPanel({
                   setForm({ ...form, label, ...(auto ? { key: slugKey(label) } : {}) });
                 }} />
               {taken.length > 0 && (
-                <p className="text-meta text-muted-foreground">Already in this service: {taken.join(" · ")}</p>
+                <p className="text-meta text-muted-foreground">{tr("Already in this service:")}{" "}{taken.join(" · ")}</p>
               )}
             </div>
 
             <div>
               {/* Two categories in one service render side by side on the
                   home tile, so landscape crops read best. */}
-              <ImageField label="Cover photo" value={form.image_url ?? ""} onChange={(url) => setForm({ ...form, image_url: url || null })}
+              <ImageField label={tr("Cover photo")} value={form.image_url ?? ""} onChange={(url) => setForm({ ...form, image_url: url || null })}
                 pathPrefix="categories" variant="card" />
-              <p className="mt-1 text-meta text-muted-foreground">Shown on the service's tile on the home screen (the first two categories with a photo).</p>
+              <p className="mt-1 text-meta text-muted-foreground">{tr("Shown on the service's tile on the home screen (the first two categories with a photo).")}</p>
             </div>
 
             <label className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">
               <span>
-                <span className="block text-body font-semibold text-foreground">On the site</span>
-                <span className="block text-meta text-muted-foreground">{form.is_active ? "Customers see this category" : "Hidden from customers"}</span>
+                <span className="block text-body font-semibold text-foreground">{tr("On the site")}</span>
+                <span className="block text-meta text-muted-foreground">{form.is_active ? tr("Customers see this category") : tr("Hidden from customers")}</span>
               </span>
               <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
             </label>
@@ -172,30 +171,29 @@ export function CategoryPanel({
             {editing && (
               <Link to={`/admin/marketplace/providers?service=${form.archetype_key ?? "unassigned"}&category=${encodeURIComponent(editing.key)}`}
                 className="flex items-center justify-between rounded-radius-md bg-inset px-3 py-2.5 text-body font-semibold text-foreground hover:bg-muted">
-                {businessCount === 1 ? "1 business" : `${businessCount} businesses`} in this category
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                {businessCount === 1 ? tr("1 business") : `${businessCount} businesses`}{" "}{tr("in this category")}<ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
             )}
 
             <details className="rounded-radius-md bg-inset px-3 py-2.5">
-              <summary className="cursor-pointer select-none text-body font-semibold text-foreground">Advanced</summary>
+              <summary className="cursor-pointer select-none text-body font-semibold text-foreground">{tr("Advanced")}</summary>
               <div className="mt-3 space-y-3">
                 <div className="space-y-1.5">
-                  <Label>Service</Label>
+                  <Label>{tr("Service")}</Label>
                   <Select value={form.archetype_key ?? ""} onValueChange={(v) => setForm({ ...form, archetype_key: v })}>
-                    <SelectTrigger><SelectValue placeholder="Which service is it in?" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tr("Which service is it in?")} /></SelectTrigger>
                     <SelectContent>
                       {services.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Id</Label>
+                  <Label>{tr("Id")}</Label>
                   <Input value={form.key} disabled={!isNew}
                     onChange={(e) => setForm({ ...form, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 48) })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Icon</Label>
+                  <Label>{tr("Icon")}</Label>
                   <IconGrid value={form.icon} onChange={(icon) => setForm({ ...form, icon })} />
                 </div>
               </div>

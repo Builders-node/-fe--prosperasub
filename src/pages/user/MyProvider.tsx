@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { Edit } from "lucide-react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { PROFILE_EDIT_PARAM, ProviderWorkspace } from "@/components/provider/ProviderWorkspace";
+import { tr } from "@/lib/tr";
 
 /**
  * Owner/manager provider portal — the single provider view wrapped in the user
@@ -23,11 +24,11 @@ export default function MyProvider() {
 
   return (
     <UserLayout
-      title="My Business"
+      title={tr("My Business")}
       headerAction={
         <button
           type="button"
-          aria-label="Edit business"
+          aria-label={tr("Edit business")}
           onClick={openEditor}
           className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
         >

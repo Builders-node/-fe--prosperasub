@@ -2,6 +2,7 @@ import {
   Leaf, Salad, Dumbbell, Beef, Wheat, Heart, Fish, Sun, Baby, WheatOff, Scale, Flame,
   type LucideIcon,
 } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * Fixed vocabulary of dietary tags a restaurant can attach to a meal plan.
@@ -13,18 +14,18 @@ import {
  * chip on the plan card matches other status pills in the app.
  */
 export const DIETARY_TAGS = {
-  keto:          { label: "Keto",           icon: Flame,     tint: "bg-orange-500/15 text-orange-500" },
-  vegan:         { label: "Vegan",          icon: Leaf,      tint: "bg-emerald-500/15 text-emerald-500" },
-  vegetarian:    { label: "Vegetarian",     icon: Salad,     tint: "bg-green-500/15 text-green-500" },
-  gym:           { label: "Gym",            icon: Dumbbell,  tint: "bg-primary/15 text-primary" },
-  high_protein:  { label: "High-protein",   icon: Beef,      tint: "bg-red-500/15 text-red-400" },
-  low_carb:      { label: "Low-carb",       icon: Wheat,     tint: "bg-amber-500/15 text-amber-500" },
-  diabetic:      { label: "Diabetic",       icon: Heart,     tint: "bg-rose-500/15 text-rose-400" },
-  pescatarian:   { label: "Pescatarian",    icon: Fish,      tint: "bg-sky-500/15 text-sky-400" },
-  mediterranean: { label: "Mediterranean",  icon: Sun,       tint: "bg-yellow-500/15 text-yellow-400" },
-  kids:          { label: "Kids",           icon: Baby,      tint: "bg-fuchsia-500/15 text-fuchsia-400" },
-  gluten_free:   { label: "Gluten-free",    icon: WheatOff,  tint: "bg-lime-500/15 text-lime-400" },
-  balanced:      { label: "Balanced",       icon: Scale,     tint: "bg-blue-500/15 text-blue-400" },
+  keto:          { label: tr("Keto"),           icon: Flame,     tint: "bg-orange-500/15 text-orange-500" },
+  vegan:         { label: tr("Vegan"),          icon: Leaf,      tint: "bg-emerald-500/15 text-emerald-500" },
+  vegetarian:    { label: tr("Vegetarian"),     icon: Salad,     tint: "bg-green-500/15 text-green-500" },
+  gym:           { label: tr("Gym"),            icon: Dumbbell,  tint: "bg-primary/15 text-primary" },
+  high_protein:  { label: tr("High-protein"),   icon: Beef,      tint: "bg-red-500/15 text-red-400" },
+  low_carb:      { label: tr("Low-carb"),       icon: Wheat,     tint: "bg-amber-500/15 text-amber-500" },
+  diabetic:      { label: tr("Diabetic"),       icon: Heart,     tint: "bg-rose-500/15 text-rose-400" },
+  pescatarian:   { label: tr("Pescatarian"),    icon: Fish,      tint: "bg-sky-500/15 text-sky-400" },
+  mediterranean: { label: tr("Mediterranean"),  icon: Sun,       tint: "bg-yellow-500/15 text-yellow-400" },
+  kids:          { label: tr("Kids"),           icon: Baby,      tint: "bg-fuchsia-500/15 text-fuchsia-400" },
+  gluten_free:   { label: tr("Gluten-free"),    icon: WheatOff,  tint: "bg-lime-500/15 text-lime-400" },
+  balanced:      { label: tr("Balanced"),       icon: Scale,     tint: "bg-blue-500/15 text-blue-400" },
 } as const;
 
 export type DietaryTag = keyof typeof DIETARY_TAGS;

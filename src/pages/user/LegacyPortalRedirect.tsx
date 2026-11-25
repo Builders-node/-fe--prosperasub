@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageLoader } from "@/components/ui/spinner";
 import { useUniversalIdForLegacy, type LegacySourceKey } from "@/lib/services/providerBridge";
+import { tr } from "@/lib/tr";
 
 /**
  * Legacy per-service portal routes (`/my-restaurant`, `/my-car-rental`,
@@ -24,7 +25,7 @@ export default function LegacyPortalRedirect({ service }: { service: LegacySourc
   // dumped back on /my-business with no idea why.
   const willBounce = !isLoading && (!legacyId || (!universalId && legacyId));
   useEffect(() => {
-    if (willBounce) toast.error("This business isn't linked to your account.");
+    if (willBounce) toast.error(tr("This business isn't linked to your account."));
   }, [willBounce]);
 
   if (!legacyId) return <Navigate to="/my-business" replace />;

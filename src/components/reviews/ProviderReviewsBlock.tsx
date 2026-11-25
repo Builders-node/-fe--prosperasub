@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { tr, dfLocale } from "@/lib/tr";
 
 export type ProviderReviewService = "cleaning" | "beach" | "food" | "plan" | "cars";
 
@@ -116,8 +117,8 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   const submitMutation = useMutation({
     mutationFn: async () => {
       const uid = uuid || userData?.id;
-      if (!uid) throw new Error("Please sign in to leave a review.");
-      if (rating < 1) throw new Error("Pick a star rating first.");
+      if (!uid) throw new Error(tr("Please sign in to leave a review."));
+      if (rating < 1) throw new Error(tr("Pick a star rating first."));
       const { error } = await supabaseDb.from("provider_reviews").upsert(
         {
           provider_id: providerId,
@@ -135,7 +136,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(myReview ? "Review updated" : "Thanks for your review!");
+      toast.success(myReview ? tr("Review updated") : tr("Thanks for your review!"));
       setComposing(false);
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
     },
@@ -148,7 +149,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Review removed");
+      toast.success(tr("Review removed"));
       setComposing(false);
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
     },
@@ -156,9 +157,9 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   });
 
   const defaultPlaceholder =
-    service === "cleaning" ? "How was the cleaning? Reliability, thoroughness…"
-    : service === "beach"  ? "How was your membership experience?"
-    : "Share how it went…";
+    service === "cleaning" ? tr("How was the cleaning? Reliability, thoroughness…")
+    : service === "beach"  ? tr("How was your membership experience?")
+    : tr("Share how it went…");
 
   const canPost = isAuthenticated && isCustomer;
   const me = uuid ?? userData?.id;
@@ -188,7 +189,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   const composer = (
     <div className="rounded-radius-md bg-inset px-4 py-3">
       <p className="text-title font-semibold leading-[22px] text-foreground">
-        {myReview ? "Edit your review" : "Your rating"}
+        {myReview ? tr("Edit your review") : tr("Your rating")}
       </p>
       <div className="mt-2">
         <StarRating value={rating} onChange={setRating} size={28} />
@@ -208,9 +209,9 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
           disabled={submitMutation.isPending || rating < 1}
         >
           {submitMutation.isPending && <Spinner size="sm" className="mr-2" />}
-          {myReview ? "Save" : "Post review"}
+          {myReview ? tr("Save") : tr("Post review")}
         </Button>
-        <Button variant="ghost" onClick={cancelEdit}>Cancel</Button>
+        <Button variant="ghost" onClick={cancelEdit}>{tr("Cancel")}</Button>
       </div>
     </div>
   );
@@ -228,7 +229,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
       </div>
       {/* Where the average comes from: a 4.5 from two reviews and from two
           hundred are different promises. */}
-      <ul className="flex min-w-0 flex-1 flex-col gap-1" aria-label="Rating breakdown">
+      <ul className="flex min-w-0 flex-1 flex-col gap-1" aria-label={tr("Rating breakdown")}>
         {counts.map(({ n, count }) => (
           <li key={n} className="flex items-center gap-2 text-meta leading-4 text-muted-foreground">
             <span className="w-2 shrink-0 text-right tabular-nums">{n}</span>
@@ -251,12 +252,10 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
     canPost ? (
       !composing && (
         <Button variant="outline" className="w-full" onClick={() => setComposing(true)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Write a review
-        </Button>
+          <Pencil className="mr-2 h-4 w-4" />{tr("Write a review")}</Button>
       )
     ) : (
-      <p className="text-meta leading-4 text-muted-foreground">Only clients can leave a review.</p>
+      <p className="text-meta leading-4 text-muted-foreground">{tr("Only clients can leave a review.")}</p>
     )
   );
 
@@ -267,10 +266,8 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
       <div className="flex flex-col items-center gap-3 rounded-radius-md p-4 text-center">
         <CommentIcon className="h-8 w-8 text-primary" />
         <div className="space-y-1">
-          <p className="text-title font-semibold leading-[22px] text-foreground">No reviews yet</p>
-          <p className="text-title leading-[22px] text-muted-foreground">
-            Be the first to share your experience
-          </p>
+          <p className="text-title font-semibold leading-[22px] text-foreground">{tr("No reviews yet")}</p>
+          <p className="text-title leading-[22px] text-muted-foreground">{tr("Be the first to share your experience")}</p>
         </div>
       </div>
     )
@@ -301,7 +298,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
           onClick={() => setExpanded((v) => !v)}
           className="w-full rounded-radius-md px-4 py-2 text-center text-title leading-[22px] text-muted-foreground transition-colors hover:text-foreground"
         >
-          {expanded ? "Show fewer" : `Show all ${others.length} reviews`}
+          {expanded ? tr("Show fewer") : tr("Show all {length} reviews", { length: others.length })}
         </button>
       )}
     </div>
@@ -309,7 +306,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-heading font-semibold text-foreground">Reviews</h2>
+      <h2 className="text-heading font-semibold text-foreground">{tr("Reviews")}</h2>
       <div className="flex flex-col gap-4">
         {(summary || cta) && (
           <div className="flex flex-col gap-4">
@@ -359,16 +356,14 @@ function ReviewCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="min-w-0 truncate text-title font-semibold leading-[22px] text-foreground">
-            {mine ? "Your review" : name}
+            {mine ? tr("Your review") : name}
           </p>
           {mine && onEdit && (
             <button
               type="button"
               onClick={onEdit}
               className="shrink-0 text-meta font-semibold text-primary hover:underline"
-            >
-              Edit
-            </button>
+            >{tr("Edit")}</button>
           )}
           <span className="flex-1" />
           {onDelete && (
@@ -376,7 +371,7 @@ function ReviewCard({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Review actions"
+                  aria-label={tr("Review actions")}
                   className="-my-1 -mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -384,9 +379,7 @@ function ReviewCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onDelete}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete review
-                </DropdownMenuItem>
+                  <Trash2 className="mr-2 h-4 w-4" />{tr("Delete review")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -395,7 +388,7 @@ function ReviewCard({
           <StarRating value={r.rating} size={13} />
           {when && (
             <span className="text-meta leading-4 text-muted-foreground">
-              {formatDistanceToNowStrict(new Date(when), { addSuffix: true })}
+              {formatDistanceToNowStrict(new Date(when), { locale: dfLocale, addSuffix: true })}
             </span>
           )}
         </div>
@@ -405,7 +398,7 @@ function ReviewCard({
         {/* The business's answer, under the review it answers. */}
         {r.reply && (
           <div className="mt-2 border-l-2 border-primary/60 pl-3">
-            <p className="text-meta font-semibold text-foreground">Reply from the business</p>
+            <p className="text-meta font-semibold text-foreground">{tr("Reply from the business")}</p>
             <p className="mt-0.5 text-body text-muted-foreground">{r.reply}</p>
           </div>
         )}

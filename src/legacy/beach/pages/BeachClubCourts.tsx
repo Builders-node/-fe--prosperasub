@@ -28,6 +28,7 @@ import { supabaseDb, adminApi, accountApi } from "@/integrations/supabase/client
 import { todayHN, nowHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 interface Court {
   id: string;
@@ -198,8 +199,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
   const createBooking = useMutation({
     mutationFn: async () => {
       if (bookSlot === null) return null;
-      if (isPastSlot(bookSlot)) throw new Error("That time has already passed — pick a future slot.");
-      if (!resourceId) throw new Error("Court not yet bridged to the resource registry.");
+      if (isPastSlot(bookSlot)) throw new Error(tr("That time has already passed — pick a future slot."));
+      if (!resourceId) throw new Error(tr("Court not yet bridged to the resource registry."));
 
       const from = `${String(bookSlot).padStart(2, "0")}:00`;
       const hold = await accountApi("/booking/hold", {
@@ -210,15 +211,15 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           notes: notes.trim() || null,
         }),
       });
-      if (hold.error) throw new Error(hold.error.message || "Could not hold slot");
+      if (hold.error) throw new Error(hold.error.message || tr("Could not hold slot"));
       const held = hold.data as { held?: boolean; bookingId?: string; reason?: string } | null;
       if (!held?.held || !held.bookingId) {
-        throw new Error(held?.reason === "slot_taken" ? "That slot is already booked." : "Slot unavailable");
+        throw new Error(held?.reason === "slot_taken" ? tr("That slot is already booked.") : tr("Slot unavailable"));
       }
       const confirm = await accountApi(`/booking/holds/${held.bookingId}/confirm`, {
         method: "POST", body: JSON.stringify({}),
       });
-      if (confirm.error) throw new Error(confirm.error.message || "Could not confirm");
+      if (confirm.error) throw new Error(confirm.error.message || tr("Could not confirm"));
       // Best-effort push to Google Calendar if this court has one configured.
       if (activeCourt?.google_calendar_id) {
         adminApi(`/admin/beach-club/court-bookings/${held.bookingId}/sync-google`, { method: "POST" })
@@ -227,7 +228,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       return { id: held.bookingId };
     },
     onSuccess: () => {
-      toast.success(activeCourt?.google_calendar_id ? "Court booked — syncing to Google Calendar…" : "Court booked");
+      toast.success(activeCourt?.google_calendar_id ? tr("Court booked — syncing to Google Calendar…") : tr("Court booked"));
       qc.invalidateQueries({ queryKey: bookingsQueryKey });
       setBookSlot(null); setMemberName(""); setNotes("");
     },
@@ -239,7 +240,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       const { error } = await accountApi(`/booking/bookings/${booking.id}/cancel`, {
         method: "POST", body: JSON.stringify({}),
       });
-      if (error) throw new Error(error.message || "Could not cancel");
+      if (error) throw new Error(error.message || tr("Could not cancel"));
       // Remove the paired Google Calendar event, if any. The admin endpoint takes
       // the LEGACY court id (for its Google mapping) and the event id we recorded
       // on the engine booking during syncCreated.
@@ -251,7 +252,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       }
     },
     onSuccess: () => {
-      toast.success("Booking cancelled");
+      toast.success(tr("Booking cancelled"));
       qc.invalidateQueries({ queryKey: bookingsQueryKey });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -280,8 +281,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
   const saveCourt = useMutation({
     mutationFn: async () => {
       const trimmed = form.name.trim();
-      if (!trimmed) throw new Error("Name is required.");
-      if (form.open_hour >= form.close_hour) throw new Error("Close hour must be after open hour.");
+      if (!trimmed) throw new Error(tr("Name is required."));
+      if (form.open_hour >= form.close_hour) throw new Error(tr("Close hour must be after open hour."));
       // Written where a calendar lives. The legacy court row follows by
       // trigger, for the readers that have not moved yet.
       const existingMeta = (editing !== "new" && editing ? (editing as any).metadata : null) ?? {};
@@ -301,7 +302,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       if (editing === "new") {
         const club = await supabaseDb.from("providers")
           .select("id").eq("source_service_key", "beach").limit(1).maybeSingle();
-        if (!club.data?.id) throw new Error("The beach club provider is missing.");
+        if (!club.data?.id) throw new Error(tr("The beach club provider is missing."));
         const { error } = await supabaseDb.from("bookable_resources")
           .insert({ ...payload, provider_id: club.data.id, source_service_key: "beach" });
         if (error) throw error;
@@ -311,11 +312,11 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       }
     },
     onSuccess: () => {
-      toast.success(editing === "new" ? "Court created" : "Court updated");
+      toast.success(editing === "new" ? tr("Court created") : tr("Court updated"));
       qc.invalidateQueries({ queryKey: ["admin-bc-courts"] });
       setEditing(null);
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
 
   const toggleActive = useMutation({
@@ -336,21 +337,21 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       return data as { ok: boolean; created?: number; deleted?: number; conflicts?: number; skipped?: number; reason?: string; error?: string };
     },
     onSuccess: (r) => {
-      if (r?.reason === "not_configured") { toast.error("Google Calendar sync is not configured on the server."); return; }
-      if (r?.reason === "no_calendar") { toast.error("Attach a Google Calendar ID to this court first."); return; }
+      if (r?.reason === "not_configured") { toast.error(tr("Google Calendar sync is not configured on the server.")); return; }
+      if (r?.reason === "no_calendar") { toast.error(tr("Attach a Google Calendar ID to this court first.")); return; }
       if (r?.error) { toast.error(r.error); return; }
       const parts = [
         r?.created ? `+${r.created} new` : "",
         r?.deleted ? `−${r.deleted} removed` : "",
         r?.conflicts ? `${r.conflicts} conflict(s)` : "",
       ].filter(Boolean).join(", ");
-      toast.success(parts ? `Synced from Google: ${parts}` : "Up to date");
+      toast.success(parts ? tr("Synced from Google: {parts}", { parts }) : tr("Up to date"));
       // Was ["admin-bc-court-bookings"] — a key no query uses, so "Sync from
       // Google" reported success while the grid kept showing stale slots.
       qc.invalidateQueries({ queryKey: ["admin-bc-engine-bookings"] });
       qc.invalidateQueries({ queryKey: ["admin-bc-courts"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Sync failed"),
+    onError: (e: Error) => toast.error(e.message || tr("Sync failed")),
   });
 
   const deleteCourt = useMutation({
@@ -359,12 +360,12 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Court removed");
+      toast.success(tr("Court removed"));
       qc.invalidateQueries({ queryKey: ["admin-bc-courts"] });
       setDeleteTarget(null);
       if (deleteTarget && courtId === deleteTarget.id) setCourtId("");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to delete"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to delete")),
   });
 
   useEffect(() => {
@@ -376,7 +377,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
   if (courtsLoading) {
     if (embedded) return <PageLoader />;
-    return <SuperAdminLayout title="Beach Club Courts"><PageLoader /></SuperAdminLayout>;
+    return <SuperAdminLayout title={tr("Beach Club Courts")}><PageLoader /></SuperAdminLayout>;
   }
 
   const bodyContent = (
@@ -400,49 +401,42 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
         ))}
         <div className="ml-auto flex gap-2">
           <Button variant="outline" className="gap-1.5" onClick={() => setManageOpen(true)}>
-            <Settings className="h-4 w-4" /> Manage courts
-          </Button>
+            <Settings className="h-4 w-4" />{" "}{tr("Manage courts")}</Button>
           <Button className="gap-1.5" onClick={openNew}>
-            <Plus className="h-4 w-4" /> New court
-          </Button>
+            <Plus className="h-4 w-4" />{" "}{tr("New court")}</Button>
         </div>
       </div>
 
       {courts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md border border-[hsl(var(--app-divider))] bg-card py-16 text-center">
           <Waves className="mb-3 h-10 w-10 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">No courts yet</p>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Create your first court to start taking hourly bookings.
-          </p>
+          <p className="font-semibold text-foreground">{tr("No courts yet")}</p>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">{tr("Create your first court to start taking hourly bookings.")}</p>
           <Button className="mt-4" onClick={openNew}>
-            <Plus className="mr-1.5 h-4 w-4" /> New court
-          </Button>
+            <Plus className="mr-1.5 h-4 w-4" />{" "}{tr("New court")}</Button>
         </div>
       ) : activeCourts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md border border-[hsl(var(--app-divider))] bg-card py-14 text-center">
           <EyeOff className="mb-3 h-10 w-10 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">All courts are hidden</p>
-          <p className="mt-1 text-sm text-muted-foreground">Activate a court from "Manage courts" to start booking.</p>
+          <p className="font-semibold text-foreground">{tr("All courts are hidden")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{tr("Activate a court from \"Manage courts\" to start booking.")}</p>
         </div>
       ) : (
         <>
           {/* Date controls */}
           <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-card p-space-4">
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="icon" onClick={() => shiftDay(-1)} aria-label="Previous day">
+              <Button variant="secondary" size="icon" onClick={() => shiftDay(-1)} aria-label={tr("Previous day")}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <div className="relative flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
         <Input inputSize="sm" type="date" value={date} onChange={(e) => setDate(e.target.value || todayHN())} className="w-full sm:w-[170px]" />
               </div>
-              <Button variant="secondary" size="icon" onClick={() => shiftDay(1)} aria-label="Next day">
+              <Button variant="secondary" size="icon" onClick={() => shiftDay(1)} aria-label={tr("Next day")}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDate(todayHN())}>
-                Today
-              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDate(todayHN())}>{tr("Today")}</Button>
               {activeCourt?.google_calendar_id && (
                 <Button
                   variant="outline"
@@ -450,17 +444,15 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   className="gap-1.5"
                   onClick={() => pullFromGoogle.mutate(activeCourt.id)}
                   disabled={pullFromGoogle.isPending}
-                  title="Pull external bookings from this court's Google Calendar"
+                  title={tr("Pull external bookings from this court's Google Calendar")}
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5", pullFromGoogle.isPending && "animate-spin")} />
-                  Sync from Google
-                </Button>
+                  <RefreshCw className={cn("h-3.5 w-3.5", pullFromGoogle.isPending && "animate-spin")} />{tr("Sync from Google")}</Button>
               )}
             </div>
             <p className="text-sm text-muted-foreground">
               <span className="font-bold text-foreground">{activeCourt?.name}</span>
               {activeCourt && (
-                <> · {hourLabel(activeCourt.open_hour)}–{hourLabel(activeCourt.close_hour)} · {bookedCount} / {HOURS.length} booked</>
+                <>{" "}{trx("· {hourLabel}–{hourLabel2} · {bookedCount} / {length} booked", { hourLabel: hourLabel(activeCourt.open_hour), hourLabel2: hourLabel(activeCourt.close_hour), bookedCount, length: HOURS.length })}</>
               )}
             </p>
           </div>
@@ -469,9 +461,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           <div className="rounded-radius-md border border-[hsl(var(--app-divider))] bg-card p-space-4">
             <div className={cn("grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3", bookingsLoading && "opacity-50")}>
               {HOURS.length === 0 ? (
-                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                  This court has no open hours configured.
-                </p>
+                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">{tr("This court has no open hours configured.")}</p>
               ) : HOURS.map((h) => {
                 const b = bookingByHour.get(h);
                 const past = isPastSlot(h);
@@ -496,9 +486,9 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                       {b ? (
                         <p className="mt-0.5 truncate text-xs text-primary">{b.label || "Booked"}</p>
                       ) : past ? (
-                        <p className="mt-0.5 text-xs text-muted-foreground">Past</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{tr("Past")}</p>
                       ) : (
-                        <p className="mt-0.5 text-xs text-muted-foreground">Available</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{tr("Available")}</p>
                       )}
                     </div>
                     {b ? (
@@ -507,19 +497,16 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                         onClick={() => setCancelTarget(b)}
                         disabled={cancelBooking.isPending}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="Cancel booking"
-                        title="Cancel booking"
+                        aria-label={tr("Cancel booking")}
+                        title={tr("Cancel booking")}
                       >
                         <X className="h-4 w-4" />
                       </button>
                     ) : past ? (
-                      <Button size="sm" variant="ghost" disabled className="shrink-0 gap-1 opacity-70">
-                        Past
-                      </Button>
+                      <Button size="sm" variant="ghost" disabled className="shrink-0 gap-1 opacity-70">{tr("Past")}</Button>
                     ) : (
                       <Button size="sm" className="shrink-0 gap-1" onClick={() => { setBookSlot(h); setMemberName(""); setNotes(""); }}>
-                        <Plus className="h-3.5 w-3.5" /> Book
-                      </Button>
+                        <Plus className="h-3.5 w-3.5" />{" "}{tr("Book")}</Button>
                     )}
                   </div>
                 );
@@ -534,29 +521,26 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Waves className="h-5 w-5 text-primary" /> Book {activeCourt?.name}
-            </DialogTitle>
+              <Waves className="h-5 w-5 text-primary" />{" "}{trx("Book {name}", { name: activeCourt?.name })}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="rounded-radius-md bg-muted/40 px-4 py-3 text-sm">
-              <p className="font-semibold text-foreground">{format(new Date(`${date}T00:00:00`), "EEEE, MMM d, yyyy")}</p>
+              <p className="font-semibold text-foreground">{format(new Date(`${date}T00:00:00`), "EEEE, MMM d, yyyy", { locale: dfLocale })}</p>
               <p className="text-muted-foreground">{bookSlot !== null ? slotLabel(bookSlot) : ""}</p>
             </div>
             <div>
-              <Label>Member name</Label>
-              <Input value={memberName} onChange={(e) => setMemberName(e.target.value)} placeholder="Who is this booking for?" />
+              <Label>{tr("Member name")}</Label>
+              <Input value={memberName} onChange={(e) => setMemberName(e.target.value)} placeholder={tr("Who is this booking for?")} />
             </div>
             <div>
-              <Label>Notes (optional)</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Anything to note…" />
+              <Label>{tr("Notes (optional)")}</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={tr("Anything to note…")} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setBookSlot(null)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setBookSlot(null)}>{tr("Cancel")}</Button>
             <Button onClick={() => createBooking.mutate()} disabled={createBooking.isPending}>
-              {createBooking.isPending && <Spinner size="sm" className="mr-2" />}
-              Confirm booking
-            </Button>
+              {createBooking.isPending && <Spinner size="sm" className="mr-2" />}{tr("Confirm booking")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -565,8 +549,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       <Dialog open={manageOpen} onOpenChange={setManageOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Manage courts</DialogTitle>
-            <DialogDescription>Create, edit, hide or remove courts. Hidden courts don't accept new bookings.</DialogDescription>
+            <DialogTitle>{tr("Manage courts")}</DialogTitle>
+            <DialogDescription>{tr("Create, edit, hide or remove courts. Hidden courts don't accept new bookings.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             {courts.map((c) => (
@@ -578,20 +562,18 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-foreground">{c.name}</span>
                     <Badge variant="secondary" className="text-[10px] capitalize">{c.type}</Badge>
-                    <StatusPill status={c.is_active ? "active" : "inactive"} label={c.is_active ? undefined : "Hidden"} />
+                    <StatusPill status={c.is_active ? "active" : "inactive"} label={c.is_active ? undefined : tr("Hidden")} />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {hourLabel(c.open_hour)}–{hourLabel(c.close_hour)} · {c.slot_minutes}‑min slots
-                  </p>
+                  <p className="text-xs text-muted-foreground">{trx("{hourLabel}–{hourLabel2} · {slot_minutes}‑min slots", { hourLabel: hourLabel(c.open_hour), hourLabel2: hourLabel(c.close_hour), slot_minutes: c.slot_minutes })}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button size="iconSm" variant="ghost" title={c.is_active ? "Hide" : "Show"} onClick={() => toggleActive.mutate(c)}>
+                  <Button size="iconSm" variant="ghost" title={c.is_active ? tr("Hide") : tr("Show")} onClick={() => toggleActive.mutate(c)}>
                     {c.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
-                  <Button size="iconSm" variant="ghost" title="Edit" onClick={() => { setManageOpen(false); openEdit(c); }}>
+                  <Button size="iconSm" variant="ghost" title={tr("Edit")} onClick={() => { setManageOpen(false); openEdit(c); }}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="iconSm" variant="ghost" title="Delete" className="text-destructive hover:text-destructive"
+                  <Button size="iconSm" variant="ghost" title={tr("Delete")} className="text-destructive hover:text-destructive"
                     onClick={() => setDeleteTarget(c)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -599,14 +581,13 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
               </div>
             ))}
             {courts.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">No courts yet.</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">{tr("No courts yet.")}</p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setManageOpen(false)}>Close</Button>
+            <Button variant="ghost" onClick={() => setManageOpen(false)}>{tr("Close")}</Button>
             <Button onClick={() => { setManageOpen(false); openNew(); }} className="gap-1.5">
-              <Plus className="h-4 w-4" /> New court
-            </Button>
+              <Plus className="h-4 w-4" />{" "}{tr("New court")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -615,16 +596,16 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editing === "new" ? "New court" : "Edit court"}</DialogTitle>
+            <DialogTitle>{editing === "new" ? tr("New court") : tr("Edit court")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Tennis Court 1" />
+              <Label>{tr("Name *")}</Label>
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={tr("e.g. Tennis Court 1")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Type</Label>
+                <Label>{tr("Type")}</Label>
                 <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -633,21 +614,21 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                 </Select>
               </div>
               <div>
-                <Label>Slot length (min)</Label>
+                <Label>{tr("Slot length (min)")}</Label>
                 <Select value={String(form.slot_minutes)} onValueChange={(v) => setForm((f) => ({ ...f, slot_minutes: Number(v) }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="30">30 min</SelectItem>
-                    <SelectItem value="60">60 min</SelectItem>
-                    <SelectItem value="90">90 min</SelectItem>
-                    <SelectItem value="120">120 min</SelectItem>
+                    <SelectItem value="30">{tr("30 min")}</SelectItem>
+                    <SelectItem value="60">{tr("60 min")}</SelectItem>
+                    <SelectItem value="90">{tr("90 min")}</SelectItem>
+                    <SelectItem value="120">{tr("120 min")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Opens at</Label>
+                <Label>{tr("Opens at")}</Label>
                 <Select value={String(form.open_hour)} onValueChange={(v) => setForm((f) => ({ ...f, open_hour: Number(v) }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -658,34 +639,33 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                 </Select>
               </div>
               <div>
-                <Label>Closes at</Label>
+                <Label>{tr("Closes at")}</Label>
                 <Select value={String(form.close_hour)} onValueChange={(v) => setForm((f) => ({ ...f, close_hour: Number(v) }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 24 }, (_, i) => i + 1).map((h) => (
-                      <SelectItem key={h} value={String(h)}>{h === 24 ? "12AM (next day)" : hourLabel(h)}</SelectItem>
+                      <SelectItem key={h} value={String(h)}>{h === 24 ? tr("12AM (next day)") : hourLabel(h)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <Label>Description (optional)</Label>
+              <Label>{tr("Description (optional)")}</Label>
               <Textarea rows={2} value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Surface, size, house rules…" />
+                placeholder={tr("Surface, size, house rules…")} />
             </div>
 
             {/* Calendar sync */}
             {editing && editing !== "new" && (
               <div className="rounded-radius-md border border-[hsl(var(--app-divider))] bg-muted/20 p-3">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-foreground">
-                  <LinkIcon className="h-3.5 w-3.5" /> Calendar sync
-                </p>
+                  <LinkIcon className="h-3.5 w-3.5" />{" "}{tr("Calendar sync")}</p>
 
                 {/* Feed OUT — publish our bookings as iCal */}
                 <div className="mb-3">
-                  <Label className="text-xs">Court iCal feed (subscribe from Google/Apple/GHL)</Label>
+                  <Label className="text-xs">{tr("Court iCal feed (subscribe from Google/Apple/GHL)")}</Label>
                   <div className="mt-1 flex gap-2">
                     <Input
                       readOnly
@@ -696,26 +676,24 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                     />
                     <Button
                       type="button" variant="outline" size="icon"
-                      title="Copy feed URL"
+                      title={tr("Copy feed URL")}
                       onClick={() => {
                         navigator.clipboard.writeText(feedUrlFor(editing.ical_feed_token));
-                        toast.success("Feed URL copied");
+                        toast.success(tr("Feed URL copied"));
                       }}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
                     <Button
                       type="button" variant="outline" size="iconSm" asChild
-                      title="Open feed"
+                      title={tr("Open feed")}
                     >
                       <a href={feedUrlFor(editing.ical_feed_token)} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     </Button>
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Anyone with this URL can see this court's bookings. Refreshes every 5 min.
-                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{tr("Anyone with this URL can see this court's bookings. Refreshes every 5 min.")}</p>
                 </div>
 
                 {/* Push to Google Calendar (writable) — created by us, never typed.
@@ -728,23 +706,20 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
               </div>
             )}
             {editing === "new" && (
-              <p className="text-[11px] text-muted-foreground">
-                After creating the court you'll get an iCal feed URL to subscribe to, and you can
-                have the platform create its Google Calendar.
-              </p>
+              <p className="text-[11px] text-muted-foreground">{tr("After creating the court you'll get an iCal feed URL to subscribe to, and you can have the platform create its Google Calendar.")}</p>
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Sort order</Label>
+                <Label>{tr("Sort order")}</Label>
                 <Input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
               </div>
               <div>
-                <Label>Status</Label>
+                <Label>{tr("Status")}</Label>
                 <Select value={form.is_active ? "active" : "hidden"} onValueChange={(v) => setForm((f) => ({ ...f, is_active: v === "active" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="hidden">Hidden</SelectItem>
+                    <SelectItem value="active">{tr("Active")}</SelectItem>
+                    <SelectItem value="hidden">{tr("Hidden")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -758,15 +733,15 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
             <BookingCalendarOverride
               value={form.booking_settings}
               onChange={(next) => setForm((f) => ({ ...f, booking_settings: next }))}
-              entityLabel="This court"
-              parentLabel="the beach club's calendar"
+              entityLabel={tr("This court")}
+              parentLabel={tr("the beach club's calendar")}
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>{tr("Cancel")}</Button>
             <Button onClick={() => saveCourt.mutate()} disabled={saveCourt.isPending || !form.name.trim()}>
               {saveCourt.isPending && <Spinner size="sm" className="mr-2" />}
-              {editing === "new" ? "Create" : "Save"}
+              {editing === "new" ? tr("Create") : tr("Save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -777,22 +752,17 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="h-5 w-5" /> Delete court?
-            </DialogTitle>
-            <DialogDescription>
-              This permanently removes <strong className="text-foreground">{deleteTarget?.name}</strong>. Its bookings will also be deleted. This can't be undone.
-            </DialogDescription>
+              <Trash2 className="h-5 w-5" />{" "}{tr("Delete court?")}</DialogTitle>
+            <DialogDescription>{tr("This permanently removes")}{" "}<strong className="text-foreground">{deleteTarget?.name}</strong>{tr(". Its bookings will also be deleted. This can't be undone.")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>{tr("Cancel")}</Button>
             <Button
               variant="destructive"
               onClick={() => deleteTarget && deleteCourt.mutate(deleteTarget)}
               disabled={deleteCourt.isPending}
             >
-              {deleteCourt.isPending && <Spinner size="sm" className="mr-2" />}
-              Delete
-            </Button>
+              {deleteCourt.isPending && <Spinner size="sm" className="mr-2" />}{tr("Delete")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -803,24 +773,19 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Cancel this booking?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {cancelTarget?.label ? `${cancelTarget.label} — ` : ""}
-              the slot is released immediately and the member loses the
-              reservation. The Google Calendar event is removed too.
-            </AlertDialogDescription>
+              {cancelTarget?.label ? `${cancelTarget.label} — ` : ""}{tr("the slot is released immediately and the member loses the reservation. The Google Calendar event is removed too.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Keep it")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 if (cancelTarget) cancelBooking.mutate(cancelTarget);
                 setCancelTarget(null);
               }}
-            >
-              Cancel booking
-            </AlertDialogAction>
+            >{tr("Cancel booking")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -830,8 +795,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
   if (embedded) return bodyContent;
   return (
     <SuperAdminLayout
-      title="Beach Club Courts"
-      subtitle={`Book courts by the hour — ${activeCourts.length} active court${activeCourts.length === 1 ? "" : "s"}`}
+      title={tr("Beach Club Courts")}
+      subtitle={(activeCourts.length === 1 ? tr("Book courts by the hour — {length} active court", { length: activeCourts.length }) : tr("Book courts by the hour — {length} active courts", { length: activeCourts.length }))}
     >
       {bodyContent}
     </SuperAdminLayout>
@@ -854,35 +819,31 @@ function CourtCalendar({ courtId, calendarId }: { courtId: string; calendarId: s
     mutationFn: async () => {
       const { data, error } = await adminApi(`/admin/beach-club/courts/${courtId}/calendar/provision`, { method: "POST" });
       if (error) throw new Error(String(error));
-      if (!data?.calendarId) throw new Error("Google Calendar is not configured on the server yet");
+      if (!data?.calendarId) throw new Error(tr("Google Calendar is not configured on the server yet"));
       return data;
     },
     onSuccess: () => {
-      toast.success("Calendar created — bookings will sync to it");
+      toast.success(tr("Calendar created — bookings will sync to it"));
       qc.invalidateQueries({ queryKey: ["admin-bc-courts"] });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not create the calendar"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not create the calendar")),
   });
 
   return (
     <div>
-      <Label className="text-xs">Google Calendar</Label>
+      <Label className="text-xs">{tr("Google Calendar")}</Label>
       {calendarId ? (
         <>
           <p className="mt-1 truncate font-mono text-xs text-foreground">{calendarId}</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Created and owned by the platform. Bookings on this court are pushed to it in real time.
-          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{tr("Created and owned by the platform. Bookings on this court are pushed to it in real time.")}</p>
         </>
       ) : (
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline"
             onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending ? "Creating…" : "Create calendar"}
+            {create.isPending ? tr("Creating…") : tr("Create calendar")}
           </Button>
-          <span className="text-[11px] text-muted-foreground">
-            We create it and share it with the club — nothing to paste.
-          </span>
+          <span className="text-[11px] text-muted-foreground">{tr("We create it and share it with the club — nothing to paste.")}</span>
         </div>
       )}
     </div>

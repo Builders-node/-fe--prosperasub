@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { tr } from "@/lib/tr";
 
 /**
  * N-photo gallery editor for a provider — used inside ProviderEditDialog and
@@ -58,7 +59,7 @@ export function GalleryField({
       const room = Math.max(0, max - urls.length);
       const toUpload = files.slice(0, room);
       if (files.length > room) {
-        toast.warning(`Gallery capped at ${max}. Only ${room} of ${files.length} files uploaded.`);
+        toast.warning(tr("Gallery capped at {max}. Only {room} of {length} files uploaded.", { max, room, length: files.length }));
       }
       const added: string[] = [];
       for (const [i, file] of toUpload.entries()) {
@@ -72,7 +73,7 @@ export function GalleryField({
       }
       if (added.length) {
         onChange([...urls, ...added]);
-        toast.success(added.length === 1 ? "Image added" : `${added.length} images added`);
+        toast.success(added.length === 1 ? tr("Image added") : tr("{length} images added", { length: added.length }));
       }
     } catch (err) {
       toast.error((err as Error).message || String(err));
@@ -95,7 +96,7 @@ export function GalleryField({
   const addUrl = () => {
     const clean = urlInput.trim();
     if (!clean) return;
-    if (atCap) { toast.warning(`Gallery capped at ${max}.`); return; }
+    if (atCap) { toast.warning(tr("Gallery capped at {max}.", { max })); return; }
     onChange([...urls, clean]);
     setUrlInput("");
     setShowUrl(false);
@@ -122,7 +123,7 @@ export function GalleryField({
                     onClick={() => move(idx, -1)}
                     disabled={idx === 0}
                     className="rounded p-1 text-foreground hover:bg-muted disabled:opacity-30"
-                    aria-label="Move left"
+                    aria-label={tr("Move left")}
                   >
                     <ArrowLeft className="h-3 w-3" />
                   </button>
@@ -131,7 +132,7 @@ export function GalleryField({
                     onClick={() => move(idx, +1)}
                     disabled={idx === urls.length - 1}
                     className="rounded p-1 text-foreground hover:bg-muted disabled:opacity-30"
-                    aria-label="Move right"
+                    aria-label={tr("Move right")}
                   >
                     <ArrowRight className="h-3 w-3" />
                   </button>
@@ -140,7 +141,7 @@ export function GalleryField({
                   type="button"
                   onClick={() => removeAt(idx)}
                   className="rounded p-1 text-destructive hover:bg-destructive/10"
-                  aria-label="Remove image"
+                  aria-label={tr("Remove image")}
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -167,9 +168,7 @@ export function GalleryField({
           disabled={uploading || atCap}
           onClick={() => fileRef.current?.click()}
         >
-          {uploading ? <Spinner size="xs" /> : <Upload className="h-3.5 w-3.5" />}
-          Upload
-        </Button>
+          {uploading ? <Spinner size="xs" /> : <Upload className="h-3.5 w-3.5" />}{tr("Upload")}</Button>
         <Button
           type="button"
           variant="outline"
@@ -178,9 +177,7 @@ export function GalleryField({
           disabled={atCap}
           onClick={() => setShowUrl((v) => !v)}
         >
-          <Link2 className="h-3.5 w-3.5" />
-          URL
-        </Button>
+          <Link2 className="h-3.5 w-3.5" />{tr("URL")}</Button>
       </div>
 
       {showUrl && !atCap && (
@@ -192,14 +189,12 @@ export function GalleryField({
             placeholder="https://…"
             className="text-sm"
           />
-          <Button size="sm" onClick={addUrl}>Add</Button>
+          <Button size="sm" onClick={addUrl}>{tr("Add")}</Button>
         </div>
       )}
 
       {atCap && (
-        <p className="mt-1.5 text-caption text-muted-foreground">
-          Cap reached. Remove an image to add more.
-        </p>
+        <p className="mt-1.5 text-caption text-muted-foreground">{tr("Cap reached. Remove an image to add more.")}</p>
       )}
     </div>
   );

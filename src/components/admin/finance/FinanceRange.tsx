@@ -8,6 +8,7 @@ import { TabPills } from "@/components/admin/TabPills";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * The one period on Finance (`?range=week|month|last_month|custom&from=&to=`).
@@ -21,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 export type FinanceRangeKey = "week" | "month" | "last_month" | "custom";
 
 const LABEL: Record<FinanceRangeKey, string> = {
-  week: "This week", month: "This month", last_month: "Last month", custom: "Custom",
+  week: tr("This week"), month: tr("This month"), last_month: tr("Last month"), custom: tr("Custom"),
 };
 
 const isDay = (v: string | null) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -60,8 +61,8 @@ export function useFinanceRange() {
     }, { replace: true });
 
   const label = range === "custom"
-    ? `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`
-    : range === "week" ? "this week" : range === "last_month" ? format(start, "MMMM yyyy") : format(start, "MMMM yyyy");
+    ? `${format(start, "MMM d", { locale: dfLocale })} – ${format(end, "MMM d, yyyy", { locale: dfLocale })}`
+    : range === "week" ? tr("this week") : range === "last_month" ? format(start, "MMMM yyyy", { locale: dfLocale }) : format(start, "MMMM yyyy", { locale: dfLocale });
 
   return { range, from, to, start, end, label, set };
 }
@@ -86,9 +87,9 @@ export function FinanceRangePicker({ className }: { className?: string }) {
                 <CalendarIcon className="h-4 w-4" />
                 {from || to ? (
                   <span className="tabular-nums">
-                    {from ? format(new Date(`${from}T00:00:00`), "MMM d, yyyy") : "Start"} – {to ? format(new Date(`${to}T00:00:00`), "MMM d, yyyy") : "Today"}
+                    {from ? format(new Date(`${from}T00:00:00`), "MMM d, yyyy", { locale: dfLocale }) : tr("Start")} – {to ? format(new Date(`${to}T00:00:00`), "MMM d, yyyy", { locale: dfLocale }) : tr("Today")}
                   </span>
-                ) : "Pick dates"}
+                ) : tr("Pick dates")}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="p-0">

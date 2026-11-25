@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Which of the provider's bookable things this plan opens.
@@ -51,7 +52,7 @@ export function PlanResourcePicker({ providerId, value, onChange }: {
 
   return (
     <div>
-      <span className="text-xs font-semibold text-muted-foreground">Includes</span>
+      <span className="text-xs font-semibold text-muted-foreground">{tr("Includes")}</span>
       <div className="mt-1.5 flex flex-wrap gap-2">
         <button
           type="button"
@@ -60,9 +61,7 @@ export function PlanResourcePicker({ providerId, value, onChange }: {
             "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
             all ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
           )}
-        >
-          Everything
-        </button>
+        >{tr("Everything")}</button>
         {resources.map((r) => (
           <button
             key={r.id}
@@ -81,8 +80,8 @@ export function PlanResourcePicker({ providerId, value, onChange }: {
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
         {all
-          ? `Members on this plan can book any of the ${resources.length}, including any added later.`
-          : `Members on this plan can book only the ${selected.size} selected.`}
+          ? tr("Members on this plan can book any of the {length}, including any added later.", { length: resources.length })
+          : tr("Members on this plan can book only the {size} selected.", { size: selected.size })}
       </p>
     </div>
   );

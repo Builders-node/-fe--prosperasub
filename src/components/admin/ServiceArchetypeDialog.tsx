@@ -19,6 +19,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
 import { CATEGORY_ICONS, CATEGORY_ICON_KEYS } from "@/lib/services/categoryIcons";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The service panel — everything about one service, opened from its row on
@@ -105,8 +106,8 @@ export function ServiceArchetypeDialog({
   const save = useMutation({
     mutationFn: async () => {
       const key = (form.key.trim() || slugKey(form.label)).toLowerCase().replace(/[^a-z0-9_]+/g, "_");
-      if (!form.label.trim()) throw new Error("Give the service a name");
-      if (!key) throw new Error("The id can't be empty");
+      if (!form.label.trim()) throw new Error(tr("Give the service a name"));
+      if (!key) throw new Error(tr("The id can't be empty"));
       // Only the table's own columns. The row a caller hands in is often the
       // HOOK's shape (useServiceArchetypes adds a resolved `Icon` component,
       // counts, …), and spreading it made PostgREST refuse the whole write.
@@ -136,7 +137,7 @@ export function ServiceArchetypeDialog({
       if (userData?.id) await logAuditEvent(userData.id, isNew ? "create" : "edit", AUDIT_ENTITY, key, {});
     },
     onSuccess: () => {
-      toast.success("Saved");
+      toast.success(tr("Saved"));
       onOpenChange(false);
       refresh();
       onSaved?.();
@@ -151,17 +152,17 @@ export function ServiceArchetypeDialog({
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "delete", AUDIT_ENTITY, key, {});
     },
-    onSuccess: () => { toast.success("Service deleted"); onOpenChange(false); refresh(); },
+    onSuccess: () => { toast.success(tr("Service deleted")); onOpenChange(false); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const askDelete = async () => {
     const ok = await confirm({
-      title: `Delete ${form.label || "this service"}?`,
+      title: tr("Delete {value}?", { value: form.label || tr("this service") }),
       description: businessCount === 0
-        ? "No businesses are in this service."
-        : `${businessCount} ${businessCount === 1 ? "business is" : "businesses are"} in it. They stay, without a service: find them in Businesses under "No service".`,
-      confirmLabel: "Delete",
+        ? tr("No businesses are in this service.")
+        : tr("{businessCount} {value} in it. They stay, without a service: find them in Businesses under \"No service\".", { businessCount, value: businessCount === 1 ? tr("business is") : tr("businesses are") }),
+      confirmLabel: tr("Delete"),
     });
     if (ok) remove.mutate();
   };
@@ -172,26 +173,24 @@ export function ServiceArchetypeDialog({
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isNew ? "New service" : form.label || "Service"}
+      title={isNew ? tr("New service") : form.label || tr("Service")}
       className="sm:max-w-[560px]"
       footer={
         <div className="flex items-center gap-2">
           {!isNew && (
             <Button variant="ghost" className="gap-1.5 text-negative hover:text-negative" onClick={askDelete} disabled={remove.isPending}>
-              <Trash2 className="h-4 w-4" /> Delete
-            </Button>
+              <Trash2 className="h-4 w-4" />{" "}{tr("Delete")}</Button>
           )}
-          <Button variant="ghost" className="ml-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" className="ml-auto" onClick={() => onOpenChange(false)}>{tr("Cancel")}</Button>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending && <Spinner size="sm" className="mr-1" />} Save
-          </Button>
+            {save.isPending && <Spinner size="sm" className="mr-1" />}{" "}{tr("Save")}</Button>
         </div>
       }
     >
       <DialogBlock>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="svc-name">Name</Label>
+            <Label htmlFor="svc-name">{tr("Name")}</Label>
             <Input id="svc-name" value={form.label}
               onChange={(e) => {
                 const label = e.target.value;
@@ -199,43 +198,43 @@ export function ServiceArchetypeDialog({
                 const auto = isNew && (form.key === "" || form.key === slugKey(form.label));
                 setForm({ ...form, label, ...(auto ? { key: slugKey(label) } : {}) });
               }}
-              placeholder="Cleaning" />
+              placeholder={tr("Cleaning")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="svc-desc">Description</Label>
-            <Input id="svc-desc" value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Shown on the site while the service has no categories" />
+            <Label htmlFor="svc-desc">{tr("Description")}</Label>
+            <Input id="svc-desc" value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={tr("Shown on the site while the service has no categories")} />
           </div>
           <div className="space-y-1.5">
-            <Label>Icon</Label>
+            <Label>{tr("Icon")}</Label>
             <IconGrid value={form.icon} onChange={(icon) => setForm({ ...form, icon })} />
           </div>
           <label className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">
             <span>
-              <span className="block text-body font-semibold text-foreground">On the site</span>
-              <span className="block text-meta text-muted-foreground">{form.is_active ? "Customers see this service" : "Hidden from customers"}</span>
+              <span className="block text-body font-semibold text-foreground">{tr("On the site")}</span>
+              <span className="block text-meta text-muted-foreground">{form.is_active ? tr("Customers see this service") : tr("Hidden from customers")}</span>
             </span>
             <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
           </label>
 
           <details className="group rounded-radius-md bg-inset px-3 py-2.5">
-            <summary className="cursor-pointer select-none text-body font-semibold text-foreground">Advanced</summary>
+            <summary className="cursor-pointer select-none text-body font-semibold text-foreground">{tr("Advanced")}</summary>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Id</Label>
+                <Label>{tr("Id")}</Label>
                 {/* Locked after creation: every business points at it. */}
                 <Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="car_rental" disabled={!isNew} />
               </div>
               <div className="space-y-1.5">
-                <Label>Family</Label>
+                <Label>{tr("Family")}</Label>
                 {/* The Discovery tab this service files under. */}
-                <Input value={form.family ?? "experiences"} onChange={(e) => setForm({ ...form, family: e.target.value.trim().toLowerCase() || "experiences" })} placeholder="experiences · transport" />
+                <Input value={form.family ?? "experiences"} onChange={(e) => setForm({ ...form, family: e.target.value.trim().toLowerCase() || "experiences" })} placeholder={tr("experiences · transport")} />
               </div>
               <div className="space-y-1.5">
-                <Label>Default resource type</Label>
-                <Input value={form.default_resource_type ?? ""} onChange={(e) => setForm({ ...form, default_resource_type: e.target.value || null })} placeholder="e.g. vehicle, tennis, desk" />
+                <Label>{tr("Default resource type")}</Label>
+                <Input value={form.default_resource_type ?? ""} onChange={(e) => setForm({ ...form, default_resource_type: e.target.value || null })} placeholder={tr("e.g. vehicle, tennis, desk")} />
               </div>
               <div className="space-y-1.5">
-                <Label>Default booking model</Label>
+                <Label>{tr("Default booking model")}</Label>
                 <Select value={form.default_booking_model ?? ""} onValueChange={(v) => setForm({ ...form, default_booking_model: (v || null) as Archetype["default_booking_model"] })}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                   <SelectContent>
@@ -244,7 +243,7 @@ export function ServiceArchetypeDialog({
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Default capabilities</Label>
+                <Label>{tr("Default capabilities")}</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
                     const on = form.default_capabilities?.includes(cap);

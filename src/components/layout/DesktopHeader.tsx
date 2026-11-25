@@ -13,6 +13,7 @@ import {
 } from "@/components/layout/HeaderParts";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 interface DesktopHeaderProps {
   showBackButton?: boolean;
@@ -107,9 +108,7 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
         <Link
           to="/"
           className="shrink-0 text-[24px] font-black tracking-tight text-primary transition-opacity hover:opacity-80"
-        >
-          EverySub
-        </Link>
+        >{tr("EverySub")}</Link>
 
         <div className="flex min-w-0 flex-1 justify-start">
           <div className="w-full max-w-[640px]">{search}</div>
@@ -118,10 +117,10 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
         {location}
 
         <div className="flex shrink-0 items-center gap-1">
-          <HeaderIconLink to="/favorites" label="Favorites" icon={FavoriteIcon} count={session.favorites} />
-          <HeaderIconLink to="/cart" label="Cart" icon={ShoppingBagIcon} count={session.cart} />
+          <HeaderIconLink to="/favorites" label={tr("Favorites")} icon={FavoriteIcon} count={session.favorites} />
+          <HeaderIconLink to="/cart" label={tr("Cart")} icon={ShoppingBagIcon} count={session.cart} />
           {session.status === "signedIn" && (
-            bell ?? <HeaderIconLink to="/notifications" label="Notifications" icon={NotificationsIcon} count={session.unread} />
+            bell ?? <HeaderIconLink to="/notifications" label={tr("Notifications")} icon={NotificationsIcon} count={session.unread} />
           )}
           {session.status === "signedIn" && (
             <div className="ml-2"><HeaderBonusChip cents={session.bonusCents} /></div>

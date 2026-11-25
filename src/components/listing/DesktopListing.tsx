@@ -14,6 +14,7 @@ import { trackPromotion, useActivePromotions } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
 import { formatUSD } from "@/lib/pricing";
 import { SearchX } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * A service's listing on a laptop — after Yandex Lavka's catalogue, in our
@@ -167,9 +168,9 @@ export function DesktopListing({
         <h1 className="text-[28px] font-semibold leading-[34px] tracking-tight text-foreground">{title}</h1>
 
         {categories.length > 1 && (
-          <FilterGroup title="Categories">
+          <FilterGroup title={tr("Categories")}>
             <div className="flex flex-col">
-              {[{ key: ALL_CATEGORIES, label: "All" }, ...categories].map((c) => (
+              {[{ key: ALL_CATEGORIES, label: tr("All") }, ...categories].map((c) => (
                 <button
                   key={c.key}
                   type="button"
@@ -186,25 +187,25 @@ export function DesktopListing({
           </FilterGroup>
         )}
 
-        <FilterGroup title="Price, $">
+        <FilterGroup title={tr("Price, $")}>
           <div className="grid grid-cols-2 gap-2">
             <PriceField
-              label="From"
+              label={tr("From")}
               value={filters.min}
-              placeholder={priceRange ? `From ${priceRange.lo}` : "From"}
+              placeholder={priceRange ? tr("From {lo}", { lo: priceRange.lo }) : tr("From")}
               onCommit={filters.setMin}
             />
             <PriceField
-              label="To"
+              label={tr("To")}
               value={filters.max}
-              placeholder={priceRange ? `To ${priceRange.hi}` : "To"}
+              placeholder={priceRange ? tr("To {hi}", { hi: priceRange.hi }) : tr("To")}
               onCommit={filters.setMax}
             />
           </div>
         </FilterGroup>
 
         {(filters.deals || filters.hasDeals(plans)) && (
-          <FilterGroup title="Deals">
+          <FilterGroup title={tr("Deals")}>
             <button
               type="button"
               aria-pressed={filters.deals}
@@ -214,16 +215,14 @@ export function DesktopListing({
                 filters.deals ? "bg-destructive text-destructive-foreground" : "bg-muted text-foreground hover:bg-muted/70",
               )}
             >
-              <Percent className="h-4 w-4" />
-              With a discount
-            </button>
+              <Percent className="h-4 w-4" />{tr("With a discount")}</button>
           </FilterGroup>
         )}
 
         {extraFilters}
 
         {businesses.length > 1 && (
-          <FilterGroup title="Businesses">
+          <FilterGroup title={tr("Businesses")}>
             <div className="flex flex-wrap gap-2">
               {businesses.map((b) => {
                 const on = filters.biz.includes(b.id);
@@ -250,18 +249,16 @@ export function DesktopListing({
         )}
 
         {filters.active && (
-          <button type="button" onClick={filters.reset} className="text-[14px] font-semibold text-primary">
-            Reset filters
-          </button>
+          <button type="button" onClick={filters.reset} className="text-[14px] font-semibold text-primary">{tr("Reset filters")}</button>
         )}
       </aside>
 
       {/* ── Offers ──────────────────────────────────────────────────── */}
-      <section className="min-w-0 flex-1 space-y-4" aria-label="Plans">
+      <section className="min-w-0 flex-1 space-y-4" aria-label={tr("Plans")}>
         <div className="flex items-center justify-between gap-3">
           {sorts.length > 1 ? (
             <label className="relative inline-flex h-10 items-center rounded-full bg-muted pl-4 pr-9 text-[14px] font-semibold text-foreground">
-              <span className="sr-only">Sort by</span>
+              <span className="sr-only">{tr("Sort by")}</span>
               <select
                 value={sort}
                 onChange={(e) => onSort(e.target.value as SortKey)}
@@ -286,7 +283,7 @@ export function DesktopListing({
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[300px]" />)}
           </div>
         ) : plans.length === 0 ? (
-          empty ?? <YdEmptyState icon={SearchX} title="Nothing matches" subtitle="Try another category, or reset the filters." />
+          empty ?? <YdEmptyState icon={SearchX} title={tr("Nothing matches")} subtitle={tr("Try another category, or reset the filters.")} />
         ) : (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {plans.map((p) => <ListingCard key={p.id} plan={p} />)}
@@ -316,7 +313,7 @@ function PriceField({ label, value, placeholder, onCommit }: {
       type="number"
       min={0}
       inputMode="numeric"
-      aria-label={`Price ${label.toLowerCase()}`}
+      aria-label={tr("Price {toLowerCase}", { toLowerCase: label.toLowerCase() })}
       defaultValue={value ?? ""}
       placeholder={placeholder}
       onBlur={(e) => onCommit(e.target.value)}
@@ -347,7 +344,7 @@ function ListingCard({ plan }: { plan: ListingPlan }) {
       href={plan.href}
       onClick={promo ? () => trackPromotion(promo, "click") : undefined}
       photos={plan.photos}
-      badge={promo ? "Featured" : undefined}
+      badge={promo ? tr("Featured") : undefined}
       deal={deal}
       corner={<FavoriteButton kind={plan.favoriteKind ?? "plan"} id={plan.id} name={plan.name} variant="overlay" />}
       title={plan.name}

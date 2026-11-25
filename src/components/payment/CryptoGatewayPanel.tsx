@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { formatUSD } from "@/lib/pricing";
 import { cryptoCurrencyLabel, sortCryptoCurrencies } from "@/lib/payments/cryptoCurrencies";
 import { useCryptoGatewayConfig, useCryptoGatewayPayment } from "@/hooks/useCryptoGatewayPayment";
+import { tr, trx } from "@/lib/tr";
 
 interface Props {
   /** What the customer is charged, surcharge included (USD cents). */
@@ -37,7 +38,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+    toast.success(tr("Copied to clipboard!"));
   };
 
   if (config.isLoading) {
@@ -46,9 +47,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
   if (config.isError || !config.data?.enabled || config.data.currencies.length === 0) {
     return (
       <section className="flex items-center gap-2 rounded-radius-lg bg-card p-5 text-sm text-muted-foreground">
-        <AlertCircle className="h-4 w-4 shrink-0" />
-        Crypto payments are unavailable right now. Please choose another method.
-      </section>
+        <AlertCircle className="h-4 w-4 shrink-0" />{tr("Crypto payments are unavailable right now. Please choose another method.")}</section>
     );
   }
 
@@ -58,8 +57,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
     return (
       <section className="space-y-4 rounded-radius-lg bg-card p-5">
         <h2 className="flex items-center gap-2 text-xl font-semibold tracking-[-0.02em] text-foreground">
-          <Coins className="h-5 w-5 text-[#26a17b]" /> Pay with crypto
-        </h2>
+          <Coins className="h-5 w-5 text-[#26a17b]" />{" "}{tr("Pay with crypto")}</h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {codes.map((code) => {
             const { coin: name, network } = cryptoCurrencyLabel(code);
@@ -103,7 +101,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
   return (
     <section className="space-y-4 rounded-radius-lg bg-card p-5">
       <h2 className="flex items-center gap-2 text-xl font-semibold tracking-[-0.02em] text-foreground">
-        <Coins className="h-5 w-5 text-[#26a17b]" /> Pay with {name}{network ? ` on ${network}` : ""}
+        <Coins className="h-5 w-5 text-[#26a17b]" />{" "}{trx("Pay with {name}", { name })}{network ? ` on ${network}` : ""}
       </h2>
 
       {address && (
@@ -113,29 +111,27 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
       )}
 
       <div className="rounded-radius-md bg-inset p-4 text-center">
-        <p className="text-sm text-muted-foreground">Send exactly</p>
+        <p className="text-sm text-muted-foreground">{tr("Send exactly")}</p>
         <div className="flex items-center justify-center gap-2">
           <p className="break-all text-2xl font-semibold text-foreground">{p.pay_amount} {name}</p>
           {p.pay_amount && (
-            <Button variant="ghost" size="iconSm" onClick={() => copy(p.pay_amount!)} aria-label="Copy amount">
+            <Button variant="ghost" size="iconSm" onClick={() => copy(p.pay_amount!)} aria-label={tr("Copy amount")}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">{formatUSD(totalCents)} total</p>
+        <p className="text-sm text-muted-foreground">{trx("{totalCents} total", { totalCents: formatUSD(totalCents) })}</p>
       </div>
 
       {network && (
-        <p className="rounded-radius-sm bg-attention/10 px-3 py-2 text-sm text-attention dark:text-attention">
-          Send on the <strong>{network}</strong> network only. Other networks cannot be recovered.
-        </p>
+        <p className="rounded-radius-sm bg-attention/10 px-3 py-2 text-sm text-attention dark:text-attention">{trx("Send on the {network} network only. Other networks cannot be recovered.", { network: <strong>{network}</strong> })}</p>
       )}
 
       <div className="space-y-2">
-        <Label className="text-sm text-muted-foreground">Address</Label>
+        <Label className="text-sm text-muted-foreground">{tr("Address")}</Label>
         <div className="flex items-center gap-2">
           <code className="max-h-20 flex-1 overflow-y-auto break-all rounded-radius-md bg-inset p-3 text-xs">{address}</code>
-          <Button variant="secondary" size="icon" onClick={() => copy(address)} aria-label="Copy address">
+          <Button variant="secondary" size="icon" onClick={() => copy(address)} aria-label={tr("Copy address")}>
             <Copy className="h-4 w-4" />
           </Button>
         </div>
@@ -143,10 +139,10 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
 
       {p.pay_extra_id && (
         <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">Memo / tag (required)</Label>
+          <Label className="text-sm text-muted-foreground">{tr("Memo / tag (required)")}</Label>
           <div className="flex items-center gap-2">
             <code className="flex-1 break-all rounded-radius-md bg-inset p-3 text-xs">{p.pay_extra_id}</code>
-            <Button variant="secondary" size="icon" onClick={() => copy(p.pay_extra_id!)} aria-label="Copy memo">
+            <Button variant="secondary" size="icon" onClick={() => copy(p.pay_extra_id!)} aria-label={tr("Copy memo")}>
               <Copy className="h-4 w-4" />
             </Button>
           </div>
@@ -162,24 +158,24 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
         {isPaid ? (
           <>
             <CheckCircle2 className="h-5 w-5 text-positive" />
-            <span className="text-sm font-medium text-positive">Payment confirmed! {successLabel}</span>
+            <span className="text-sm font-medium text-positive">{trx("Payment confirmed! {successLabel}", { successLabel })}</span>
           </>
         ) : expired ? (
           <>
             <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">This payment expired. Nothing was charged.</span>
-            <Button variant="secondary" size="sm" onClick={pay.reset}>Start again</Button>
+            <span className="text-sm font-medium text-muted-foreground">{tr("This payment expired. Nothing was charged.")}</span>
+            <Button variant="secondary" size="sm" onClick={pay.reset}>{tr("Start again")}</Button>
           </>
         ) : partial ? (
           <>
             <AlertCircle className="h-5 w-5 shrink-0 text-attention" />
-            <span className="text-sm font-medium">Less than the full amount arrived. Send the rest to the same address, or contact support.</span>
+            <span className="text-sm font-medium">{tr("Less than the full amount arrived. Send the rest to the same address, or contact support.")}</span>
           </>
         ) : (
           <>
             <Spinner size="md" className="text-[#26a17b]" />
             <span className="text-sm font-medium">
-              {p.state === "confirming" ? "Payment seen — waiting for network confirmations…" : "Waiting for payment…"}
+              {p.state === "confirming" ? tr("Payment seen — waiting for network confirmations…") : tr("Waiting for payment…")}
             </span>
           </>
         )}

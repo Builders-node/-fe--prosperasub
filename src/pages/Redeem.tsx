@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { tr, trx, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * `/redeem/:providerId` — what opens when a subscriber scans a business's
@@ -29,7 +30,7 @@ interface Info { business: { id: string; name: string; avatar: string | null }; 
 interface Collected { label: string; planName: string; business: string; at: string }
 
 const timeHN = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Tegucigalpa" });
+  new Date(iso).toLocaleTimeString(DATE_LOCALE, { hour: "numeric", minute: "2-digit", timeZone: "America/Tegucigalpa" });
 
 export default function Redeem() {
   const { providerId = "" } = useParams();
@@ -61,7 +62,7 @@ export default function Redeem() {
     },
     onSuccess: (r) => { setDone(r); void qc.invalidateQueries({ queryKey: ["redeem", providerId] }); },
     onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Could not collect it");
+      toast.error(e instanceof Error ? e.message : tr("Could not collect it"));
       void qc.invalidateQueries({ queryKey: ["redeem", providerId] });
     },
   });
@@ -74,9 +75,9 @@ export default function Redeem() {
     body = (
       <section className="space-y-4 rounded-radius-lg bg-card p-4 text-center">
         <Store className="mx-auto h-8 w-8 text-muted-foreground" />
-        <p className="text-title font-semibold text-foreground">Log in to collect</p>
-        <p className="text-body text-muted-foreground">We'll show what your subscription here includes today.</p>
-        <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>Log in</Button>
+        <p className="text-title font-semibold text-foreground">{tr("Log in to collect")}</p>
+        <p className="text-body text-muted-foreground">{tr("We'll show what your subscription here includes today.")}</p>
+        <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>{tr("Log in")}</Button>
       </section>
     );
   } else if (infoQ.isLoading) {
@@ -84,9 +85,9 @@ export default function Redeem() {
   } else if (infoQ.isError || !info) {
     body = (
       <section className="rounded-radius-lg bg-card p-6 text-center">
-        <p className="text-title font-semibold text-foreground">This code doesn't work</p>
+        <p className="text-title font-semibold text-foreground">{tr("This code doesn't work")}</p>
         <p className="mt-1 text-body text-muted-foreground">
-          {infoQ.error instanceof Error ? infoQ.error.message : "Ask the staff for help."}
+          {infoQ.error instanceof Error ? infoQ.error.message : tr("Ask the staff for help.")}
         </p>
       </section>
     );
@@ -96,17 +97,17 @@ export default function Redeem() {
         <CheckCircle2 className="mx-auto h-16 w-16 text-positive" />
         <p className="text-[28px] font-semibold leading-[34px] text-foreground">{done.label}</p>
         <p className="text-body text-muted-foreground">{done.planName} · {done.business}</p>
-        <p className="text-title font-semibold tabular-nums text-foreground">Collected at {timeHN(done.at)}</p>
-        <p className="text-meta text-muted-foreground">Show this screen at the till.</p>
-        <Button variant="secondary" className="w-full" onClick={() => setDone(null)}>Done</Button>
+        <p className="text-title font-semibold tabular-nums text-foreground">{trx("Collected at {timeHN}", { timeHN: timeHN(done.at) })}</p>
+        <p className="text-meta text-muted-foreground">{tr("Show this screen at the till.")}</p>
+        <Button variant="secondary" className="w-full" onClick={() => setDone(null)}>{tr("Done")}</Button>
       </section>
     );
   } else if (info.subscriptions.length === 0) {
     body = (
       <section className="space-y-3 rounded-radius-lg bg-card p-6 text-center">
-        <p className="text-title font-semibold text-foreground">No active subscription at {info.business.name}</p>
-        <p className="text-body text-muted-foreground">If you paid for one, check My subscriptions — it may still be pending.</p>
-        <Button variant="secondary" className="w-full" onClick={() => navigate("/my-subscriptions")}>My subscriptions</Button>
+        <p className="text-title font-semibold text-foreground">{trx("No active subscription at {name}", { name: info.business.name })}</p>
+        <p className="text-body text-muted-foreground">{tr("If you paid for one, check My subscriptions — it may still be pending.")}</p>
+        <Button variant="secondary" className="w-full" onClick={() => navigate("/my-subscriptions")}>{tr("My subscriptions")}</Button>
       </section>
     );
   } else {
@@ -116,7 +117,7 @@ export default function Redeem() {
           <section key={`${s.table}:${s.id}`} className="space-y-3 rounded-radius-lg bg-card p-4">
             <div>
               <p className="text-title font-semibold text-foreground">{s.planName}</p>
-              {s.endDate && <p className="text-meta text-muted-foreground">Active until {s.endDate}</p>}
+              {s.endDate && <p className="text-meta text-muted-foreground">{trx("Active until {endDate}", { endDate: s.endDate })}</p>}
             </div>
             <ul className="space-y-2">
               {s.items.map((i) => (
@@ -124,21 +125,19 @@ export default function Redeem() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-body font-semibold text-foreground">{i.label}</span>
                     <span className="block text-meta text-muted-foreground">
-                      {i.note ?? (i.remaining != null && i.total != null && i.total > 1 ? `${i.remaining} of ${i.total} left` : "Ready to collect")}
+                      {i.note ?? (i.remaining != null && i.total != null && i.total > 1 ? `${i.remaining} of ${i.total} left` : tr("Ready to collect"))}
                     </span>
                   </span>
                   {i.key !== "none" && !i.available && i.note === "Collected" ? (
                     // Already taken today: a tick, not a dead button.
-                    <CheckCircle2 className="h-6 w-6 shrink-0 text-positive" aria-label="Collected" />
+                    <CheckCircle2 className="h-6 w-6 shrink-0 text-positive" aria-label={tr("Collected")} />
                   ) : i.key !== "none" && (
                     <Button
                       className="shrink-0"
                       disabled={!i.available || get.isPending}
                       loading={get.isPending && get.variables?.itemKey === i.key && get.variables?.subscriptionId === s.id}
                       onClick={() => get.mutate({ table: s.table, subscriptionId: s.id, itemKey: i.key })}
-                    >
-                      Get
-                    </Button>
+                    >{tr("Get")}</Button>
                   )}
                 </li>
               ))}
@@ -150,7 +149,7 @@ export default function Redeem() {
   }
 
   return (
-    <UserLayout title={info ? info.business.name : "Collect"} allowGuest showBottomNav={false}>
+    <UserLayout title={info ? info.business.name : tr("Collect")} allowGuest showBottomNav={false}>
       <div className="mx-auto max-w-[480px] py-4">{body}</div>
     </UserLayout>
   );

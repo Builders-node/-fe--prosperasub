@@ -19,6 +19,7 @@ import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useI18n } from "@/i18n";
 import { accountApi } from "@/integrations/supabase/client";
 import { HeaderAvatarButton } from "@/components/layout/HeaderParts";
+import { tr } from "@/lib/tr";
 
 export function AccountMenu() {
   const { userData, isSuperAdmin, logout, isAuthenticated } = useAuth();
@@ -59,16 +60,16 @@ export function AccountMenu() {
           />
           <div className="space-y-space-1">
             <AppDropdownItem icon={List} title={t("profile.bookings")} to="/my-subscriptions" />
-            <AppDropdownItem icon={Receipt} title="History" to="/history" />
+            <AppDropdownItem icon={Receipt} title={tr("History")} to="/history" />
             {managesBusiness ? (
-              <AppDropdownItem icon={ChefHat} title="My Business" to="/my-business" />
+              <AppDropdownItem icon={ChefHat} title={tr("My Business")} to="/my-business" />
             ) : (
               // Off the home screen now, so this is the only way in — without
               // it the whole provider signup has no entry point but a typed
               // URL.
               <AppDropdownItem icon={Store} title={t("discovery.becomeProvider")} to="/become-a-provider" />
             )}
-            <AppDropdownItem icon={LifeBuoy} title="Support" to="/support" />
+            <AppDropdownItem icon={LifeBuoy} title={tr("Support")} to="/support" />
           </div>
           {isAdminUser && (
             <>

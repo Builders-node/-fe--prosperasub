@@ -4,6 +4,7 @@ import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FIELD_SURFACE } from "@/components/ui/input";
+import { tr } from "@/lib/tr";
 
 interface Props {
   value: string;
@@ -43,7 +44,7 @@ export function NotesField({
   value,
   onChange,
   label = "Notes",
-  placeholder = "Add a note (optional)",
+  placeholder = tr("Add a note (optional)"),
   icon: Icon = MessageCircle,
   title = "Comment",
   description,
@@ -100,9 +101,7 @@ export function NotesField({
             onClick={commit}
             size="lg"
             className="w-full rounded-radius-md text-base font-bold"
-          >
-            Save
-          </Button>
+          >{tr("Save")}</Button>
         }
       >
         <textarea

@@ -19,6 +19,7 @@ import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { toast } from "sonner";
 import { formatDateHN } from "@/lib/timezone";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * What this business earned, and what of it has actually been paid.
@@ -52,11 +53,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type RangeKey = "month" | "last_month" | "quarter" | "year" | "all";
 
 const RANGES: Array<{ key: RangeKey; label: string }> = [
-  { key: "month", label: "This month" },
-  { key: "last_month", label: "Last month" },
-  { key: "quarter", label: "Last 3 months" },
-  { key: "year", label: "This year" },
-  { key: "all", label: "All time" },
+  { key: "month", label: tr("This month") },
+  { key: "last_month", label: tr("Last month") },
+  { key: "quarter", label: tr("Last 3 months") },
+  { key: "year", label: tr("This year") },
+  { key: "all", label: tr("All time") },
 ];
 
 function rangeFor(key: RangeKey): { start: Date; end: Date } {
@@ -124,7 +125,7 @@ function WithdrawPanel({
   const submit = useMutation({
     mutationFn: async () => {
       const cents = Math.round(Number(amount) * 100);
-      if (!Number.isFinite(cents) || cents <= 0) throw new Error("Enter how much you want to withdraw");
+      if (!Number.isFinite(cents) || cents <= 0) throw new Error(tr("Enter how much you want to withdraw"));
       const { data, error } = await accountApi(`/account/providers/${providerId}/payouts/request`, {
         method: "POST",
         body: JSON.stringify({ amountCents: cents, destination: bareDestination(destination) }),
@@ -134,7 +135,7 @@ function WithdrawPanel({
       // A refusal from the wallet comes back as a 200 with a failed row —
       // the request was fine, the payment was not. Say so plainly instead of
       // celebrating.
-      if (row?.status === "failed") throw new Error(row.send_error || "The payment did not go through");
+      if (row?.status === "failed") throw new Error(row.send_error || tr("The payment did not go through"));
       return row;
     },
     onSuccess: (row: any) => {
@@ -142,53 +143,48 @@ function WithdrawPanel({
       // "on its way" for one Blink is still routing, and the old queue message
       // only when it really did queue.
       const status = row?.status;
-      if (status === "paid") toast.success("Sent — check your wallet");
-      else if (status === "sending") toast.success("On its way — settling now");
-      else toast.success("Requested — you'll be notified once it's sent");
+      if (status === "paid") toast.success(tr("Sent — check your wallet"));
+      else if (status === "sending") toast.success(tr("On its way — settling now"));
+      else toast.success(tr("Requested — you'll be notified once it's sent"));
       setOpen(false); setAmount(""); setDestination("");
       qc.invalidateQueries({ queryKey: ["provider-payouts", providerId] });
       qc.invalidateQueries({ queryKey: ["provider-payout-available", providerId] });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not request the payout"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not request the payout")),
   });
 
   return (
     <section className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="min-w-0">
-        <p className="text-[16px] leading-[22px] text-muted-foreground">Available to withdraw</p>
+        <p className="text-[16px] leading-[22px] text-muted-foreground">{tr("Available to withdraw")}</p>
         <p className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{formatUSD(availableCents)}</p>
         <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">
           {canWithdraw
-            ? "Everything you have earned, less what you have already asked for or been sent."
-            : "Everything this business has earned, less what has already been paid out. Only the owner can withdraw it."}
+            ? tr("Everything you have earned, less what you have already asked for or been sent.")
+            : tr("Everything this business has earned, less what has already been paid out. Only the owner can withdraw it.")}
         </p>
       </div>
       {canWithdraw && (
         <Button className="gap-1.5" disabled={availableCents <= 0} onClick={() => setOpen(true)}>
-          <ArrowUpRight className="h-4 w-4" /> Withdraw
-        </Button>
+          <ArrowUpRight className="h-4 w-4" />{" "}{tr("Withdraw")}</Button>
       )}
 
-      <ResponsiveDialog open={open} onOpenChange={setOpen} title="Withdraw">
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title={tr("Withdraw")}>
         <div className="space-y-4 pb-2">
           <div className="space-y-1.5 text-left">
-            <label className="block text-[16px] leading-[22px] text-muted-foreground">Amount (USD)</label>
+            <label className="block text-[16px] leading-[22px] text-muted-foreground">{tr("Amount (USD)")}</label>
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
               placeholder={(availableCents / 100).toFixed(2)} />
             {overBalance ? (
-              <p className="text-xs font-semibold text-destructive">
-                More than you have — the most is {formatUSD(availableCents)}.
-              </p>
+              <p className="text-xs font-semibold text-destructive">{trx("More than you have — the most is {availableCents}.", { availableCents: formatUSD(availableCents) })}</p>
             ) : (
               <button type="button" className="block text-xs font-semibold text-primary"
-                onClick={() => setAmount((availableCents / 100).toFixed(2))}>
-                Withdraw everything ({formatUSD(availableCents)})
-              </button>
+                onClick={() => setAmount((availableCents / 100).toFixed(2))}>{trx("Withdraw everything ({availableCents})", { availableCents: formatUSD(availableCents) })}</button>
             )}
           </div>
 
           <div className="space-y-1.5 text-left">
-            <label className="block text-[16px] leading-[22px] text-muted-foreground">Send over</label>
+            <label className="block text-[16px] leading-[22px] text-muted-foreground">{tr("Send over")}</label>
             {/* Two rails, not one field that accepts both. Switching clears the
                 address on purpose: an address for the other network is the one
                 thing that must not be left sitting in the box. */}
@@ -207,7 +203,7 @@ function WithdrawPanel({
 
           <div className="space-y-1.5 text-left">
             <label className="block text-[16px] leading-[22px] text-muted-foreground">
-              {rail === "lightning" ? "Lightning address" : "Bitcoin address"}
+              {rail === "lightning" ? tr("Lightning address") : tr("Bitcoin address")}
             </label>
             <Input
               value={destination}
@@ -220,23 +216,18 @@ function WithdrawPanel({
             {problem ? (
               <p className="text-xs font-semibold text-destructive">{problem}</p>
             ) : isPayable(rail, destination) ? (
-              <p className="text-xs font-semibold text-positive">
-                Looks like a {RAIL_LABEL[rail]} address.
-              </p>
+              <p className="text-xs font-semibold text-positive">{trx("Looks like a {value} address.", { value: RAIL_LABEL[rail] })}</p>
             ) : null}
           </div>
 
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            The money is sent as soon as you confirm, straight to that address. Double-check it —
-            a payment cannot be pulled back.
-          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{tr("The money is sent as soon as you confirm, straight to that address. Double-check it — a payment cannot be pulled back.")}</p>
           {/* Disabled until it can actually go: the confirm below is the last
               thing between this form and a payment nobody can reverse. */}
           <Button className="w-full" disabled={submit.isPending || !ready}
             onClick={() => submit.mutate()}>
-            {submit.isPending ? "Sending…"
-              : ready ? `Withdraw ${formatUSD(Math.round(dollars * 100))}`
-              : "Withdraw"}
+            {submit.isPending ? tr("Sending…")
+              : ready ? tr("Withdraw {formatUSD}", { formatUSD: formatUSD(Math.round(dollars * 100)) })
+              : tr("Withdraw")}
           </Button>
         </div>
       </ResponsiveDialog>
@@ -384,18 +375,18 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
       const usdNum = (c: number) => (c / 100).toFixed(2);
       const day = (iso: string | null) => (iso ? String(iso).slice(0, 10) : "");
       const rows: (string | number)[][] = [
-        ["EverySub statement", `${day(start.toISOString())} to ${day(end.toISOString())}`],
-        ["Earned (spread over the days each plan covers)", usdNum(revenue)],
-        [`Platform fee (${pct}%; 0% on your own clients)`, usdNum(split.platformCents)],
+        [tr("EverySub statement"), `${day(start.toISOString())} to ${day(end.toISOString())}`],
+        [tr("Earned (spread over the days each plan covers)"), usdNum(revenue)],
+        [tr("Platform fee ({pct}%; 0% on your own clients)", { pct }), usdNum(split.platformCents)],
         ["Yours", usdNum(split.providerCents)],
-        ["Paid out in this period", usdNum(paidInRange)],
+        [tr("Paid out in this period"), usdNum(paidInRange)],
         [],
-        ["Sales made in this period (full price)"],
-        ["Date", "Plan", "Customer", "Amount (USD)", "Payment", "Status"],
+        [tr("Sales made in this period (full price)")],
+        ["Date", "Plan", "Customer", tr("Amount (USD)"), "Payment", "Status"],
         ...((sales ?? []) as any[]).map((r) => [day(r.created_at), r.plan_name ?? "", r.customer_name ?? "", usdNum(Number(r.price_cents) || 0), r.payment_method ?? "", r.status ?? ""]),
         [],
-        ["Payouts in this period"],
-        ["Date", "Amount (USD)", "Reference"],
+        [tr("Payouts in this period")],
+        ["Date", tr("Amount (USD)"), "Reference"],
         ...payouts
           .filter((p) => { const t = new Date(p.paid_at).getTime(); return t >= start.getTime() && t <= end.getTime(); })
           .map((p) => [day(p.paid_at), usdNum(Number(p.amount_cents) || 0), String((p as { reference?: string | null }).reference ?? "")]),
@@ -408,7 +399,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
       a.click();
       URL.revokeObjectURL(a.href);
     } catch (e) {
-      toast.error((e as Error).message || "Could not build the statement");
+      toast.error((e as Error).message || tr("Could not build the statement"));
     } finally {
       setExporting(false);
     }
@@ -431,49 +422,42 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
           </button>
         ))}
         <Button size="sm" variant="secondary" className="ml-auto gap-2" loading={exporting} onClick={() => void downloadStatement()}>
-          <Download className="h-4 w-4" /> Statement
-        </Button>
+          <Download className="h-4 w-4" />{" "}{tr("Statement")}</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] lg:grid-cols-4">
         <MoneyCard
-          label="Customers paid"
+          label={tr("Customers paid")}
           value={isLoading ? "—" : formatUSD(revenue)}
-          hint="Spread across the days each plan covers"
+          hint={tr("Spread across the days each plan covers")}
         />
         <MoneyCard
-          label={`Platform fee · ${pct}%`}
+          label={tr("Platform fee · {pct}%", { pct })}
           value={isLoading ? "—" : formatUSD(split.platformCents)}
           hint={split.ownClientsCents > 0
             ? `${split.explanation} (${formatUSD(split.ownClientsCents)})`
             : split.explanation}
         />
         <MoneyCard
-          label="You earned"
+          label={tr("You earned")}
           value={isLoading ? "—" : formatUSD(split.providerCents)}
         />
         <MoneyCard
-          label={outstanding >= 0 ? "Owed to you" : "Paid ahead"}
+          label={outstanding >= 0 ? tr("Owed to you") : tr("Paid ahead")}
           value={isLoading ? "—" : formatUSD(Math.abs(outstanding))}
-          hint={paidInRange ? `${formatUSD(paidInRange)} already paid` : "Nothing paid out for this period"}
+          hint={paidInRange ? tr("{paidInRange} already paid", { paidInRange: formatUSD(paidInRange) }) : tr("Nothing paid out for this period")}
         />
       </div>
 
       <WithdrawPanel providerId={providerId} availableCents={availableCents} canWithdraw={canWithdraw} />
 
       <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <h3 className="text-[20px] font-semibold leading-[26px] text-foreground">Payouts</h3>
+        <h3 className="text-[20px] font-semibold leading-[26px] text-foreground">{tr("Payouts")}</h3>
 
         {payoutsFailed ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Couldn't load the payout ledger. It lives behind the API rather than in the browser —
-            try again in a moment.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">{tr("Couldn't load the payout ledger. It lives behind the API rather than in the browser — try again in a moment.")}</p>
         ) : payouts.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            No payouts recorded yet. Once the platform sends money it appears here with its date,
-            method and reference, and the figure above stops counting it as owed.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">{tr("No payouts recorded yet. Once the platform sends money it appears here with its date, method and reference, and the figure above stops counting it as owed.")}</p>
         ) : (
           <ul className="mt-3 divide-y divide-border/60">
             {payouts.map((p) => (
@@ -485,7 +469,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
                     {p.method && <span className="text-[14px] capitalize text-muted-foreground">{p.method}</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {p.period_start && p.period_end ? `Covers ${p.period_start} → ${p.period_end}` : "Ad-hoc payout"}
+                    {p.period_start && p.period_end ? tr("Covers {period_start} → {period_end}", { period_start: p.period_start, period_end: p.period_end }) : tr("Ad-hoc payout")}
                     {p.note ? ` · ${p.note}` : ""}
                   </p>
                   {p.reference && (
@@ -499,11 +483,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
         )}
       </section>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Money is counted over the days a plan covers, not the day it was bought — a three-month
-        plan earns a third of its total each month. Only payments the platform has confirmed as
-        received are included.
-      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{tr("Money is counted over the days a plan covers, not the day it was bought — a three-month plan earns a third of its total each month. Only payments the platform has confirmed as received are included.")}</p>
     </div>
   );
 }

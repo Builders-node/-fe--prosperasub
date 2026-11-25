@@ -4,6 +4,7 @@ import {
   appliesTo, displayDiscount, endsLabel, prepayMax, useActiveDiscounts, valueLabel,
   type ActiveDiscount, type DiscountSubject,
 } from "@/lib/discounts";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Every discount the business runs on this offer, said plainly on its page —
@@ -35,7 +36,7 @@ export function DealPanel({ subject, unit }: { subject: DiscountSubject; unit?: 
       {intro && <Row icon={<Sparkles className="h-4 w-4" />}>{introLine(intro, price, per)}</Row>}
       {prepay && (
         <Row icon={<CalendarClock className="h-4 w-4" />}>
-          <span className="font-semibold text-foreground">Pay ahead, save up to {prepayMax(prepay)}%</span>
+          <span className="font-semibold text-foreground">{trx("Pay ahead, save up to {prepayMax}%", { prepayMax: prepayMax(prepay) })}</span>
           <span className="text-muted-foreground">
             {" "}· {(prepay.tiers ?? []).map((t) => `${t.periods} for −${t.percent_off}%`).join(", ")}
           </span>
@@ -48,12 +49,12 @@ export function DealPanel({ subject, unit }: { subject: DiscountSubject; unit?: 
 function introLine(d: ActiveDiscount, price: number, per: string) {
   const off = d.value_type === "percent" ? Math.floor((price * (d.percent_off ?? 0)) / 100) : (d.amount_off_cents ?? 0);
   const first = Math.max(1, price - off);
-  const n = d.intro_periods > 1 ? `the first ${d.intro_periods} periods` : "the first period";
+  const n = d.intro_periods > 1 ? tr("the first {intro_periods} periods", { intro_periods: d.intro_periods }) : tr("the first period");
   const ends = endsLabel(d.ends_at);
   return (
     <>
-      <span className="font-semibold text-foreground">New here? {formatUSD(first)}{per} for {n}</span>
-      <span className="text-muted-foreground"> ({valueLabel(d)}), then {formatUSD(price)}{per}{ends ? ` · ${ends.toLowerCase()}` : ""}</span>
+      <span className="font-semibold text-foreground">{trx("New here? {first}{per} for {n}", { first: formatUSD(first), per, n })}</span>
+      <span className="text-muted-foreground">{" "}{trx("({valueLabel}), then {price}{per}", { valueLabel: valueLabel(d), price: formatUSD(price), per })}{ends ? ` · ${ends.toLowerCase()}` : ""}</span>
     </>
   );
 }

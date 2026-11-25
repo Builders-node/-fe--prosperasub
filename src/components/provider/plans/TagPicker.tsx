@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { tagIcon, useTagDictionary } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Tags for a plan, picked from the dictionary (Admin → Settings → Tags) — one
@@ -53,12 +54,12 @@ export function TagPicker({ value, onChange, groups: only }: {
       ))}
       {other.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-meta font-semibold text-muted-foreground">Other (search only)</p>
+          <p className="text-meta font-semibold text-muted-foreground">{tr("Other (search only)")}</p>
           <div className="flex flex-wrap gap-2">
             {other.map((k) => (
               <span key={k} className="inline-flex h-9 items-center gap-1 rounded-full bg-muted pl-3 pr-1 text-[14px] text-foreground">
                 {k}
-                <button type="button" aria-label={`Remove ${k}`} onClick={() => toggle(k)}
+                <button type="button" aria-label={tr("Remove {k}", { k })} onClick={() => toggle(k)}
                   className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-background">
                   <X className="h-3.5 w-3.5" />
                 </button>

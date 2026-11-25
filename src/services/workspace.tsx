@@ -6,6 +6,7 @@ import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocation
 import { RentalTermsTab } from "@/features/vehicles";
 import CarRentals from "@/pages/admin/CarRentals";
 import { canonicalServiceKey } from "@/services/manifest";
+import { tr } from "@/lib/tr";
 
 /**
  * What a vertical adds to the provider workspace.
@@ -72,9 +73,9 @@ const WORKSPACE: Record<string, WorkspaceCustomisation> = {
     // that cars never use.
     overviewTop: ({ providerId }) => <CarRentals embedded providerId={providerId} section="schedule" />,
     coreTabs: ({ providerId, isOwner }) => [
-      { value: "fleet-bookings", label: "Bookings", icon: ClipboardList, render: () => <CarRentals embedded providerId={providerId} section="bookings" /> },
-      { value: "fleet", label: "Vehicles", icon: CarFront, render: () => <CarRentals embedded providerId={providerId} section="fleet" /> },
-      { value: "offerings", label: "Insurance & extras", icon: ShieldCheck, render: () => <RentalTermsTab providerId={providerId} canManage={isOwner} /> },
+      { value: "fleet-bookings", label: tr("Bookings"), icon: ClipboardList, render: () => <CarRentals embedded providerId={providerId} section="bookings" /> },
+      { value: "fleet", label: tr("Vehicles"), icon: CarFront, render: () => <CarRentals embedded providerId={providerId} section="fleet" /> },
+      { value: "offerings", label: tr("Insurance & extras"), icon: ShieldCheck, render: () => <RentalTermsTab providerId={providerId} canManage={isOwner} /> },
     ] as PortalTab<unknown>[],
   },
 

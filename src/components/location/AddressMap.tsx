@@ -6,6 +6,7 @@ import { Minus, Navigation, Plus } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { GeoPoint } from "@/lib/geo/places";
+import { tr } from "@/lib/tr";
 
 /**
  * The map half of the address picker (AddressMapDialog) — its own chunk, so
@@ -124,11 +125,11 @@ export default function AddressMap({
       {/* Zoom and "where am I" — right edge, as on every map app. */}
       <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-2">
         <div className="flex flex-col overflow-hidden rounded-radius-md bg-card">
-          <MapButton label="Zoom in" onClick={() => mapRef.current?.zoomIn()}><Plus className="h-5 w-5" /></MapButton>
-          <MapButton label="Zoom out" onClick={() => mapRef.current?.zoomOut()}><Minus className="h-5 w-5" /></MapButton>
+          <MapButton label={tr("Zoom in")} onClick={() => mapRef.current?.zoomIn()}><Plus className="h-5 w-5" /></MapButton>
+          <MapButton label={tr("Zoom out")} onClick={() => mapRef.current?.zoomOut()}><Minus className="h-5 w-5" /></MapButton>
         </div>
         <div className="overflow-hidden rounded-radius-md bg-card">
-          <MapButton label="Use my location" onClick={onLocate}>
+          <MapButton label={tr("Use my location")} onClick={onLocate}>
             {locating ? <Spinner size="sm" /> : <Navigation className="h-5 w-5 fill-current" strokeWidth={0} />}
           </MapButton>
         </div>

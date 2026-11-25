@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { AD_PLACEMENTS, EMPTY_AD, type Ad } from "@/types/ad";
 import { QueryError } from "@/components/patterns/QueryError";
+import { tr } from "@/lib/tr";
 
 const placementLabel = (value: string) =>
   AD_PLACEMENTS.find((p) => p.value === value)?.label ?? value;
@@ -36,7 +37,7 @@ function AdPreview({ form }: { form: typeof EMPTY_AD }) {
       }}
     >
       <span className="text-sm font-black uppercase tracking-wide" style={{ color: form.text_color }}>
-        {form.label || "Banner text"}
+        {form.label || tr("Banner text")}
       </span>
       {form.badge_text && (
         <span
@@ -136,7 +137,7 @@ const AdsManagement = () => {
     },
     onSuccess: () => {
       invalidate();
-      toast.success(isNew ? "Ad created" : "Ad updated");
+      toast.success(isNew ? tr("Ad created") : tr("Ad updated"));
       close();
     },
     onError: (err: Error) => toast.error(err.message),
@@ -152,7 +153,7 @@ const AdsManagement = () => {
     },
     onSuccess: (is_active) => {
       invalidate();
-      toast.success(is_active ? "Banner activated" : "Banner deactivated");
+      toast.success(is_active ? tr("Banner activated") : tr("Banner deactivated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -164,7 +165,7 @@ const AdsManagement = () => {
     },
     onSuccess: () => {
       invalidate();
-      toast.success("Ad deleted");
+      toast.success(tr("Ad deleted"));
       setDeleteTarget(null);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -186,9 +187,9 @@ const AdsManagement = () => {
   const canSave = form.title.trim() && form.label.trim() && form.link_url.trim();
 
   return (
-    <SuperAdminLayout title="Banners" subtitle="Promo banners on the customer home page">
+    <SuperAdminLayout title={tr("Banners")} subtitle={tr("Promo banners on the customer home page")}>
       <div className="max-w-3xl space-y-space-5">
-        <p className="text-sm text-muted-foreground">Promotional banners shown across the site. Only the highest-priority active ad per placement is displayed.</p>
+        <p className="text-sm text-muted-foreground">{tr("Promotional banners shown across the site. Only the highest-priority active ad per placement is displayed.")}</p>
 
         {/* The one list scaffold: it owns the toolbar, the count and the three
             states, so this page cannot answer them differently from its
@@ -200,9 +201,9 @@ const AdsManagement = () => {
           onRetry={() => void refetch()}
           isEmpty={!isLoading && ads.length === 0}
           count={ads.length}
-          emptyTitle="No ads yet"
-          emptySubtitle="Create one to show a banner."
-          actions={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New banner</Button>}
+          emptyTitle={tr("No ads yet")}
+          emptySubtitle={tr("Create one to show a banner.")}
+          actions={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />{" "}{tr("New banner")}</Button>}
         >
           <div className="space-y-3">
             {ads.map((a) => (
@@ -218,11 +219,11 @@ const AdsManagement = () => {
                     </p>
                   </div>
                   <Badge className="bg-muted text-muted-foreground text-[10px] uppercase">{placementLabel(a.placement)}</Badge>
-                  {!a.is_active && <Badge className="bg-muted text-muted-foreground text-xs">Hidden</Badge>}
+                  {!a.is_active && <Badge className="bg-muted text-muted-foreground text-xs">{tr("Hidden")}</Badge>}
                   <div className="flex items-center gap-0.5">
                     <Switch checked={a.is_active} onCheckedChange={(c) => toggleMutation.mutate({ id: a.id, is_active: c })} />
-                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit ad" onClick={() => openEdit(a)}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" aria-label="Delete ad" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(a)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={tr("Edit ad")} onClick={() => openEdit(a)}><Edit className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" aria-label={tr("Delete ad")} className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(a)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
                 {/* Mini preview */}
@@ -237,37 +238,37 @@ const AdsManagement = () => {
 
       <Dialog open={isNew || !!editItem} onOpenChange={(o) => !o && close()}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>{isNew ? "New banner" : "Edit banner"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{isNew ? tr("New banner") : tr("Edit banner")}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             {/* Live preview */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Live preview</Label>
+              <Label className="text-xs text-muted-foreground">{tr("Live preview")}</Label>
               <AdPreview form={form} />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Internal name *</Label>
-              <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Summer Promo" />
+              <Label>{tr("Internal name *")}</Label>
+              <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder={tr("e.g. Summer Promo")} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Banner text *</Label>
-                <Input value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="Get 20% off" />
+                <Label>{tr("Banner text *")}</Label>
+                <Input value={form.label} onChange={(e) => set("label", e.target.value)} placeholder={tr("Get 20% off")} />
               </div>
               <div className="space-y-1.5">
-                <Label>Badge / pill</Label>
-                <Input value={form.badge_text} onChange={(e) => set("badge_text", e.target.value)} placeholder="Pay with LIVES" />
+                <Label>{tr("Badge / pill")}</Label>
+                <Input value={form.badge_text} onChange={(e) => set("badge_text", e.target.value)} placeholder={tr("Pay with LIVES")} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Trailing text</Label>
-                <Input value={form.cta_text} onChange={(e) => set("cta_text", e.target.value)} placeholder="Open your account →" />
+                <Label>{tr("Trailing text")}</Label>
+                <Input value={form.cta_text} onChange={(e) => set("cta_text", e.target.value)} placeholder={tr("Open your account →")} />
               </div>
               <div className="space-y-1.5">
-                <Label>Placement</Label>
+                <Label>{tr("Placement")}</Label>
                 <Select value={form.placement} onValueChange={(v) => set("placement", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -278,45 +279,45 @@ const AdsManagement = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Link URL *</Label>
+              <Label>{tr("Link URL *")}</Label>
               <Input value={form.link_url} onChange={(e) => set("link_url", e.target.value)} placeholder="https://infinita.money/" />
             </div>
 
             <div className="space-y-2 rounded-radius-md bg-inset p-3">
-              <Label className="text-meta text-muted-foreground">Colors</Label>
+              <Label className="text-meta text-muted-foreground">{tr("Colors")}</Label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <ColorField label="Gradient left" value={form.gradient_from} onChange={(v) => set("gradient_from", v)} />
-                <ColorField label="Gradient mid" value={form.gradient_via} onChange={(v) => set("gradient_via", v)} />
-                <ColorField label="Gradient right" value={form.gradient_to} onChange={(v) => set("gradient_to", v)} />
+                <ColorField label={tr("Gradient left")} value={form.gradient_from} onChange={(v) => set("gradient_from", v)} />
+                <ColorField label={tr("Gradient mid")} value={form.gradient_via} onChange={(v) => set("gradient_via", v)} />
+                <ColorField label={tr("Gradient right")} value={form.gradient_to} onChange={(v) => set("gradient_to", v)} />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <ColorField label="Text" value={form.text_color} onChange={(v) => set("text_color", v)} />
-                <ColorField label="Badge bg" value={form.badge_bg} onChange={(v) => set("badge_bg", v)} />
-                <ColorField label="Badge text" value={form.badge_text_color} onChange={(v) => set("badge_text_color", v)} />
+                <ColorField label={tr("Text")} value={form.text_color} onChange={(v) => set("text_color", v)} />
+                <ColorField label={tr("Badge bg")} value={form.badge_bg} onChange={(v) => set("badge_bg", v)} />
+                <ColorField label={tr("Badge text")} value={form.badge_text_color} onChange={(v) => set("badge_text_color", v)} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Priority (lower = first)</Label>
+                <Label>{tr("Priority (lower = first)")}</Label>
                 <Input type="number" min={0} value={form.sort_order} onChange={(e) => set("sort_order", Number(e.target.value))} />
               </div>
               <div className="flex flex-col justify-end gap-2 pb-1">
                 <div className="flex items-center gap-3">
                   <Switch checked={form.is_active} onCheckedChange={(c) => set("is_active", c)} />
-                  <Label>Active</Label>
+                  <Label>{tr("Active")}</Label>
                 </div>
                 <div className="flex items-center gap-3">
                   <Switch checked={form.dismissible} onCheckedChange={(c) => set("dismissible", c)} />
-                  <Label>Dismissible</Label>
+                  <Label>{tr("Dismissible")}</Label>
                 </div>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={close}>Cancel</Button>
+            <Button variant="secondary" onClick={close}>{tr("Cancel")}</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !canSave}>
-              {saveMutation.isPending ? "Saving…" : "Save"}
+              {saveMutation.isPending ? tr("Saving…") : tr("Save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -325,14 +326,14 @@ const AdsManagement = () => {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete ad?</AlertDialogTitle>
-            <AlertDialogDescription><strong>{deleteTarget?.title}</strong> will be removed. This cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>{tr("Delete ad?")}</AlertDialogTitle>
+            <AlertDialogDescription><strong>{deleteTarget?.title}</strong>{" "}{tr("will be removed. This cannot be undone.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" disabled={deleteMutation.isPending}
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              {deleteMutation.isPending ? tr("Deleting…") : tr("Delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

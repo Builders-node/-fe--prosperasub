@@ -2,6 +2,7 @@
  * Honduras timezone utilities.
  * Honduras is permanently on CST (UTC-6) — no daylight saving time.
  */
+import { DATE_LOCALE } from "@/lib/tr";
 
 export const HN_TZ = "America/Tegucigalpa";
 
@@ -138,7 +139,7 @@ export function formatTimestampHN(
   if (!value) return "—";
   try {
     const date = typeof value === "string" ? new Date(value) : value;
-    return new Intl.DateTimeFormat("en-US", { timeZone: HN_TZ, ...options }).format(date);
+    return new Intl.DateTimeFormat(DATE_LOCALE, { timeZone: HN_TZ, ...options }).format(date);
   } catch {
     return String(value);
   }
@@ -172,7 +173,7 @@ export function formatDateHN(
     } else {
       date = value;
     }
-    return new Intl.DateTimeFormat("en-US", { timeZone: HN_TZ, ...options }).format(date);
+    return new Intl.DateTimeFormat(DATE_LOCALE, { timeZone: HN_TZ, ...options }).format(date);
   } catch {
     return String(value);
   }

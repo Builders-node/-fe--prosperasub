@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { fetchAllRows } from "@/lib/supabasePaging";
+import { tr } from "@/lib/tr";
 
 /**
  * Everything the fleet screens read — the cars, every booking and every block
@@ -65,7 +66,7 @@ export function useFleet(providerId?: string) {
         vehicles: (vehicles ?? []) as unknown as FleetVehicle[],
         bookings: bookings.map((b) => ({
           ...b,
-          customer: customerNameFrom({ user: users.get(String(b.user_id)), customerName: b.customer_name, fallback: "Walk-in" }),
+          customer: customerNameFrom({ user: users.get(String(b.user_id)), customerName: b.customer_name, fallback: tr("Walk-in") }),
           email: users.get(String(b.user_id))?.email ?? null,
         })),
         blocks: (blocks ?? []) as FleetBlock[],
@@ -94,4 +95,4 @@ export function overlapDays(start: string, end: string, from: string, to: string
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000) + 1;
 }
 
-export const FUEL_LABELS = ["Empty", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "Full"];
+export const FUEL_LABELS = [tr("Empty"), "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", tr("Full")];

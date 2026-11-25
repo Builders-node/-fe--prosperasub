@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Car } from "lucide-react";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { addDaysISO, holds, overlapDays, todayHN, type FleetBlock, type FleetBooking, type FleetVehicle } from "./fleetData";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * The line above the schedule: how the fleet did, and what today needs.
@@ -60,12 +61,12 @@ export function FleetPulse({ vehicles, bookings, blocks, onOpenBooking }: {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-radius-lg bg-card px-3 py-2.5 md:px-4">
         <div className="grid basis-full grid-cols-2 sm:basis-auto sm:flex-1 gap-x-6 gap-y-2 sm:flex sm:w-auto sm:flex-wrap sm:items-baseline">
-          <Metric label="Revenue" value={formatUSD(now.revenue)} delta={pct(now.revenue, before.revenue)} />
-          <Metric label="Rentals" value={String(now.rentals)} delta={pct(now.rentals, before.rentals)} />
-          <Metric label="Utilisation" value={`${now.utilisation}%`} delta={points(now.utilisation, before.utilisation)} hint="Booked days ÷ available car-days" />
-          <Metric label="Avg rental" value={now.avgDays ? `${now.avgDays.toFixed(1)} d` : "—"} delta={now.avgDays && before.avgDays ? pct(now.avgDays, before.avgDays) : null} />
+          <Metric label={tr("Revenue")} value={formatUSD(now.revenue)} delta={pct(now.revenue, before.revenue)} />
+          <Metric label={tr("Rentals")} value={String(now.rentals)} delta={pct(now.rentals, before.rentals)} />
+          <Metric label={tr("Utilisation")} value={`${now.utilisation}%`} delta={points(now.utilisation, before.utilisation)} hint={tr("Booked days ÷ available car-days")} />
+          <Metric label={tr("Avg rental")} value={now.avgDays ? `${now.avgDays.toFixed(1)} d` : "—"} delta={now.avgDays && before.avgDays ? pct(now.avgDays, before.avgDays) : null} />
         </div>
-        <div className="order-first flex self-start rounded-full bg-inset p-0.5 sm:order-none sm:self-auto" role="group" aria-label="Period">
+        <div className="order-first flex self-start rounded-full bg-inset p-0.5 sm:order-none sm:self-auto" role="group" aria-label={tr("Period")}>
           {PERIODS.map((d) => (
             <button key={d} type="button" onClick={() => setDays(d)} aria-pressed={days === d}
               className={cn("h-7 rounded-full px-2.5 text-meta font-semibold", days === d ? "bg-segment text-foreground" : "text-muted-foreground")}>
@@ -78,15 +79,15 @@ export function FleetPulse({ vehicles, bookings, blocks, onOpenBooking }: {
       {/* Today's jobs — only the lists that have something in them. */}
       {(goingOut.length + comingBack.length + late.length + notCollected.length + unpaid.length) > 0 && (
         <div className="grid gap-2 md:grid-cols-2">
-          {goingOut.length > 0 && <JobList title="Going out today" icon={ArrowUpRight} rows={goingOut} name={name} onOpen={onOpenBooking} />}
-          {comingBack.length > 0 && <JobList title="Coming back today" icon={ArrowDownLeft} rows={comingBack} name={name} onOpen={onOpenBooking} />}
+          {goingOut.length > 0 && <JobList title={tr("Going out today")} icon={ArrowUpRight} rows={goingOut} name={name} onOpen={onOpenBooking} />}
+          {comingBack.length > 0 && <JobList title={tr("Coming back today")} icon={ArrowDownLeft} rows={comingBack} name={name} onOpen={onOpenBooking} />}
           {(late.length > 0 || notCollected.length > 0) && (
-            <JobList title="Needs attention" icon={AlertTriangle} tone="text-negative"
+            <JobList title={tr("Needs attention")} icon={AlertTriangle} tone="text-negative"
               rows={[...late, ...notCollected]} name={name} onOpen={onOpenBooking}
-              note={(b) => (b.status === "active" ? `late since ${format(new Date(`${b.end_date}T00:00:00`), "MMM d")}` : "paid, not handed over")} />
+              note={(b) => (b.status === "active" ? `late since ${format(new Date(`${b.end_date}T00:00:00`), "MMM d", { locale: dfLocale })}` : tr("paid, not handed over"))} />
           )}
           {unpaid.length > 0 && (
-            <JobList title={`Unpaid · ${formatUSD(unpaid.reduce((s, b) => s + b.total_cents, 0))}`} icon={AlertTriangle} tone="text-attention"
+            <JobList title={tr("Unpaid · {formatUSD}", { formatUSD: formatUSD(unpaid.reduce((s, b) => s + b.total_cents, 0)) })} icon={AlertTriangle} tone="text-attention"
               rows={unpaid} name={name} onOpen={onOpenBooking} />
           )}
         </div>
@@ -108,7 +109,7 @@ function Metric({ label, value, delta, hint }: { label: string; value: string; d
       <span className="text-body font-semibold tabular-nums text-foreground">{value}</span>
       {delta != null && delta !== 0 && (
         <span className={cn("text-meta font-semibold tabular-nums", delta > 0 ? "text-positive" : "text-negative")}
-          title="Against the period before">
+          title={tr("Against the period before")}>
           {delta > 0 ? "▲" : "▼"}{Math.abs(delta)}{label === "Utilisation" ? "pt" : "%"}
         </span>
       )}
@@ -130,7 +131,7 @@ function JobList({ title, icon: Icon, rows, name, onOpen, tone, note }: {
           <span className="min-w-0">
             <span className="block truncate text-body font-semibold text-foreground">{b.customer}</span>
             <span className="block truncate text-meta text-muted-foreground">
-              {name(b.vehicle_id)}{note ? ` · ${note(b)}` : b.delivery_address ? ` · ${b.delivery_address}` : " · pickup at the office"}
+              {name(b.vehicle_id)}{note ? ` · ${note(b)}` : b.delivery_address ? ` · ${b.delivery_address}` : tr(" · pickup at the office")}
             </span>
           </span>
           <span className="shrink-0 text-meta tabular-nums text-muted-foreground">{formatUSD(b.total_cents)}</span>

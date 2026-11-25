@@ -15,6 +15,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { QueryError } from "@/components/patterns/QueryError";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Settings → Payments: which payment methods checkout offers, and the fee
@@ -22,10 +23,10 @@ import { QueryError } from "@/components/patterns/QueryError";
  * bottom of a revenue report.
  */
 const PAYMENT_METHOD_META = [
-  { method: "lightning", label: "Lightning", description: "Instant Bitcoin Lightning payments (Blink).", icon: Zap },
-  { method: "onchain", label: "On-chain Bitcoin", description: "On-chain BTC via Blink.", icon: Bitcoin },
-  { method: "paypal", label: "PayPal", description: "Pay with PayPal or card.", icon: CreditCard },
-  { method: "crypto_gateway", label: "Other crypto", description: "USDT, USDC, ETH, SOL… via the crypto gateway (NOWPayments). Needs NOWPAYMENTS_API_KEY on the backend.", icon: Coins },
+  { method: "lightning", label: tr("Lightning"), description: tr("Instant Bitcoin Lightning payments (Blink)."), icon: Zap },
+  { method: "onchain", label: tr("On-chain Bitcoin"), description: tr("On-chain BTC via Blink."), icon: Bitcoin },
+  { method: "paypal", label: tr("PayPal"), description: tr("Pay with PayPal or card."), icon: CreditCard },
+  { method: "crypto_gateway", label: tr("Other crypto"), description: tr("USDT, USDC, ETH, SOL… via the crypto gateway (NOWPayments). Needs NOWPAYMENTS_API_KEY on the backend."), icon: Coins },
 ] as const;
 
 /** Off until switched on — mirrors usePaymentMethods, so the toggle shows what the till does. */
@@ -63,7 +64,7 @@ export default function PaymentSettings() {
       // Explicit confirmation — flipping a live payment method silently is scary.
       toast.success(`${methodLabel(r.method)} ${r.enabled ? "turned on" : "turned off"}`);
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to update payment method"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to update payment method")),
   });
 
   // OFF-confirm — turning a method off pulls it from every checkout mid-flow.
@@ -88,9 +89,9 @@ export default function PaymentSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-method-settings"] });
-      toast.success("Surcharge updated");
+      toast.success(tr("Surcharge updated"));
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to update surcharge"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to update surcharge")),
   });
 
   const isMethodEnabled = (method: string) => {
@@ -104,16 +105,12 @@ export default function PaymentSettings() {
 
 
   return (
-    <SuperAdminLayout title="Payments" subtitle="Which payment methods checkout offers, and the fee each adds">
+    <SuperAdminLayout title={tr("Payments")} subtitle={tr("Which payment methods checkout offers, and the fee each adds")}>
             <section className="rounded-radius-md bg-card">
               <div className="flex flex-col gap-space-2 p-space-6">
                 <h3 className="text-panel-title flex items-center gap-space-2">
-                  <CreditCard className="h-5 w-5" />
-                  Payment methods
-                </h3>
-                <p className="type-body text-muted-foreground">
-                  Turn a method on or off. When off, it's hidden from every checkout on the platform.
-                </p>
+                  <CreditCard className="h-5 w-5" />{tr("Payment methods")}</h3>
+                <p className="type-body text-muted-foreground">{tr("Turn a method on or off. When off, it's hidden from every checkout on the platform.")}</p>
               </div>
               <div className="divide-y divide-border/60 p-0">
                 {/* Each toggle reads its state out of this list, so a failed fetch
@@ -124,7 +121,7 @@ export default function PaymentSettings() {
                   <div className="p-space-4">
                     <QueryError
                       compact
-                      title="Couldn't load payment method settings"
+                      title={tr("Couldn't load payment method settings")}
                       error={methodSettingsErrorObj}
                       onRetry={() => void refetchMethodSettings()}
                     />
@@ -145,8 +142,8 @@ export default function PaymentSettings() {
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center justify-end gap-3 pl-[56px] sm:pl-0">
-                        <div className="flex items-center gap-1.5" title="Extra fee added on top of the price for this method">
-                          <label className="text-xs text-muted-foreground">Fee</label>
+                        <div className="flex items-center gap-1.5" title={tr("Extra fee added on top of the price for this method")}>
+                          <label className="text-xs text-muted-foreground">{tr("Fee")}</label>
                           <SurchargeInput
                             method={method}
                             initial={surcharge}
@@ -158,7 +155,7 @@ export default function PaymentSettings() {
                           />
                         </div>
                         <Badge variant="secondary" className={enabled ? "bg-positive/15 text-positive dark:text-positive" : ""}>
-                          {enabled ? "On" : "Off"}
+                          {enabled ? tr("On") : tr("Off")}
                         </Badge>
                         <Switch
                           checked={enabled}
@@ -174,24 +171,18 @@ export default function PaymentSettings() {
       <AlertDialog open={!!confirmDisable} onOpenChange={(o) => !o && setConfirmDisable(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Turn off {methodLabel(confirmDisable)}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Customers won't be able to pay with {methodLabel(confirmDisable)} once this is off.
-              In-flight checkouts on this method will fail. You can turn it back
-              on at any time.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{trx("Turn off {methodLabel}?", { methodLabel: methodLabel(confirmDisable) })}</AlertDialogTitle>
+            <AlertDialogDescription>{trx("Customers won't be able to pay with {methodLabel} once this is off. In-flight checkouts on this method will fail. You can turn it back on at any time.", { methodLabel: methodLabel(confirmDisable) })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 if (confirmDisable) toggleMethodMutation.mutate({ method: confirmDisable, enabled: false });
                 setConfirmDisable(null);
               }}
-            >
-              Disable
-            </AlertDialogAction>
+            >{tr("Disable")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -244,13 +235,13 @@ function SurchargeInput({
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
         </div>
         {dirty && (
-          <Button size="sm" onClick={() => onCommit(n)} loading={saving} loadingText="Saving…">Save</Button>
+          <Button size="sm" onClick={() => onCommit(n)} loading={saving} loadingText={tr("Saving…")}>{tr("Save")}</Button>
         )}
       </div>
       {dirty && (
-        <p className="text-meta text-muted-foreground">A $100 order → customer pays {formatUSD(Math.round(10000 * (1 + n / 100)))}</p>
+        <p className="text-meta text-muted-foreground">{trx("A $100 order → customer pays {formatUSD}", { formatUSD: formatUSD(Math.round(10000 * (1 + n / 100))) })}</p>
       )}
-      {!valid && <p className="text-meta text-negative">0 to 100</p>}
+      {!valid && <p className="text-meta text-negative">{tr("0 to 100")}</p>}
     </div>
   );
 }

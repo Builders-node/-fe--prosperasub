@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
 import { toast } from "sonner";
+import { tr, trx } from "@/lib/tr";
 
 interface Props {
   mode: "lightning" | "onchain";
@@ -37,22 +38,22 @@ export function InvoiceQrPanel({
 }: Props) {
   const qrValue = mode === "lightning" ? invoice : (uri ?? (address ? `bitcoin:${address}` : ""));
   const linkHref = mode === "lightning" ? `lightning:${invoice}` : (uri ?? `bitcoin:${address}`);
-  const rowLabel = mode === "lightning" ? "Lightning Invoice" : "Bitcoin Address";
+  const rowLabel = mode === "lightning" ? tr("Lightning Invoice") : tr("Bitcoin Address");
   const rowValue = mode === "lightning" ? invoice ?? "" : address ?? "";
   const defaultWaiting = mode === "lightning"
-    ? "Waiting for payment..."
-    : "Waiting for payment… on-chain can take a few minutes.";
+    ? tr("Waiting for payment...")
+    : tr("Waiting for payment… on-chain can take a few minutes.");
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+    toast.success(tr("Copied to clipboard!"));
   };
 
   return (
     <section className="overflow-hidden rounded-radius-lg bg-card p-5 space-y-4">
       <h2 className="flex items-center gap-2 text-xl font-semibold tracking-[-0.02em] text-foreground">
         {mode === "lightning" ? <Zap className="h-5 w-5 text-bitcoin" /> : <Bitcoin className="h-5 w-5 text-bitcoin" />}
-        {mode === "lightning" ? "Pay with Lightning" : "Pay on-chain (Bitcoin)"}
+        {mode === "lightning" ? tr("Pay with Lightning") : tr("Pay on-chain (Bitcoin)")}
       </h2>
 
       {qrValue && (
@@ -69,10 +70,9 @@ export function InvoiceQrPanel({
       )}
 
       <div className="rounded-radius-md bg-inset p-4 text-center">
-        <p className="text-sm text-muted-foreground">Amount</p>
-        <p className="text-2xl font-semibold text-bitcoin">{sats.toLocaleString()} sats</p>
-        <p className="text-sm text-muted-foreground">
-          {formatUSD(totalCents)} total{mode === "onchain" ? " · send exactly this amount" : ""}
+        <p className="text-sm text-muted-foreground">{tr("Amount")}</p>
+        <p className="text-2xl font-semibold text-bitcoin">{trx("{toLocaleString} sats", { toLocaleString: sats.toLocaleString() })}</p>
+        <p className="text-sm text-muted-foreground">{trx("{totalCents} total", { totalCents: formatUSD(totalCents) })}{mode === "onchain" ? tr(" · send exactly this amount") : ""}
         </p>
       </div>
 
@@ -80,7 +80,7 @@ export function InvoiceQrPanel({
         <Label className="text-sm text-muted-foreground">{rowLabel}</Label>
         <div className="flex items-center gap-2">
           <code className="flex-1 rounded-radius-md bg-inset p-3 text-xs break-all max-h-20 overflow-y-auto">{rowValue}</code>
-          <Button variant="secondary" size="icon" onClick={() => copy(rowValue)} aria-label={`Copy ${rowLabel}`}>
+          <Button variant="secondary" size="icon" onClick={() => copy(rowValue)} aria-label={tr("Copy {rowLabel}", { rowLabel })}>
             <Copy className="h-4 w-4" />
           </Button>
         </div>
@@ -90,20 +90,16 @@ export function InvoiceQrPanel({
         {isExpired && !isPaid ? (
           <>
             <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">
-              This {mode === "lightning" ? "invoice" : "address"} expired. Nothing was charged.
-            </span>
+            <span className="text-sm font-medium text-muted-foreground">{mode === "lightning" ? tr("This invoice expired. Nothing was charged.") : tr("This address expired. Nothing was charged.")}</span>
             {onRetry && (
-              <Button variant="secondary" size="sm" onClick={onRetry}>
-                Get a new one
-              </Button>
+              <Button variant="secondary" size="sm" onClick={onRetry}>{tr("Get a new one")}</Button>
             )}
           </>
         ) : isPaid ? (
           <>
             <CheckCircle2 className="h-5 w-5 text-positive" />
             <span className="text-sm font-medium text-positive">
-              {mode === "lightning" ? "Payment confirmed!" : "Payment detected!"} {successLabel}
+              {mode === "lightning" ? tr("Payment confirmed!") : tr("Payment detected!")} {successLabel}
             </span>
           </>
         ) : (

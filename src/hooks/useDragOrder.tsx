@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Drag-to-reorder by pointer events, so it works with a finger as well as a
@@ -120,8 +121,8 @@ export function DragHandle({ label, className, ...props }: { label: string; clas
   return (
     <button
       type="button"
-      aria-label={`Move ${label}. Use arrow keys.`}
-      title="Drag to reorder"
+      aria-label={tr("Move {label}. Use arrow keys.", { label })}
+      title={tr("Drag to reorder")}
       {...props}
       className={cn("flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-[6px] text-muted-foreground/60 hover:bg-inset hover:text-foreground active:cursor-grabbing", className)}
     >

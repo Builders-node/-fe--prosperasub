@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import type { GeoPoint } from "@/lib/geo/places";
+import { tr } from "@/lib/tr";
 
 /**
  * Delivery zones — where things are brought, at what price, how fast.
@@ -45,9 +46,9 @@ export type DeliveryMode = "off" | "delivery" | "both";
  */
 export type ServiceMode = "self_service" | "on_site" | "delivery";
 export const SERVICE_MODES: Array<{ key: ServiceMode; label: string; customer: string; hint: string }> = [
-  { key: "self_service", label: "Self-service", customer: "I'll come", hint: "The customer comes to you — a class, a gym, a pickup." },
-  { key: "on_site", label: "Visit", customer: "Come to me", hint: "You go to the customer — cleaning, repairs, a massage at home." },
-  { key: "delivery", label: "Delivery", customer: "Deliver it", hint: "It is brought to the customer — food, goods." },
+  { key: "self_service", label: tr("Self-service"), customer: tr("I'll come"), hint: tr("The customer comes to you — a class, a gym, a pickup.") },
+  { key: "on_site", label: tr("Visit"), customer: tr("Come to me"), hint: tr("You go to the customer — cleaning, repairs, a massage at home.") },
+  { key: "delivery", label: tr("Delivery"), customer: tr("Deliver it"), hint: tr("It is brought to the customer — food, goods.") },
 ];
 export const serviceModeLabel = (m: ServiceMode) => SERVICE_MODES.find((x) => x.key === m)?.label ?? m;
 
@@ -223,14 +224,14 @@ export function quoteLine(q: DeliveryQuote): string {
     // a boolean discriminant does not narrow the union by itself.
     const no = q as Extract<DeliveryQuote, { ok: false }>;
     if (no.reason === "below_minimum" && no.minOrderCents) {
-      return `${visit ? "Visits" : "Delivery"} from ${formatUSD(no.minOrderCents)} orders`;
+      return (visit ? tr("Visits from {minOrderCents} orders", { minOrderCents: formatUSD(no.minOrderCents) }) : tr("Delivery from {minOrderCents} orders", { minOrderCents: formatUSD(no.minOrderCents) }));
     }
-    return visit ? "They don't come to this address" : "Not delivered to this address";
+    return visit ? tr("They don't come to this address") : tr("Not delivered to this address");
   }
   const yes = q as Extract<DeliveryQuote, { ok: true }>;
   const fee = visit
-    ? (yes.feeCents === 0 ? "They come to you · no call-out fee" : `Call-out fee ${formatUSD(yes.feeCents)}`)
-    : (yes.feeCents === 0 ? "Free delivery" : `Delivery ${formatUSD(yes.feeCents)}`);
+    ? (yes.feeCents === 0 ? tr("They come to you · no call-out fee") : tr("Call-out fee {feeCents}", { feeCents: formatUSD(yes.feeCents) }))
+    : (yes.feeCents === 0 ? tr("Free delivery") : `Delivery ${formatUSD(yes.feeCents)}`);
   return yes.eta ? `${fee} · ${yes.eta}` : fee;
 }
 
@@ -267,9 +268,9 @@ export function useProviderZones(providerId: string | null | undefined, enabled 
 
 /** The database's refusals, in words. */
 export const DELIVERY_REFUSALS: Record<string, string> = {
-  delivery_zone_unavailable: "That delivery zone is no longer served — choose the address again.",
-  offer_not_delivered: "This offer can't be received that way any more — choose another option.",
-  zone_not_offered: "This offer isn't delivered to that area.",
-  address_outside_zone: "That address is outside the area they serve — move the pin.",
-  below_minimum_order: "The order is below the minimum for delivery to that area.",
+  delivery_zone_unavailable: tr("That delivery zone is no longer served — choose the address again."),
+  offer_not_delivered: tr("This offer can't be received that way any more — choose another option."),
+  zone_not_offered: tr("This offer isn't delivered to that area."),
+  address_outside_zone: tr("That address is outside the area they serve — move the pin."),
+  below_minimum_order: tr("The order is below the minimum for delivery to that area."),
 };

@@ -19,6 +19,7 @@ import { bookingErrorMessage } from "@/lib/booking/errors";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { formatTime } from "@/lib/formatTime";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Book a time on one of a provider's calendars — any provider.
@@ -189,10 +190,10 @@ export default function BookCalendar() {
       const confirm = await accountApi(`/booking/holds/${held.bookingId}/confirm`, {
         method: "POST", body: JSON.stringify({}),
       });
-      if (confirm.error) throw new Error(bookingErrorMessage(confirm.error.message, "Could not confirm the booking"));
+      if (confirm.error) throw new Error(bookingErrorMessage(confirm.error.message, tr("Could not confirm the booking")));
     },
     onSuccess: () => {
-      toast.success("Booked");
+      toast.success(tr("Booked"));
       qc.invalidateQueries({ queryKey: bookingsKey });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -203,10 +204,10 @@ export default function BookCalendar() {
       const { error } = await accountApi(`/booking/bookings/${id}/cancel`, {
         method: "POST", body: JSON.stringify({}),
       });
-      if (error) throw new Error(bookingErrorMessage(error.message, "Could not cancel"));
+      if (error) throw new Error(bookingErrorMessage(error.message, tr("Could not cancel")));
     },
     onSuccess: () => {
-      toast.success("Cancelled");
+      toast.success(tr("Cancelled"));
       qc.invalidateQueries({ queryKey: bookingsKey });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -235,15 +236,13 @@ export default function BookCalendar() {
   const days = Array.from({ length: 14 }, (_, i) => addDaysISO(todayHN(), i));
 
   return (
-    <UserLayout title="Book a time" showBackButton backTo="/discovery" showBottomNav={false /* a decision page (PAGE_TYPES §5) */}>
+    <UserLayout title={tr("Book a time")} showBackButton backTo="/discovery" showBottomNav={false /* a decision page (PAGE_TYPES §5) */}>
       <div className="app-container space-y-1 pb-8 pt-1">
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
           <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">
-            {provider?.name ?? "Book a time"}
+            {provider?.name ?? tr("Book a time")}
           </h1>
-          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
-            Pick what you're booking, then a day and a time.
-          </p>
+          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">{tr("Pick what you're booking, then a day and a time.")}</p>
         </section>
 
         {/* Bookings are for the business's subscribers — always, not a
@@ -251,13 +250,11 @@ export default function BookCalendar() {
             answer, or signed out) is not "no": the engine has the last word. */}
         {coverage && coverage.member === false ? (
           <section className="rounded-radius-lg bg-card p-6 text-center">
-            <p className="text-title font-semibold text-foreground">Booking is for subscribers</p>
-            <p className="mt-1 text-body text-muted-foreground">
-              Subscribe to one of {provider?.name ?? "this business"}'s plans, then come back to pick a time.
-            </p>
+            <p className="text-title font-semibold text-foreground">{tr("Booking is for subscribers")}</p>
+            <p className="mt-1 text-body text-muted-foreground">{trx("Subscribe to one of {value}'s plans, then come back to pick a time.", { value: provider?.name ?? tr("this business") })}</p>
             {provider?.archetype_key && (
               <Button asChild className="mt-4">
-                <Link to={providerHref(provider.archetype_key, provider.slug || provider.id)}>See plans</Link>
+                <Link to={providerHref(provider.archetype_key, provider.slug || provider.id)}>{tr("See plans")}</Link>
               </Button>
             )}
           </section>
@@ -265,9 +262,7 @@ export default function BookCalendar() {
           <Skeleton className="h-24" />
         ) : calendars.length === 0 ? (
           <section className="rounded-radius-lg bg-card p-8 text-center tracking-[-0.02em]">
-            <p className="text-[16px] leading-[22px] text-muted-foreground">
-              This business doesn't take bookings on a calendar yet.
-            </p>
+            <p className="text-[16px] leading-[22px] text-muted-foreground">{tr("This business doesn't take bookings on a calendar yet.")}</p>
           </section>
         ) : (
           <>
@@ -281,7 +276,7 @@ export default function BookCalendar() {
                         key={c.id}
                         type="button"
                         onClick={() => setCalendarId(c.id)}
-                        title={included ? undefined : "Not included in your plan"}
+                        title={included ? undefined : tr("Not included in your plan")}
                         className={cn(
                           "rounded-full px-3.5 py-2 text-[14px] font-semibold transition-colors",
                           c.id === activeId ? "bg-foreground text-background"
@@ -290,7 +285,7 @@ export default function BookCalendar() {
                         )}
                       >
                         {c.name}
-                        {!included && <span className="ml-1.5 font-normal opacity-70">· not in your plan</span>}
+                        {!included && <span className="ml-1.5 font-normal opacity-70">{tr("· not in your plan")}</span>}
                       </button>
                     );
                   })}
@@ -302,12 +297,8 @@ export default function BookCalendar() {
 
             {!includedIn(activeId) && (
               <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-                <p className="text-[16px] leading-[22px] text-foreground">
-                  Your plan doesn't include this one.
-                </p>
-                <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">
-                  Pick another calendar above, or change plan to add it.
-                </p>
+                <p className="text-[16px] leading-[22px] text-foreground">{tr("Your plan doesn't include this one.")}</p>
+                <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">{tr("Pick another calendar above, or change plan to add it.")}</p>
               </section>
             )}
 
@@ -340,7 +331,7 @@ export default function BookCalendar() {
 
             {mine.length > 0 && (
               <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-                <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">Yours, this day</h2>
+                <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">{tr("Yours, this day")}</h2>
                 <div className="mt-3 space-y-2">
                   {mine.map((b) => (
                     <div key={b.id} className="flex items-center gap-3 rounded-radius-md bg-inset p-3">
@@ -353,8 +344,7 @@ export default function BookCalendar() {
                         disabled={cancel.isPending}
                         onClick={() => cancel.mutate(b.id)}
                       >
-                        <X className="h-4 w-4" /> Cancel
-                      </Button>
+                        <X className="h-4 w-4" />{" "}{tr("Cancel")}</Button>
                     </div>
                   ))}
                 </div>
@@ -365,10 +355,7 @@ export default function BookCalendar() {
               <div className="flex justify-center py-12"><Spinner /></div>
             ) : options.length === 0 ? (
               <section className="rounded-radius-lg bg-card p-8 text-center tracking-[-0.02em]">
-                <p className="text-[16px] leading-[22px] text-muted-foreground">
-                  Nothing bookable on this day. Try another — or the business may not have opened
-                  this calendar yet.
-                </p>
+                <p className="text-[16px] leading-[22px] text-muted-foreground">{tr("Nothing bookable on this day. Try another — or the business may not have opened this calendar yet.")}</p>
               </section>
             ) : (
               <TimeSlotPicker

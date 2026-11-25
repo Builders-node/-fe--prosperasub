@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 export interface FoodMealPlan {
   id: string;
   provider_id: string;
@@ -87,12 +88,12 @@ export interface FoodOrderItem {
 }
 
 export const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: "Breakfast",
-  lunch: "Lunch",
-  dinner: "Dinner",
-  snack: "Snack",
-  other: "Other",
-  meal: "Meal",
+  breakfast: tr("Breakfast"),
+  lunch: tr("Lunch"),
+  dinner: tr("Dinner"),
+  snack: tr("Snack"),
+  other: tr("Other"),
+  meal: tr("Meal"),
 };
 
 export const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack", "other"];
@@ -168,13 +169,13 @@ export type FoodDeliveryStatus = "pending" | "out_for_delivery" | "delivered";
 export type FoodSubscriptionStatus = "pending" | "active" | "paused" | "cancelled" | "expired";
 
 export const DAY_LABELS: Record<DayOfWeek, string> = {
-  monday: "Monday",
-  tuesday: "Tuesday",
-  wednesday: "Wednesday",
-  thursday: "Thursday",
-  friday: "Friday",
-  saturday: "Saturday",
-  sunday: "Sunday",
+  monday: tr("Monday"),
+  tuesday: tr("Tuesday"),
+  wednesday: tr("Wednesday"),
+  thursday: tr("Thursday"),
+  friday: tr("Friday"),
+  saturday: tr("Saturday"),
+  sunday: tr("Sunday"),
 };
 
 export const DAYS_OF_WEEK: DayOfWeek[] = [

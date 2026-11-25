@@ -13,6 +13,7 @@ import { WorkspaceRow } from "@/components/provider/WorkspaceUI";
 import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
 import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
 import { weeklyFromWorkingHours } from "@/lib/booking/bookingSettings";
+import { tr } from "@/lib/tr";
 
 const followsWorkingHours = (raw: unknown) =>
   !!raw && typeof raw === "object" && (raw as { followWorkingHours?: unknown }).followWorkingHours === true;
@@ -63,19 +64,19 @@ export function ProviderDetailsRows({ provider }: { provider: UniversalProviderR
   const delivers = (provider.capabilities ?? []).includes("delivery");
   return (
     <div className="space-y-4">
-      <Row icon={<MapPin className="h-4 w-4 text-muted-foreground" />} label="Location">
-        {provider.location || <em className="text-muted-foreground/70">Not set</em>}
+      <Row icon={<MapPin className="h-4 w-4 text-muted-foreground" />} label={tr("Location")}>
+        {provider.location || <em className="text-muted-foreground/70">{tr("Not set")}</em>}
       </Row>
-      <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Working hours">
-        {formatWorkingHours(provider.working_hours) || <em className="text-muted-foreground/70">Not set</em>}
+      <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label={tr("Working hours")}>
+        {formatWorkingHours(provider.working_hours) || <em className="text-muted-foreground/70">{tr("Not set")}</em>}
       </Row>
-      <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
-        {provider.contact_phone || <em className="text-muted-foreground/70">Not set</em>}
+      <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label={tr("Phone")}>
+        {provider.contact_phone || <em className="text-muted-foreground/70">{tr("Not set")}</em>}
       </Row>
-      <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
-        {provider.contact_email || <em className="text-muted-foreground/70">Not set</em>}
+      <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label={tr("Email")}>
+        {provider.contact_email || <em className="text-muted-foreground/70">{tr("Not set")}</em>}
       </Row>
-      <Row icon={<CalendarCheck className="h-4 w-4 text-muted-foreground" />} label="Booking calendar">
+      <Row icon={<CalendarCheck className="h-4 w-4 text-muted-foreground" />} label={tr("Booking calendar")}>
         {provider.google_calendar_id
           ? <CalendarDetails
               providerId={provider.id}
@@ -86,14 +87,14 @@ export function ProviderDetailsRows({ provider }: { provider: UniversalProviderR
       </Row>
       <Row icon={<Percent className="h-4 w-4 text-muted-foreground" />} label="VAT">
         {Number(provider.vat_pct) > 0
-          ? `${Number(provider.vat_pct)}% — added on top of every price at checkout`
-          : <em className="text-muted-foreground/70">None</em>}
+          ? tr("{pct}% — added on top of every price at checkout", { pct: Number(provider.vat_pct) })
+          : <em className="text-muted-foreground/70">{tr("None")}</em>}
       </Row>
       {delivers && (
-        <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery">
+        <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label={tr("Delivery")}>
           {provider.delivery_info
             ? <span className="whitespace-pre-line">{provider.delivery_info}</span>
-            : <em className="text-muted-foreground/70">Not set</em>}
+            : <em className="text-muted-foreground/70">{tr("Not set")}</em>}
         </Row>
       )}
     </div>
@@ -131,7 +132,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
   const [vat, setVat] = useState(() => vatText(provider));
   const vatValue = vat.trim() === "" ? null : Number(vat.replace(",", "."));
   const vatProblem = vatValue != null && (!Number.isFinite(vatValue) || vatValue < 0 || vatValue > 50)
-    ? "Between 0 and 50 %." : null;
+    ? tr("Between 0 and 50 %.") : null;
 
   // Every opening starts from what is saved, not from a half-typed earlier try.
   useEffect(() => {
@@ -174,20 +175,20 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
           : {}),
         updated_at: new Date().toISOString(),
       };
-      if (!payload.name) throw new Error("Name is required");
-      if (vatProblem) throw new Error(`VAT: ${vatProblem}`);
-      if (hasGoogleReview && googleReview.trim() && !/^https:\/\/\S+$/.test(googleReview.trim())) throw new Error("Google review link: paste the full https:// link");
+      if (!payload.name) throw new Error(tr("Name is required"));
+      if (vatProblem) throw new Error(tr("VAT: {vatProblem}", { vatProblem }));
+      if (hasGoogleReview && googleReview.trim() && !/^https:\/\/\S+$/.test(googleReview.trim())) throw new Error(tr("Google review link: paste the full https:// link"));
       const { error } = await supabaseDb.from("providers").update(payload).eq("id", provider.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "edit", "provider", provider.id, payload);
     },
     onSuccess: () => {
-      toast.success("Saved");
+      toast.success(tr("Saved"));
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
       qc.invalidateQueries({ queryKey: ["admin-legacy-provider-row"] });
       onOpenChange(false);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not save"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not save")),
   });
 
   return (
@@ -195,7 +196,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
       showAdminFields={isAdmin}
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit business"
+      title={tr("Edit business")}
       values={form}
       onChange={setForm}
       onSave={() => save.mutate()}
@@ -203,11 +204,11 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
       extras={
         <>
           <div className="space-y-2">
-            <p className="text-body text-muted-foreground">Working hours</p>
+            <p className="text-body text-muted-foreground">{tr("Working hours")}</p>
             <WorkingHoursEditor value={hours} onChange={setHours} />
           </div>
           <div className="space-y-2">
-            <p className="text-body text-muted-foreground">VAT, %</p>
+            <p className="text-body text-muted-foreground">{tr("VAT, %")}</p>
             <Input
               inputMode="decimal"
               value={vat}
@@ -216,31 +217,29 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
               className={vatProblem ? "border-destructive" : undefined}
             />
             <p className="text-xs text-muted-foreground">
-              {vatProblem ?? "Added on top of every price at checkout and shown to the customer as a separate line. It is yours in full — no commission is taken on it. Leave empty for none."}
+              {vatProblem ?? tr("Added on top of every price at checkout and shown to the customer as a separate line. It is yours in full — no commission is taken on it. Leave empty for none.")}
             </p>
           </div>
           {hasGoogleReview && (
             <div className="space-y-2">
-              <p className="text-body text-muted-foreground">Google review link</p>
+              <p className="text-body text-muted-foreground">{tr("Google review link")}</p>
               <Input
                 inputMode="url"
                 value={googleReview}
                 onChange={(e) => setGoogleReview(e.target.value)}
                 placeholder="https://g.page/r/…/review"
               />
-              <p className="text-xs text-muted-foreground">
-                From your Google Business Profile → "Ask for reviews". Customers who rate you 4 or 5 stars on EverySub are offered this link, so your Google rating grows too.
-              </p>
+              <p className="text-xs text-muted-foreground">{tr("From your Google Business Profile → \"Ask for reviews\". Customers who rate you 4 or 5 stars on EverySub are offered this link, so your Google rating grows too.")}</p>
             </div>
           )}
           {delivers && (
             <div className="space-y-2">
-              <p className="text-body text-muted-foreground">Delivery</p>
+              <p className="text-body text-muted-foreground">{tr("Delivery")}</p>
               <Textarea
                 value={delivery}
                 onChange={(e) => setDelivery(e.target.value)}
                 rows={3}
-                placeholder="Delivery windows, fees, minimum order…"
+                placeholder={tr("Delivery windows, fees, minimum order…")}
               />
             </div>
           )}
@@ -277,21 +276,21 @@ function ProvisionCalendar({ providerId }: { providerId: string }) {
     mutationFn: async () => {
       const { data, error } = await adminApi(`/admin/providers/${providerId}/calendar/provision`, { method: "POST" });
       if (error) throw new Error(String(error));
-      if (!data?.calendarId) throw new Error("Google Calendar is not configured on the server yet");
+      if (!data?.calendarId) throw new Error(tr("Google Calendar is not configured on the server yet"));
       return data;
     },
     onSuccess: () => {
-      toast.success("Calendar created and shared with you");
+      toast.success(tr("Calendar created and shared with you"));
       qc.invalidateQueries({ queryKey: ["universal-provider", providerId] });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not create the calendar"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not create the calendar")),
   });
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <em className="text-muted-foreground/70">Not set up</em>
+      <em className="text-muted-foreground/70">{tr("Not set up")}</em>
       <Button size="sm" variant="outline" className="px-3"
         onClick={() => run.mutate()} disabled={run.isPending}>
-        {run.isPending ? "Creating…" : "Create it"}
+        {run.isPending ? tr("Creating…") : tr("Create it")}
       </Button>
     </span>
   );
@@ -319,14 +318,14 @@ function CalendarDetails({
     mutationFn: async () => {
       const { data, error } = await adminApi(`/admin/providers/${providerId}/calendar/provision`, { method: "POST" });
       if (error) throw new Error(String(error));
-      if (!data?.shared) throw new Error("Google accepted the request but didn't confirm the share");
+      if (!data?.shared) throw new Error(tr("Google accepted the request but didn't confirm the share"));
       return data;
     },
     onSuccess: () => {
-      toast.success(`Shared with ${contactEmail}`);
+      toast.success(tr("Shared with {contactEmail}", { contactEmail }));
       qc.invalidateQueries({ queryKey: ["universal-provider", providerId] });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not share the calendar"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not share the calendar")),
   });
 
   return (
@@ -334,22 +333,17 @@ function CalendarDetails({
       <span className="block break-all font-mono text-xs text-muted-foreground">{calendarId}</span>
       <span className="flex flex-wrap items-center gap-2">
         <a href={href} target="_blank" rel="noreferrer"
-           className="text-sm font-semibold text-primary underline-offset-2 hover:underline">
-          Open in Google Calendar
-        </a>
+           className="text-sm font-semibold text-primary underline-offset-2 hover:underline">{tr("Open in Google Calendar")}</a>
         {/* Always offered: the platform owner is shared on every calendar, so
             there is someone to grant access to even when the provider has not
             given an address. */}
         <Button size="sm" variant="outline" className="px-3"
           onClick={() => share.mutate()} disabled={share.isPending}>
-          {share.isPending ? "Sharing…" : contactEmail ? `Share with ${contactEmail}` : "Grant access"}
+          {share.isPending ? tr("Sharing…") : contactEmail ? tr("Share with {contactEmail}", { contactEmail }) : tr("Grant access")}
         </Button>
       </span>
       {!contactEmail && (
-        <span className="block text-xs text-muted-foreground">
-          Shared with the platform owner. Add an email above to give this
-          provider access too.
-        </span>
+        <span className="block text-xs text-muted-foreground">{tr("Shared with the platform owner. Add an email above to give this provider access too.")}</span>
       )}
     </span>
   );

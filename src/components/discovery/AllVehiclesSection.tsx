@@ -1,5 +1,6 @@
 import { useVehicles, VehicleCard } from "@/features/vehicles";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { tr } from "@/lib/tr";
 
 /**
  * Every car on the platform, under the vehicle types on the Vehicles tab —
@@ -12,7 +13,7 @@ export function AllVehiclesSection() {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-heading font-semibold text-foreground">All vehicles</h2>
+      <h2 className="text-heading font-semibold text-foreground">{tr("All vehicles")}</h2>
       <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-4">
         {isLoading
           ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-square" />)

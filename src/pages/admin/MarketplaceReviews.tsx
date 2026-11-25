@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * What customers said, and the one lever the platform has over it.
@@ -124,12 +125,12 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
       }
     },
     onSuccess: (_d, v) => {
-      toast.success(v.hide ? "Review hidden" : "Review restored");
+      toast.success(v.hide ? tr("Review hidden") : tr("Review restored"));
       invalidate();
       setHideTarget(null);
       setHideReason("");
     },
-    onError: (e: any) => toast.error(e?.message || "Could not save"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not save")),
   });
 
   const remove = useMutation({
@@ -138,8 +139,8 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
       if (e) throw e;
       if (userData?.id) await logAuditEvent(userData.id, "delete", "provider_review", row.id, {});
     },
-    onSuccess: () => { toast.success("Review deleted"); invalidate(); setDeleteTarget(null); },
-    onError: (e: any) => toast.error(e?.message || "Could not delete"),
+    onSuccess: () => { toast.success(tr("Review deleted")); invalidate(); setDeleteTarget(null); },
+    onError: (e: any) => toast.error(e?.message || tr("Could not delete")),
   });
 
   const filtered = useMemo(() => {
@@ -175,7 +176,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
       <AdminListShell
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Search the text, the customer or the business"
+        searchPlaceholder={tr("Search the text, the customer or the business")}
         isLoading={isLoading}
         isError={isError}
         error={error}
@@ -184,15 +185,15 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
         isNoResults={rows.length > 0 && filtered.length === 0}
         onClearFilters={hasFilters ? clearFilters : undefined}
         count={filtered.length}
-        emptyTitle="No reviews yet"
-        emptySubtitle="Customers are asked for one after a finished job."
+        emptyTitle={tr("No reviews yet")}
+        emptySubtitle={tr("Customers are asked for one after a finished job.")}
         filters={
           <>
             {!scopedProvider && (
               <Select value={providerFilter} onValueChange={setProviderFilter}>
-                <SelectTrigger inputSize="sm" className="w-[180px]"><SelectValue placeholder="Business" /></SelectTrigger>
+                <SelectTrigger inputSize="sm" className="w-[180px]"><SelectValue placeholder={tr("Business")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All businesses</SelectItem>
+                  <SelectItem value="all">{tr("All businesses")}</SelectItem>
                   {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -200,7 +201,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
             <Select value={rating} onValueChange={setRating}>
               <SelectTrigger inputSize="sm" className="w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any rating</SelectItem>
+                <SelectItem value="all">{tr("Any rating")}</SelectItem>
                 {[5, 4, 3, 2, 1].map((n) => (
                   <SelectItem key={n} value={String(n)}>{n} ★</SelectItem>
                 ))}
@@ -209,9 +210,9 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
             <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
               <SelectTrigger inputSize="sm" className="w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="visible">On the storefront</SelectItem>
-                <SelectItem value="hidden">Hidden</SelectItem>
+                <SelectItem value="all">{tr("All")}</SelectItem>
+                <SelectItem value="visible">{tr("On the storefront")}</SelectItem>
+                <SelectItem value="hidden">{tr("Hidden")}</SelectItem>
               </SelectContent>
             </Select>
           </>
@@ -220,10 +221,10 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("rating")}><SortHeader {...sort.headerProps("rating")}>Rating</SortHeader></TableHead>
-              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("review")}><SortHeader {...sort.headerProps("review")}>Review</SortHeader></TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>Business</SortHeader></TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("when")}><SortHeader {...sort.headerProps("when")}>When</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("rating")}><SortHeader {...sort.headerProps("rating")}>{tr("Rating")}</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("review")}><SortHeader {...sort.headerProps("review")}>{tr("Review")}</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>{tr("Business")}</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("when")}><SortHeader {...sort.headerProps("when")}>{tr("When")}</SortHeader></TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -237,13 +238,12 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
                   </span>
                 </TableCell>
                 <TableCell className="max-w-[420px] whitespace-normal px-4 py-3">
-                  <p className="truncate text-foreground">{r.comment || <span className="text-muted-foreground">— no text —</span>}</p>
+                  <p className="truncate text-foreground">{r.comment || <span className="text-muted-foreground">{tr("— no text —")}</span>}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {r.customer_name || "Anonymous"}
                     <span className="md:hidden"> · {providerName.get(r.provider_id) ?? "—"} · {formatDateHN(r.created_at)}</span>
                     {r.hidden_at && (
-                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-meta">
-                        hidden{r.hidden_reason ? ` · ${r.hidden_reason}` : ""}
+                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-meta">{tr("hidden")}{r.hidden_reason ? ` · ${r.hidden_reason}` : ""}
                       </span>
                     )}
                   </p>
@@ -263,7 +263,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
                       <button
                         type="button"
                         className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        aria-label="Row actions"
+                        aria-label={tr("Row actions")}
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
@@ -271,19 +271,16 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
                     <DropdownMenuContent align="end">
                       {r.hidden_at ? (
                         <DropdownMenuItem onSelect={() => setHidden.mutate({ row: r, hide: false })}>
-                          <Eye className="mr-2 h-3.5 w-3.5" /> Put back on the storefront
-                        </DropdownMenuItem>
+                          <Eye className="mr-2 h-3.5 w-3.5" />{" "}{tr("Put back on the storefront")}</DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem onSelect={() => { setHideTarget(r); setHideReason(""); }}>
-                          <EyeOff className="mr-2 h-3.5 w-3.5" /> Hide from the storefront
-                        </DropdownMenuItem>
+                          <EyeOff className="mr-2 h-3.5 w-3.5" />{" "}{tr("Hide from the storefront")}</DropdownMenuItem>
                       )}
                       <DropdownMenuItem
                         onSelect={() => setDeleteTarget(r)}
                         className="text-destructive focus:text-destructive"
                       >
-                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                      </DropdownMenuItem>
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />{" "}{tr("Delete")}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -305,28 +302,23 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
       <AlertDialog open={!!hideTarget} onOpenChange={(o) => !o && setHideTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hide this review?</AlertDialogTitle>
-            <AlertDialogDescription>
-              It comes off the business's page and stops counting towards their rating.
-              The review itself is kept, and you can put it back at any time.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{tr("Hide this review?")}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("It comes off the business's page and stops counting towards their rating. The review itself is kept, and you can put it back at any time.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <div>
-            <Label htmlFor="hide-reason">Why (optional)</Label>
+            <Label htmlFor="hide-reason">{tr("Why (optional)")}</Label>
             <Input
               id="hide-reason"
               value={hideReason}
               onChange={(e) => setHideReason(e.target.value)}
-              placeholder="Abusive language, not a real customer…"
+              placeholder={tr("Abusive language, not a real customer…")}
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => hideTarget && setHidden.mutate({ row: hideTarget, hide: true, reason: hideReason })}
-            >
-              Hide
-            </AlertDialogAction>
+            >{tr("Hide")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -334,21 +326,15 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this review?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes it permanently, with no record of what it said. If you only
-              want it off the storefront, <strong>hide</strong> it instead — that keeps
-              the text and who took it down.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{tr("Delete this review?")}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("This removes it permanently, with no record of what it said. If you only want it off the storefront,")}{" "}<strong>{tr("hide")}</strong>{" "}{tr("it instead — that keeps the text and who took it down.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && remove.mutate(deleteTarget)}
               variant="destructive"
-            >
-              Delete
-            </AlertDialogAction>
+            >{tr("Delete")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -357,7 +343,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Reviews" subtitle="What customers said, across every business">
+    <SuperAdminLayout title={tr("Reviews")} subtitle={tr("What customers said, across every business")}>
       {body}
     </SuperAdminLayout>
   );

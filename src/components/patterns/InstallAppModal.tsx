@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useI18n } from "@/i18n";
 import { GA_ID, readConsent } from "@/lib/analytics/ga";
+import { tr } from "@/lib/tr";
 
 const DISMISS_FOREVER_KEY = "prospera_install_prompt_dismissed";
 const DISMISS_SESSION_KEY = "prospera_install_prompt_session";
@@ -56,38 +57,38 @@ function detectPlatform(): Platform {
 // Bilingual copy kept local — these strings don't belong in the typed app dictionary.
 const COPY = {
   en: {
-    title: "Install App",
-    pill: "Install app",
-    hide: "Hide",
+    title: tr("Install App"),
+    pill: tr("Install app"),
+    hide: tr("Hide"),
     ios: [
-      ['Tap the ', 'Share', ' button in the toolbar'],
-      ['Tap ', '"Add to Home Screen"', ''],
-      ['Tap ', '"Add"', ' to confirm'],
+      [tr("Tap the "), tr("Share"), tr(" button in the toolbar")],
+      [tr("Tap "), tr("\"Add to Home Screen\""), ''],
+      [tr("Tap "), tr("\"Add\""), tr(" to confirm")],
     ],
     android: [
-      ['Tap the ', 'menu', ' button in the toolbar'],
-      ['Tap ', '"Add to Home screen"', ''],
-      ['Tap ', '"Install"', ' to confirm'],
+      [tr("Tap the "), 'menu', tr(" button in the toolbar")],
+      [tr("Tap "), tr("\"Add to Home screen\""), ''],
+      [tr("Tap "), tr("\"Install\""), tr(" to confirm")],
     ],
-    close: "Close",
-    dontShow: "Don't show again",
+    close: tr("Close"),
+    dontShow: tr("Don't show again"),
   },
   es: {
-    title: "Instalar app",
-    pill: "Instalar app",
-    hide: "Ocultar",
+    title: tr("Instalar app"),
+    pill: tr("Instalar app"),
+    hide: tr("Ocultar"),
     ios: [
-      ['Toca el botón ', 'Compartir', ' en la barra'],
-      ['Toca ', '"Agregar a inicio"', ''],
-      ['Toca ', '"Agregar"', ' para confirmar'],
+      [tr("Toca el botón "), tr("Compartir"), tr(" en la barra")],
+      [tr("Toca "), tr("\"Agregar a inicio\""), ''],
+      [tr("Toca "), tr("\"Agregar\""), ' para confirmar'],
     ],
     android: [
-      ['Toca el botón de ', 'menú', ' en la barra'],
-      ['Toca ', '"Agregar a pantalla de inicio"', ''],
-      ['Toca ', '"Instalar"', ' para confirmar'],
+      [tr("Toca el botón de "), tr("menú"), tr(" en la barra")],
+      [tr("Toca "), tr("\"Agregar a pantalla de inicio\""), ''],
+      [tr("Toca "), tr("\"Instalar\""), ' para confirmar'],
     ],
-    close: "Cerrar",
-    dontShow: "No volver a mostrar",
+    close: tr("Cerrar"),
+    dontShow: tr("No volver a mostrar"),
   },
 } as const;
 

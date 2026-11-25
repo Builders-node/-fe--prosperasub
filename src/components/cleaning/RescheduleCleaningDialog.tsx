@@ -16,6 +16,7 @@ import {
 import { supabaseDb, supabase, ensureCleaningSlot } from "@/integrations/supabase/client";
 import { todayHN } from "@/lib/timezone";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * Reschedule an existing cleaning booking to another day / time.
@@ -149,14 +150,14 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
 
   const reschedule = useMutation({
     mutationFn: async () => {
-      if (!booking) throw new Error("No booking");
-      if (!date) throw new Error("Pick a date");
+      if (!booking) throw new Error(tr("No booking"));
+      if (!date) throw new Error(tr("Pick a date"));
 
       // Resolve the target slot — either the picked one or a seeded custom slot.
       let targetSlotId = slotId;
       let targetSlot: any = null;
       if (useCustom) {
-        if (!customStart) throw new Error("Pick a start time");
+        if (!customStart) throw new Error(tr("Pick a start time"));
         const end = customEnd || customStart;
         // ensureCleaningSlot is idempotent — it returns the existing slot if
         // date+start+end already exists, or seeds a new one.
@@ -166,23 +167,23 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
         targetSlotId = seeded.id;
         targetSlot = seeded;
       } else {
-        if (!targetSlotId) throw new Error("Pick a time slot");
+        if (!targetSlotId) throw new Error(tr("Pick a time slot"));
         const { data, error } = await supabaseDb
           .from("cleaning_available_slots")
           .select("*").eq("id", targetSlotId).single();
-        if (error || !data) throw new Error("Slot not found");
-        if (!data.is_active) throw new Error("That slot is not available");
+        if (error || !data) throw new Error(tr("Slot not found"));
+        if (!data.is_active) throw new Error(tr("That slot is not available"));
         targetSlot = data;
       }
 
       const oldSlotId = booking.currentSlotId;
-      if (targetSlotId === oldSlotId) throw new Error("Pick a different slot");
+      if (targetSlotId === oldSlotId) throw new Error(tr("Pick a different slot"));
 
       // Only enforce capacity when moving to a NEW slot (we already own our
       // seat on the current one). Ensure custom-seeded slots that already had
       // other bookings don't overflow.
       if ((targetSlot.current_bookings ?? 0) >= (targetSlot.max_bookings ?? 0)) {
-        throw new Error("That slot is full");
+        throw new Error(tr("That slot is full"));
       }
 
       // Move the booking. Direct table write — the admin PATCH DTO is
@@ -243,7 +244,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
       } catch { /* best-effort */ }
     },
     onSuccess: () => {
-      toast.success("Cleaning rescheduled");
+      toast.success(tr("Cleaning rescheduled"));
       // Every surface that reads cleaning bookings — invalidate broadly so the
       // calendar, By-customer list, and admin Operations page all refresh.
       qc.invalidateQueries({ queryKey: ["unified-bookings"] });
@@ -252,11 +253,11 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message || "Could not reschedule"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not reschedule")),
   });
 
   const currentLabel = booking?.currentDate && booking.currentStartTime
-    ? `${format(new Date(`${booking.currentDate}T00:00:00`), "MMM d")} · ${to12h(booking.currentStartTime)}`
+    ? `${format(new Date(`${booking.currentDate}T00:00:00`), "MMM d", { locale: dfLocale })} · ${to12h(booking.currentStartTime)}`
     : "";
 
   return (
@@ -264,20 +265,19 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-primary" /> Reschedule cleaning
-          </DialogTitle>
+            <CalendarClock className="h-5 w-5 text-primary" />{" "}{tr("Reschedule cleaning")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {booking && (
             <p className="text-xs text-muted-foreground">
               {booking.customerName ?? "Customer"}
-              {currentLabel && <> · currently <b>{currentLabel}</b></>}
+              {currentLabel && <>{" "}{tr("· currently")}{" "}<b>{currentLabel}</b></>}
             </p>
           )}
 
           <div>
-            <Label>New date *</Label>
+            <Label>{tr("New date *")}</Label>
             <Input
               type="date"
               value={date}
@@ -288,10 +288,8 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
 
           <div className="flex items-center justify-between rounded-radius-md bg-muted/30 p-3">
             <div>
-              <p className="text-sm font-semibold">Custom time</p>
-              <p className="text-xs text-muted-foreground">
-                Off — pick from prepared slots. On — type any start/end time.
-              </p>
+              <p className="text-sm font-semibold">{tr("Custom time")}</p>
+              <p className="text-xs text-muted-foreground">{tr("Off — pick from prepared slots. On — type any start/end time.")}</p>
             </div>
             <button
               type="button"
@@ -309,7 +307,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
           {useCustom ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Start time *</Label>
+                <Label>{tr("Start time *")}</Label>
                 <Input
                   type="time"
                   value={customStart}
@@ -317,7 +315,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
                 />
               </div>
               <div>
-                <Label>End time</Label>
+                <Label>{tr("End time")}</Label>
                 <Input
                   type="time"
                   value={customEnd}
@@ -327,17 +325,17 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
             </div>
           ) : (
             <div>
-              <Label>Time slot *</Label>
+              <Label>{tr("Time slot *")}</Label>
               <Select value={slotId} onValueChange={setSlotId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={slotsLoading ? "Loading…" : "Pick a slot"} />
+                  <SelectValue placeholder={slotsLoading ? tr("Loading…") : tr("Pick a slot")} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableSlots.length === 0 && (
                     <div className="px-3 py-2 text-xs text-muted-foreground">
                       {slotsLoading
-                        ? "Loading slots…"
-                        : "No active slots on this day. Toggle Custom time above to seed one."}
+                        ? tr("Loading slots…")
+                        : tr("No active slots on this day. Toggle Custom time above to seed one.")}
                     </div>
                   )}
                   {availableSlots.map((s) => {
@@ -346,7 +344,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
                     return (
                       <SelectItem key={s.id} value={s.id}>
                         {to12h(s.start_time)} – {to12h(s.end_time)} · {cap}
-                        {isCurrent ? " · current" : ""}
+                        {isCurrent ? tr(" · current") : ""}
                       </SelectItem>
                     );
                   })}
@@ -357,7 +355,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel")}</Button>
           <Button
             onClick={() => reschedule.mutate()}
             disabled={
@@ -366,9 +364,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
               reschedule.isPending
             }
           >
-            {reschedule.isPending && <Spinner size="sm" className="mr-2" />}
-            Reschedule
-          </Button>
+            {reschedule.isPending && <Spinner size="sm" className="mr-2" />}{tr("Reschedule")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

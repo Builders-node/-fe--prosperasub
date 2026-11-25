@@ -19,6 +19,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * The confirmation for every money action on this panel. They were
@@ -44,7 +45,7 @@ function ConfirmMoneyDialog({ open, onOpenChange, title, description, actionLabe
           <AlertDialogDescription className="whitespace-pre-line">{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
           <AlertDialogAction variant={destructive ? "destructive" : undefined} onClick={onConfirm}>
             {actionLabel}
           </AlertDialogAction>
@@ -74,7 +75,7 @@ function ConfirmMoneyDialog({ open, onOpenChange, title, description, actionLabe
 
 const METHODS = ["lightning", "onchain", "paypal", "bank", "cash", "other"];
 const METHOD_LABEL: Record<string, string> = {
-  lightning: "Lightning", onchain: "On-chain Bitcoin", paypal: "PayPal", bank: "Bank transfer", cash: "Cash", other: "Other",
+  lightning: tr("Lightning"), onchain: tr("On-chain Bitcoin"), paypal: tr("PayPal"), bank: tr("Bank transfer"), cash: tr("Cash"), other: tr("Other"),
 };
 
 interface PayoutRow {
@@ -168,7 +169,7 @@ export function ProviderPayoutsPanel() {
       // Dollars in the form, cents in the table — the same convention as every
       // other price on the platform.
       const cents = Math.round(Number(amount) * 100);
-      if (!Number.isFinite(cents) || cents <= 0) throw new Error("Enter an amount greater than zero.");
+      if (!Number.isFinite(cents) || cents <= 0) throw new Error(tr("Enter an amount greater than zero."));
       const { data, error } = await adminApi(`/admin/providers/${providerId}/payouts`, {
         method: "POST",
         body: JSON.stringify({
@@ -184,11 +185,11 @@ export function ProviderPayoutsPanel() {
       return data;
     },
     onSuccess: () => {
-      toast.success("Payout recorded");
+      toast.success(tr("Payout recorded"));
       reset();
       invalidateAll();
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't record the payout"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't record the payout")),
   });
 
   const remove = useMutation({
@@ -197,10 +198,10 @@ export function ProviderPayoutsPanel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Payout removed");
+      toast.success(tr("Payout removed"));
       invalidateAll();
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't remove the payout"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't remove the payout")),
   });
 
   // Deleting a ledger row hands that amount back to the business's balance —
@@ -216,18 +217,15 @@ export function ProviderPayoutsPanel() {
       <PayoutRequestQueue providers={providers} />
 
       <div ref={formRef} className="scroll-mt-space-4 rounded-radius-lg bg-card p-space-4">
-        <h3 className="text-panel-title">Record a payout</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          For money sent outside the platform's own Send button — a bank transfer, cash, a hand-made
-          Lightning payment. Pick the business to see its ledger.
-        </p>
-        <Label htmlFor="payout-business" className="mt-space-3 block">Business</Label>
+        <h3 className="text-panel-title">{tr("Record a payout")}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{tr("For money sent outside the platform's own Send button — a bank transfer, cash, a hand-made Lightning payment. Pick the business to see its ledger.")}</p>
+        <Label htmlFor="payout-business" className="mt-space-3 block">{tr("Business")}</Label>
         <Select value={providerId} onValueChange={setProviderId}>
-          <SelectTrigger id="payout-business" className="mt-1.5 max-w-md"><SelectValue placeholder="Pick a business" /></SelectTrigger>
+          <SelectTrigger id="payout-business" className="mt-1.5 max-w-md"><SelectValue placeholder={tr("Pick a business")} /></SelectTrigger>
           <SelectContent>
             {providers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.name}{p.archetype_key ? ` · ${p.archetype_key}` : ""}{p.status !== "active" ? " · inactive" : ""}
+                {p.name}{p.archetype_key ? ` · ${p.archetype_key}` : ""}{p.status !== "active" ? tr(" · inactive") : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -238,12 +236,12 @@ export function ProviderPayoutsPanel() {
         <>
           <div className="grid gap-space-4 rounded-radius-lg bg-card p-space-4 md:grid-cols-3">
             <div>
-              <Label htmlFor="payout-amount">Amount (USD)</Label>
+              <Label htmlFor="payout-amount">{tr("Amount (USD)")}</Label>
               <Input id="payout-amount" ref={amountRef} inputMode="decimal" placeholder="0.00"
                 value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="payout-method">Method</Label>
+              <Label htmlFor="payout-method">{tr("Method")}</Label>
               <Select value={method} onValueChange={setMethod}>
                 <SelectTrigger id="payout-method" className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -252,44 +250,40 @@ export function ProviderPayoutsPanel() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="payout-ref">Reference</Label>
-              <Input id="payout-ref" placeholder="txid / payment hash"
+              <Label htmlFor="payout-ref">{tr("Reference")}</Label>
+              <Input id="payout-ref" placeholder={tr("txid / payment hash")}
                 value={reference} onChange={(e) => setReference(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="payout-from">Period from</Label>
+              <Label htmlFor="payout-from">{tr("Period from")}</Label>
               <Input id="payout-from" type="date" value={periodStart}
                 onChange={(e) => setPeriodStart(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="payout-to">Period to</Label>
+              <Label htmlFor="payout-to">{tr("Period to")}</Label>
               <Input id="payout-to" type="date" value={periodEnd}
                 onChange={(e) => setPeriodEnd(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="payout-note">Note</Label>
-              <Input id="payout-note" placeholder="Optional"
+              <Label htmlFor="payout-note">{tr("Note")}</Label>
+              <Input id="payout-note" placeholder={tr("Optional")}
                 value={note} onChange={(e) => setNote(e.target.value)} className="mt-1.5" />
             </div>
             <div className="md:col-span-3">
               <Button onClick={() => create.mutate()} disabled={create.isPending || !amount}>
-                {create.isPending ? "Recording…" : `Record payout${selected ? ` to ${selected.name}` : ""}`}
+                {create.isPending ? tr("Recording…") : tr("Record payout{value}", { value: selected ? ` to ${selected.name}` : "" })}
               </Button>
-              <p className="mt-2 text-xs text-muted-foreground">
-                This records money that already left — nothing is sent. Leave the period empty for an
-                ad-hoc transfer. The provider sees it immediately, and it stops counting against what
-                they're owed.
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{tr("This records money that already left — nothing is sent. Leave the period empty for an ad-hoc transfer. The provider sees it immediately, and it stops counting against what they're owed.")}</p>
             </div>
           </div>
 
           <div className="rounded-radius-lg bg-card p-space-4">
             <div className="flex items-baseline justify-between">
-              <h3 className="font-bold text-foreground">Recorded payouts</h3>
-              <span className="text-sm tabular-nums text-muted-foreground">{formatUSD(total)} total</span>
+              <h3 className="font-bold text-foreground">{tr("Recorded payouts")}</h3>
+              <span className="text-sm tabular-nums text-muted-foreground">{trx("{total} total", { total: formatUSD(total) })}</span>
             </div>
             {isLoading ? (
-              <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+              <p className="mt-3 text-sm text-muted-foreground">{tr("Loading…")}</p>
             ) : isError ? (
               /* This is a payment history. "Nothing paid yet" when the request
                  failed is not a blank screen, it is a wrong statement about
@@ -298,13 +292,13 @@ export function ProviderPayoutsPanel() {
               <div className="mt-3">
                 <QueryError
                   compact
-                  title="Couldn't load payouts"
+                  title={tr("Couldn't load payouts")}
                   error={error as Error}
                   onRetry={() => void refetch()}
                 />
               </div>
             ) : payouts.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">Nothing paid to this business yet.</p>
+              <p className="mt-3 text-sm text-muted-foreground">{tr("Nothing paid to this business yet.")}</p>
             ) : (
               <ul className="mt-3 divide-y divide-border/60">
                 {payouts.map((p) => (
@@ -315,7 +309,7 @@ export function ProviderPayoutsPanel() {
                         {p.method && <span className="ml-2 text-meta text-muted-foreground">{p.method}</span>}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.period_start && p.period_end ? `${p.period_start} → ${p.period_end}` : "Ad-hoc"}
+                        {p.period_start && p.period_end ? `${p.period_start} → ${p.period_end}` : tr("Ad-hoc")}
                         {p.note ? ` · ${p.note}` : ""}
                         {p.reference ? ` · ${p.reference}` : ""}
                       </p>
@@ -323,8 +317,8 @@ export function ProviderPayoutsPanel() {
                     <Button
                       variant="ghost"
                       size="iconSm"
-                      aria-label={`Delete the ${formatUSD(p.amount_cents)} payout record`}
-                      title="Delete this record"
+                      aria-label={tr("Delete the {amount_cents} payout record", { amount_cents: formatUSD(p.amount_cents) })}
+                      title={tr("Delete this record")}
                       onClick={() => setRemoveTarget(p)}
                       disabled={remove.isPending}
                     >
@@ -341,13 +335,13 @@ export function ProviderPayoutsPanel() {
       <ConfirmMoneyDialog
         open={!!removeTarget}
         onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}
-        title={removeTarget ? `Delete the ${formatUSD(removeTarget.amount_cents)} payout record?` : ""}
+        title={removeTarget ? tr("Delete the {amount_cents} payout record?", { amount_cents: formatUSD(removeTarget.amount_cents) }) : ""}
         description={
-          "This removes the record only — no money moves back.\n" +
-          "The amount returns to the business's balance, so they could withdraw it again. " +
-          "Delete it only if it was recorded by mistake."
+          tr("This removes the record only — no money moves back.\n") +
+          tr("The amount returns to the business's balance, so they could withdraw it again. ") +
+          tr("Delete it only if it was recorded by mistake.")
         }
-        actionLabel="Delete record"
+        actionLabel={tr("Delete record")}
         destructive
         onConfirm={() => {
           if (removeTarget) remove.mutate(removeTarget.id);
@@ -441,10 +435,10 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
       return data;
     },
     onSuccess: () => {
-      toast.success("Recorded — the balance starts from here");
+      toast.success(tr("Recorded — the balance starts from here"));
       PAYOUT_KEYS.forEach((queryKey) => qc.invalidateQueries({ queryKey: [...queryKey] }));
     },
-    onError: (e: any) => toast.error(e?.message || "Could not record the balance"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not record the balance")),
   });
 
   const [settleTarget, setSettleTarget] = useState<OwedRow | null>(null);
@@ -465,15 +459,12 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
   return (
     <section className="rounded-radius-lg bg-card p-space-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-panel-title">Owed to businesses</h3>
+        <h3 className="text-panel-title">{tr("Owed to businesses")}</h3>
         {!isLoading && !isError && (
           <span className="text-base font-black tabular-nums text-foreground">{formatUSD(total)}</span>
         )}
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        What each business could withdraw right now: its share of revenue after commission, minus
-        everything already paid or on its way.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{tr("What each business could withdraw right now: its share of revenue after commission, minus everything already paid or on its way.")}</p>
 
       {isError ? (
         // Hiding on failure would make money that is owed read as money that
@@ -481,27 +472,25 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
         <div className="mt-space-3">
           <QueryError
             compact
-            title="Couldn't load what is owed"
+            title={tr("Couldn't load what is owed")}
             error={error}
             onRetry={() => void refetch()}
           />
         </div>
       ) : isLoading ? (
-        <p className="mt-space-3 text-sm text-muted-foreground">Loading…</p>
+        <p className="mt-space-3 text-sm text-muted-foreground">{tr("Loading…")}</p>
       ) : rows.length === 0 ? (
-        <p className="mt-space-3 rounded-radius-md bg-[hsl(var(--app-control))] p-space-6 text-center text-muted-foreground">
-          Nothing is owed — every business has been paid everything it has earned.
-        </p>
+        <p className="mt-space-3 rounded-radius-md bg-[hsl(var(--app-control))] p-space-6 text-center text-muted-foreground">{tr("Nothing is owed — every business has been paid everything it has earned.")}</p>
       ) : (
         <div className="mt-space-3 overflow-x-auto">
           <Table className="min-w-[640px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>Business</SortHeader></TableHead>
-                <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("earned")}><SortHeader {...sort.headerProps("earned")} align="right">Earned</SortHeader></TableHead>
-                <TableHead className="px-3 py-2 text-right" title="Paid, plus requests approved or in flight" aria-sort={sort.ariaSort("paid")}><SortHeader {...sort.headerProps("paid")} align="right">Paid</SortHeader></TableHead>
-                <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("owed")}><SortHeader {...sort.headerProps("owed")} align="right">Owed</SortHeader></TableHead>
-                <TableHead className="pl-3 py-2 text-right"><span className="sr-only">Actions</span></TableHead>
+                <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>{tr("Business")}</SortHeader></TableHead>
+                <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("earned")}><SortHeader {...sort.headerProps("earned")} align="right">{tr("Earned")}</SortHeader></TableHead>
+                <TableHead className="px-3 py-2 text-right" title={tr("Paid, plus requests approved or in flight")} aria-sort={sort.ariaSort("paid")}><SortHeader {...sort.headerProps("paid")} align="right">{tr("Paid")}</SortHeader></TableHead>
+                <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("owed")}><SortHeader {...sort.headerProps("owed")} align="right">{tr("Owed")}</SortHeader></TableHead>
+                <TableHead className="pl-3 py-2 text-right"><span className="sr-only">{tr("Actions")}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -509,25 +498,21 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
                 <TableRow key={r.providerId} className="border-b border-border/40">
                   <TableCell className="py-2.5 pr-4">
                     <p className="font-semibold text-foreground">{r.name}</p>
-                    <p className="text-xs text-muted-foreground">after {r.commissionPct}% commission</p>
+                    <p className="text-xs text-muted-foreground">{trx("after {commissionPct}% commission", { commissionPct: r.commissionPct })}</p>
                   </TableCell>
                   <TableCell className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{money(r.earnedCents)}</TableCell>
                   <TableCell className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{money(r.paidCents)}</TableCell>
                   <TableCell className="px-3 py-2.5 text-right font-bold tabular-nums text-foreground">{formatUSD(r.owedCents)}</TableCell>
                   <TableCell className="pl-3 py-2.5">
                     <div className="flex justify-end gap-space-2">
-                      <Button size="sm" variant="secondary" onClick={() => onRecord(r.providerId, r.owedCents)}>
-                        Record payout
-                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => onRecord(r.providerId, r.owedCents)}>{tr("Record payout")}</Button>
                       <Button
                         size="sm" variant="outline"
                         disabled={settle.isPending}
                         // A ledger write, not a transfer — but it changes what a
                         // provider can ask for, so it asks before it happens.
                         onClick={() => setSettleTarget(r)}
-                      >
-                        Record full balance
-                      </Button>
+                      >{tr("Record full balance")}</Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -535,7 +520,7 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
             </TableBody>
             <TableFooter>
               <TableRow className="border-t border-border text-foreground">
-                <TableCell className="py-2.5 pr-4 font-bold">Total</TableCell>
+                <TableCell className="py-2.5 pr-4 font-bold">{tr("Total")}</TableCell>
                 <TableCell className="px-3 py-2.5 text-right font-bold tabular-nums">{money(sum((r) => r.earnedCents))}</TableCell>
                 <TableCell className="px-3 py-2.5 text-right font-bold tabular-nums">{money(sum((r) => r.paidCents))}</TableCell>
                 <TableCell className="px-3 py-2.5 text-right font-black tabular-nums text-primary">{formatUSD(total)}</TableCell>
@@ -543,22 +528,19 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
               </TableRow>
             </TableFooter>
           </Table>
-          <p className="mt-space-2 text-xs text-muted-foreground">
-            Paid includes requests approved or still settling. Recording does not send money — the
-            Send button on a payout request does.
-          </p>
+          <p className="mt-space-2 text-xs text-muted-foreground">{tr("Paid includes requests approved or still settling. Recording does not send money — the Send button on a payout request does.")}</p>
         </div>
       )}
 
       <ConfirmMoneyDialog
         open={!!settleTarget}
         onOpenChange={(open) => { if (!open) setSettleTarget(null); }}
-        title={settleTarget ? `Record ${formatUSD(settleTarget.owedCents)} paid to ${settleTarget.name}?` : ""}
+        title={settleTarget ? tr("Record {owedCents} paid to {name}?", { owedCents: formatUSD(settleTarget.owedCents), name: settleTarget.name }) : ""}
         description={
-          "No money moves. This records the whole balance as already paid outside the platform, " +
-          "so what they can withdraw drops to zero and grows again only from new revenue."
+          tr("No money moves. This records the whole balance as already paid outside the platform, ") +
+          tr("so what they can withdraw drops to zero and grows again only from new revenue.")
         }
-        actionLabel="Record full balance"
+        actionLabel={tr("Record full balance")}
         onConfirm={() => {
           if (settleTarget) settle.mutate(settleTarget.providerId);
           setSettleTarget(null);
@@ -627,12 +609,12 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
       return data as PayoutRow;
     },
     onSuccess: (row) => {
-      if (row?.status === "paid") toast.success("Sent");
-      else if (row?.status === "sending") toast.success("Sent — still settling at Blink");
-      else toast.error(row?.send_error || "Blink refused the payment");
+      if (row?.status === "paid") toast.success(tr("Sent"));
+      else if (row?.status === "sending") toast.success(tr("Sent — still settling at Blink"));
+      else toast.error(row?.send_error || tr("Blink refused the payment"));
       PAYOUT_KEYS.forEach((queryKey) => qc.invalidateQueries({ queryKey: [...queryKey] }));
     },
-    onError: (e: any) => toast.error(e?.message || "Could not send the payout"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not send the payout")),
   });
 
   // Irreversible, so it is a question and not a click. The amount and the
@@ -651,17 +633,17 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
       return data;
     },
     onSuccess: (_d, v) => {
-      toast.success(v.decision === "paid" ? "Marked as sent" : `Request ${v.decision}`);
+      toast.success(v.decision === "paid" ? tr("Marked as sent") : tr("Request {decision}", { decision: v.decision }));
       PAYOUT_KEYS.forEach((queryKey) => qc.invalidateQueries({ queryKey: [...queryKey] }));
     },
-    onError: (e: any) => toast.error(e?.message || "Could not update the request"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not update the request")),
   });
 
   if (isError) {
     return (
       <QueryError
         compact
-        title="Couldn't load payout requests"
+        title={tr("Couldn't load payout requests")}
         error={error}
         onRetry={() => void refetch()}
       />
@@ -672,15 +654,12 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
   return (
     <div className="rounded-radius-lg bg-card p-space-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-meta font-semibold text-muted-foreground">
-          Payout requests ({requests.length})
-        </p>
+        <p className="text-meta font-semibold text-muted-foreground">{trx("Payout requests ({length})", { length: requests.length })}</p>
         {/* Payouts leave the USD wallet, and on-chain receipts land in the BTC
             one beside it — so this can run dry on a healthy week. Better an
             admin sees it here than a provider finds it at the button. */}
         {canSend && walletCents !== null && (
-          <p className="text-xs text-muted-foreground">
-            Wallet: <span className="font-semibold tabular-nums text-foreground">{formatUSD(walletCents)}</span>
+          <p className="text-xs text-muted-foreground">{tr("Wallet:")}{" "}<span className="font-semibold tabular-nums text-foreground">{formatUSD(walletCents)}</span>
           </p>
         )}
       </div>
@@ -704,14 +683,10 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
                 <>
                   <Button size="sm" variant="outline"
                     disabled={decide.isPending}
-                    onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
-                    Reject
-                  </Button>
+                    onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>{tr("Reject")}</Button>
                   <Button size="sm"
                     disabled={decide.isPending}
-                    onClick={() => decide.mutate({ id: r.id, decision: "approved" })}>
-                    Approve
-                  </Button>
+                    onClick={() => decide.mutate({ id: r.id, decision: "approved" })}>{tr("Approve")}</Button>
                 </>
               )}
               {r.status === "approved" && (
@@ -720,20 +695,18 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
                     <Button size="sm" className="gap-1.5"
                       disabled={send.isPending}
                       onClick={() => confirmSend(r)}>
-                      <Zap className="h-3.5 w-3.5" /> {send.isPending ? "Sending…" : "Send now"}
+                      <Zap className="h-3.5 w-3.5" /> {send.isPending ? tr("Sending…") : tr("Send now")}
                     </Button>
                   )}
                   <Button size="sm" variant={canSend ? "outline" : "default"}
                     disabled={decide.isPending}
-                    onClick={() => decide.mutate({ id: r.id, decision: "paid" })}>
-                    Mark sent
-                  </Button>
+                    onClick={() => decide.mutate({ id: r.id, decision: "paid" })}>{tr("Mark sent")}</Button>
                 </>
               )}
               {/* In flight at Blink. Not payable again — the server refuses a
                   second send — so there is nothing to press. */}
               {r.status === "sending" && (
-                <span className="text-xs font-semibold text-attention">Settling…</span>
+                <span className="text-xs font-semibold text-attention">{tr("Settling…")}</span>
               )}
               {/* A failure put the money back in the provider's balance, so the
                   way forward is a fresh request with a destination that works,
@@ -741,9 +714,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
               {r.status === "failed" && (
                 <Button size="sm" variant="outline"
                   disabled={decide.isPending}
-                  onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
-                  Close it
-                </Button>
+                  onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>{tr("Close it")}</Button>
               )}
             </div>
           </li>
@@ -753,9 +724,9 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
       <ConfirmMoneyDialog
         open={!!sendTarget}
         onOpenChange={(open) => { if (!open) setSendTarget(null); }}
-        title={sendTarget ? `Send ${formatUSD(sendTarget.amount_cents)} to ${sendTarget.destination}?` : ""}
-        description={"This pays from the platform's Blink wallet now and cannot be undone."}
-        actionLabel="Send now"
+        title={sendTarget ? tr("Send {amount_cents} to {destination}?", { amount_cents: formatUSD(sendTarget.amount_cents), destination: sendTarget.destination }) : ""}
+        description={tr("This pays from the platform's Blink wallet now and cannot be undone.")}
+        actionLabel={tr("Send now")}
         onConfirm={() => {
           if (sendTarget) send.mutate(sendTarget.id);
           setSendTarget(null);

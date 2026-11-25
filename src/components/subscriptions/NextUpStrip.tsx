@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayHN } from "@/lib/timezone";
+import { tr, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * What happens next, across every service, at the top of My subscriptions.
@@ -38,11 +39,11 @@ const addDays = (iso: string, n: number) => {
 function dayWord(at: string): string {
   const day = at.slice(0, 10);
   const today = todayHN();
-  if (day === today) return "Today";
-  if (day === addDays(today, 1)) return "Tomorrow";
+  if (day === today) return tr("Today");
+  if (day === addDays(today, 1)) return tr("Tomorrow");
   const d = new Date(`${day}T12:00:00Z`);
   const inWeek = day <= addDays(today, 6);
-  return new Intl.DateTimeFormat("en-US", inWeek
+  return new Intl.DateTimeFormat(DATE_LOCALE, inWeek
     ? { weekday: "long", timeZone: "UTC" }
     : { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(d);
 }
@@ -52,7 +53,7 @@ export function NextUpStrip({ items, max = 8 }: { items: NextUpItem[]; max?: num
   const shown = [...items].sort((a, b) => a.at.localeCompare(b.at)).slice(0, max);
   return (
     <section aria-labelledby="next-up" className="mb-5">
-      <h2 id="next-up" className="mb-2 text-heading font-semibold text-foreground">Next up</h2>
+      <h2 id="next-up" className="mb-2 text-heading font-semibold text-foreground">{tr("Next up")}</h2>
       {/* A rail on a phone, a grid on a laptop — the same cards. */}
       <div className="-mx-4 flex snap-x snap-mandatory scroll-px-space-4 gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3">
         {shown.map((it) => {

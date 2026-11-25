@@ -22,6 +22,7 @@ import { todayHN, addDaysISO } from "@/lib/timezone";
 import { formatUSD } from "@/lib/pricing";
 import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
 import { useProviderItemsByLegacy, itemKeys } from "@/lib/services/providerItems";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Admin one-off "add food subscription for user" dialog — mounted on the
@@ -149,13 +150,13 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!userId) throw new Error("Pick a customer");
-      if (!planId) throw new Error("Pick a meal plan");
-      if (!startedAt) throw new Error("Pick a start date");
-      if (weeklyPriceCents <= 0) throw new Error("Weekly price must be greater than 0");
-      if (weeks < 1) throw new Error("Duration must be at least 1 week");
+      if (!userId) throw new Error(tr("Pick a customer"));
+      if (!planId) throw new Error(tr("Pick a meal plan"));
+      if (!startedAt) throw new Error(tr("Pick a start date"));
+      if (weeklyPriceCents <= 0) throw new Error(tr("Weekly price must be greater than 0"));
+      if (weeks < 1) throw new Error(tr("Duration must be at least 1 week"));
       if (mealsPerDay > 0 && !mealsChosen) {
-        throw new Error(`Pick ${mealChoiceCount} meal${mealChoiceCount === 1 ? "" : "s"} for this plan`);
+        throw new Error((mealChoiceCount === 1 ? tr("Pick {mealChoiceCount} meal for this plan", { mealChoiceCount }) : tr("Pick {mealChoiceCount} meals for this plan", { mealChoiceCount })));
       }
 
       const payload = {
@@ -195,7 +196,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
       return data?.id;
     },
     onSuccess: () => {
-      toast.success("Subscription created");
+      toast.success(tr("Subscription created"));
       // Refresh every surface on the same page that reads food subs.
       qc.invalidateQueries({ queryKey: ["provider-food-subs", providerId] });
       qc.invalidateQueries({ queryKey: ["admin-food-subscriptions"] });
@@ -203,7 +204,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
       resetAndClose();
     },
-    onError: (e: Error) => toast.error(e.message || "Could not create subscription"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not create subscription")),
   });
 
   const resetAndClose = () => {
@@ -222,8 +223,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
 
   const defaultTrigger = (
     <Button onClick={() => setOpen(true)} className="gap-2">
-      <Plus className="h-4 w-4" /> New subscription
-    </Button>
+      <Plus className="h-4 w-4" />{" "}{tr("New subscription")}</Button>
   );
 
   return (
@@ -234,13 +234,12 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UtensilsCrossed className="h-5 w-5 text-primary" /> New food subscription
-            </DialogTitle>
+              <UtensilsCrossed className="h-5 w-5 text-primary" />{" "}{tr("New food subscription")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Customer *</Label>
+              <Label>{tr("Customer *")}</Label>
               <UserPicker
                 providerId={universalProviderId ?? null}
                 value={userId}
@@ -252,20 +251,20 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
                     setCustomerName(u.display_name || u.name || u.email || "");
                   }
                 }}
-                placeholder="Pick a platform user…"
+                placeholder={tr("Pick a platform user…")}
               />
             </div>
 
             <div>
-              <Label>Meal plan *</Label>
+              <Label>{tr("Meal plan *")}</Label>
               <Select value={planId} onValueChange={setPlanId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={plansLoading ? "Loading…" : "Pick a meal plan"} />
+                  <SelectValue placeholder={plansLoading ? tr("Loading…") : tr("Pick a meal plan")} />
                 </SelectTrigger>
                 <SelectContent>
                   {plans.length === 0 && (
                     <div className="px-3 py-2 text-xs text-muted-foreground">
-                      {plansLoading ? "Loading plans…" : "This provider has no active meal plans."}
+                      {plansLoading ? tr("Loading plans…") : tr("This provider has no active meal plans.")}
                     </div>
                   )}
                   {plans.map((p) => (
@@ -273,9 +272,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
                       {p.name}
                       {planDays(p) && (
                         <span className="text-muted-foreground"> · {planDays(p)}</span>
-                      )}
-                      {" — "}{formatUSD(p.weekly_price_cents)}/week
-                    </SelectItem>
+                      )}{" "}{trx("— {weekly_price_cents}/week", { weekly_price_cents: formatUSD(p.weekly_price_cents) })}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -293,7 +290,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
             */}
             {mealsPerDay > 0 && (
               <div>
-                <Label>Meals *</Label>
+                <Label>{tr("Meals *")}</Label>
                 <MealSelectionPicker
                   value={meals}
                   onChange={setMeals}
@@ -305,7 +302,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Weekly price ($)</Label>
+                <Label>{tr("Weekly price ($)")}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -317,7 +314,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
                 />
               </div>
               <div>
-                <Label>Duration (weeks) *</Label>
+                <Label>{tr("Duration (weeks) *")}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -328,33 +325,30 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
             </div>
 
             <div>
-              <Label>Start date *</Label>
+              <Label>{tr("Start date *")}</Label>
               <Input
                 type="date"
                 value={startedAt}
                 onChange={(e) => setStartedAt(e.target.value)}
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ends {endDate} · Total <b>{formatUSD(totalCents)}</b>
+              <p className="mt-1 text-xs text-muted-foreground">{trx("Ends {endDate} · Total", { endDate })}{" "}<b>{formatUSD(totalCents)}</b>
               </p>
             </div>
 
             <div className="space-y-3 rounded-radius-md bg-muted/30 p-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Delivery (optional)
-              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tr("Delivery (optional)")}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Residence</Label>
+                  <Label className="text-xs">{tr("Residence")}</Label>
                   <Select
                     value={residence || "_none"}
                     onValueChange={(v) => setResidence(v === "_none" ? "" : v)}
                   >
           <SelectTrigger inputSize="sm" >
-                      <SelectValue placeholder="Pick" />
+                      <SelectValue placeholder={tr("Pick")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none">No residence</SelectItem>
+                      <SelectItem value="_none">{tr("No residence")}</SelectItem>
                       {residences.map((r) => (
                         <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
                       ))}
@@ -362,17 +356,17 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Apartment / unit</Label>
+                  <Label className="text-xs">{tr("Apartment / unit")}</Label>
                   <Input
                     inputSize="sm"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="e.g. 407"
+                    placeholder={tr("e.g. 407")}
                   />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">WhatsApp</Label>
+                <Label className="text-xs">{tr("WhatsApp")}</Label>
                 <Input
                   inputSize="sm"
                   type="tel"
@@ -384,18 +378,18 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
             </div>
 
             <div>
-              <Label>Notes for the kitchen</Label>
+              <Label>{tr("Notes for the kitchen")}</Label>
               <Textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Allergies, preferences, delivery quirks…"
+                placeholder={tr("Allergies, preferences, delivery quirks…")}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={resetAndClose}>Cancel</Button>
+            <Button variant="ghost" onClick={resetAndClose}>{tr("Cancel")}</Button>
             <Button
               onClick={() => create.mutate()}
               // The meal choice is part of the plan, so it gates the button
@@ -405,9 +399,7 @@ export function NewFoodSubscriptionDialog({ providerId, universalProviderId, tri
                 (mealsPerDay > 0 && !mealsChosen)
               }
             >
-              {create.isPending && <Spinner size="sm" className="mr-2" />}
-              Create subscription
-            </Button>
+              {create.isPending && <Spinner size="sm" className="mr-2" />}{tr("Create subscription")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

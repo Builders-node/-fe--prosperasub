@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { ControlSize } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { tr, trx } from "@/lib/tr";
 
 interface Props {
   /** Search box value + handler (omit to hide search). */
@@ -50,7 +51,7 @@ interface Props {
 export function AdminListShell({
   search, onSearch, searchPlaceholder = "Search…",
   filters, actions, isLoading, isError, error, onRetry, isEmpty, isNoResults, count,
-  emptyTitle = "Nothing here yet", emptySubtitle = "Records will appear here.",
+  emptyTitle = tr("Nothing here yet"), emptySubtitle = tr("Records will appear here."),
   skeleton = "rows", onClearFilters, children, className,
 }: Props) {
   const showSearch = onSearch !== undefined;
@@ -77,7 +78,7 @@ export function AdminListShell({
                   type="button"
                   onClick={() => onSearch!("")}
                   className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
+                  aria-label={tr("Clear search")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -86,7 +87,7 @@ export function AdminListShell({
           )}
           {filters}
           {typeof count === "number" && !isLoading && (
-            <span className="text-xs text-muted-foreground">{count} result{count !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">{count !== 1 ? trx("{count} results", { count }) : trx("{count} result", { count })}</span>
           )}
           {actions && <div className="ml-auto flex items-center gap-space-2">{actions}</div>}
         </div>
@@ -103,14 +104,12 @@ export function AdminListShell({
       ) : isError ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <AlertTriangle className="mb-3 h-10 w-10 text-destructive/60" />
-          <p className="text-title font-semibold text-foreground">Couldn't load this list</p>
+          <p className="text-title font-semibold text-foreground">{tr("Couldn't load this list")}</p>
           <p className="mt-1 max-w-md px-6 text-meta text-muted-foreground">
-            {error instanceof Error ? error.message : "The server returned an error."}
+            {error instanceof Error ? error.message : tr("The server returned an error.")}
           </p>
           {onRetry && (
-            <Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>
-              Retry
-            </Button>
+            <Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>{tr("Retry")}</Button>
           )}
         </div>
       ) : isEmpty ? (
@@ -122,12 +121,10 @@ export function AdminListShell({
       ) : isNoResults ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-title font-semibold text-foreground">No matches</p>
-          <p className="mt-1 text-meta text-muted-foreground">Nothing matches the current search or filters.</p>
+          <p className="text-title font-semibold text-foreground">{tr("No matches")}</p>
+          <p className="mt-1 text-meta text-muted-foreground">{tr("Nothing matches the current search or filters.")}</p>
           {onClearFilters && (
-            <Button variant="outline" size="sm" className="mt-3" onClick={onClearFilters}>
-              Clear filters
-            </Button>
+            <Button variant="outline" size="sm" className="mt-3" onClick={onClearFilters}>{tr("Clear filters")}</Button>
           )}
         </div>
       ) : (

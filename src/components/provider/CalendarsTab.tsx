@@ -20,6 +20,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
+import { tr } from "@/lib/tr";
 
 /**
  * The calendars a business takes bookings on.
@@ -59,7 +60,7 @@ const hoursSummary = (r: ResourceRow) => {
   const open = r.hours?.open_hour ?? DEFAULTS.open_hour;
   const close = r.hours?.close_hour ?? DEFAULTS.close_hour;
   const slot = r.hours?.slot_minutes ?? DEFAULTS.slot_minutes;
-  return `${hourLabel(open)}–${hourLabel(close)} · ${slot} min`;
+  return tr("{hourLabel}–{hourLabel2} · {slot} min", { hourLabel: hourLabel(open), hourLabel2: hourLabel(close), slot });
 };
 
 export function CalendarsTab({ providerId }: { providerId: string }) {
@@ -106,7 +107,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
         .from("bookable_resources")
         .insert({
           provider_id: providerId,
-          name: "New calendar",
+          name: tr("New calendar"),
           type: types[0]?.key ?? "appointment",
           hours: DEFAULTS,
           metadata: {},
@@ -124,7 +125,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
       await qc.invalidateQueries({ queryKey: KEY });
       setEditing(row);
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't add the calendar"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't add the calendar")),
   });
 
   const del = useMutation({
@@ -133,12 +134,12 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Deleted");
+      toast.success(tr("Deleted"));
       qc.invalidateQueries({ queryKey: KEY });
       setDeleteTarget(null);
       setEditing(null);
     },
-    onError: (e: Error) => toast.error(e.message || "Could not delete"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not delete")),
   });
 
   const typeLabel = (key: string) => types.find((t) => t.key === key)?.label ?? key;
@@ -146,11 +147,11 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
   return (
     <>
       <WorkspaceSection
-        title="Calendars"
-        subtitle="What can be booked here — a court, a room, a table, a chair. Which plan opens which one is set on the plan."
+        title={tr("Calendars")}
+        subtitle={tr("What can be booked here — a court, a room, a table, a chair. Which plan opens which one is set on the plan.")}
         action={
           <Button className="shrink-0 gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
-            <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "New"}
+            <Plus className="h-4 w-4" /> {add.isPending ? tr("Adding…") : tr("New")}
           </Button>
         }
       />
@@ -161,7 +162,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
         <div className="mb-1">
           <QueryError
             compact
-            title="Couldn't load the calendar kinds"
+            title={tr("Couldn't load the calendar kinds")}
             error={typesErr}
             onRetry={() => refetchTypes()}
             retrying={typesFetching}
@@ -175,7 +176,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
         </div>
       ) : isError ? (
         <QueryError
-          title="Couldn't load your calendars"
+          title={tr("Couldn't load your calendars")}
           error={loadError}
           onRetry={() => refetch()}
           retrying={isFetching}
@@ -183,11 +184,11 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
       ) : rows.length === 0 ? (
         <YdEmptyState
           icon={CalendarDays}
-          title="No calendars yet"
-          subtitle="Add one for each thing a customer can book a time on — they all work the same way, whatever the business."
+          title={tr("No calendars yet")}
+          subtitle={tr("Add one for each thing a customer can book a time on — they all work the same way, whatever the business.")}
           action={
             <Button className="gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
-              <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "Add a calendar"}
+              <Plus className="h-4 w-4" /> {add.isPending ? tr("Adding…") : tr("Add a calendar")}
             </Button>
           }
         />
@@ -202,15 +203,14 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
                 </div>
                 <p className="mt-0.5 text-[14px] leading-[18px] text-muted-foreground">
                   {typeLabel(r.type)} · {hoursSummary(r)}
-                  {r.capacity ? ` · ${r.capacity} at a time` : ""}
+                  {r.capacity ? tr(" · {capacity} at a time", { capacity: r.capacity }) : ""}
                 </p>
               </div>
               <Button
                 size="sm" variant="outline" className="shrink-0 gap-1.5 px-3"
                 onClick={() => setEditing(r)}
               >
-                <Pencil className="h-3.5 w-3.5" /> Edit
-              </Button>
+                <Pencil className="h-3.5 w-3.5" />{" "}{tr("Edit")}</Button>
             </article>
           ))}
         </div>
@@ -246,19 +246,16 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this calendar?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Delete this calendar?")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && (
                 <>
-                  <strong className="text-foreground">{deleteTarget.name}</strong> disappears from
-                  every plan that names it, and bookings already taken on it lose the thing they
-                  point at. To stop taking new ones, set it to paused instead.
-                </>
+                  <strong className="text-foreground">{deleteTarget.name}</strong>{" "}{tr("disappears from every plan that names it, and bookings already taken on it lose the thing they point at. To stop taking new ones, set it to paused instead.")}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deleteTarget && del.mutate(deleteTarget)}
@@ -306,12 +303,12 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!form.name.trim()) throw new Error("The calendar needs a name.");
+      if (!form.name.trim()) throw new Error(tr("The calendar needs a name."));
       const open = num(form.open), close = num(form.close), slot = num(form.slot);
       if (!(open >= 0 && close > open && close <= 24)) {
-        throw new Error("Opening hours must run forwards, inside one day.");
+        throw new Error(tr("Opening hours must run forwards, inside one day."));
       }
-      if (!(slot > 0)) throw new Error("A slot has to be longer than nothing.");
+      if (!(slot > 0)) throw new Error(tr("A slot has to be longer than nothing."));
 
       const { error } = await supabaseDb
         .from("bookable_resources")
@@ -330,20 +327,20 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
         .eq("id", row.id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Saved"); onSaved(); },
-    onError: (e: Error) => toast.error(e.message || "Couldn't save"),
+    onSuccess: () => { toast.success(tr("Saved")); onSaved(); },
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't save")),
   });
 
   return (
     <div className="space-y-1">
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">What it is</p>
+        <p className="text-title font-semibold text-foreground">{tr("What it is")}</p>
         <div>
-          <Label className="text-[14px] font-normal text-muted-foreground">Name</Label>
+          <Label className="text-[14px] font-normal text-muted-foreground">{tr("Name")}</Label>
           <Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </div>
         <div>
-          <Label className="text-[14px] font-normal text-muted-foreground">Kind</Label>
+          <Label className="text-[14px] font-normal text-muted-foreground">{tr("Kind")}</Label>
           <select
             className={cn(fieldClass, "mt-1")}
             value={form.type}
@@ -352,47 +349,44 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
             {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
           </select>
           <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">
-            {model === "time_slot" ? "Booked by the hour, in slots."
-              : model === "date_range" ? "Booked by whole days, from one date to another."
-              : "Booked by the seat — several people share the same hours."}
+            {model === "time_slot" ? tr("Booked by the hour, in slots.")
+              : model === "date_range" ? tr("Booked by whole days, from one date to another.")
+              : tr("Booked by the seat — several people share the same hours.")}
           </p>
         </div>
         <div>
-          <Label className="text-[14px] font-normal text-muted-foreground">Description</Label>
+          <Label className="text-[14px] font-normal text-muted-foreground">{tr("Description")}</Label>
           <Textarea
             className="mt-1" rows={2} value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Clay surface, shaded until noon…"
+            placeholder={tr("Clay surface, shaded until noon…")}
           />
         </div>
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">When it is open</p>
+        <p className="text-title font-semibold text-foreground">{tr("When it is open")}</p>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <Label className="text-[14px] font-normal text-muted-foreground">Opens</Label>
+            <Label className="text-[14px] font-normal text-muted-foreground">{tr("Opens")}</Label>
             <Input className="mt-1" inputMode="numeric" value={form.open}
               onChange={(e) => setForm((f) => ({ ...f, open: e.target.value }))} />
           </div>
           <div>
-            <Label className="text-[14px] font-normal text-muted-foreground">Closes</Label>
+            <Label className="text-[14px] font-normal text-muted-foreground">{tr("Closes")}</Label>
             <Input className="mt-1" inputMode="numeric" value={form.close}
               onChange={(e) => setForm((f) => ({ ...f, close: e.target.value }))} />
           </div>
           <div>
-            <Label className="text-[14px] font-normal text-muted-foreground">Slot, min</Label>
+            <Label className="text-[14px] font-normal text-muted-foreground">{tr("Slot, min")}</Label>
             <Input className="mt-1" inputMode="numeric" value={form.slot}
               onChange={(e) => setForm((f) => ({ ...f, slot: e.target.value }))} />
           </div>
         </div>
-        <p className="text-[14px] leading-[18px] text-muted-foreground">
-          Whole hours, the same every day of the week. This is what the booking engine publishes
-          for this calendar — it overrides the business's own working hours.
-        </p>
+        <p className="text-[14px] leading-[18px] text-muted-foreground">{tr("Whole hours, the same every day of the week. This is what the booking engine publishes for this calendar — it overrides the business's own working hours.")}</p>
         {model === "capacity_seat" && (
           <div>
-            <Label className="text-[14px] font-normal text-muted-foreground">How many at a time</Label>
+            <Label className="text-[14px] font-normal text-muted-foreground">{tr("How many at a time")}</Label>
             <Input className="mt-1" inputMode="numeric" value={form.capacity}
               onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))} placeholder="1" />
           </div>
@@ -400,7 +394,7 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">Taking bookings</p>
+        <p className="text-title font-semibold text-foreground">{tr("Taking bookings")}</p>
         <label className="flex items-center gap-3">
           <input
             type="checkbox" className="h-5 w-5 rounded"
@@ -408,29 +402,22 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
             onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
           />
           <span className="text-[16px] leading-[22px] text-foreground">
-            {form.active ? "Open for bookings" : "Paused — nothing new can be booked"}
+            {form.active ? tr("Open for bookings") : tr("Paused — nothing new can be booked")}
           </span>
         </label>
         {row.source_service_key === "beach" && (
-          <p className="text-[14px] leading-[18px] text-muted-foreground">
-            This one is also a beach court. Its day grid, its iCal feed and its Google calendar
-            still live on the{" "}
-            <a href="/admin/beach-club/courts" className="font-semibold text-primary underline-offset-2 hover:underline">
-              courts page <ExternalLink className="inline h-3 w-3" />
-            </a>{" "}
-            until that screen is general too. What you set here is mirrored to it.
-          </p>
+          <p className="text-[14px] leading-[18px] text-muted-foreground">{tr("This one is also a beach court. Its day grid, its iCal feed and its Google calendar still live on the")}{" "}<a href="/admin/beach-club/courts" className="font-semibold text-primary underline-offset-2 hover:underline">{tr("courts page")}{" "}<ExternalLink className="inline h-3 w-3" />
+            </a>{" "}{tr("until that screen is general too. What you set here is mirrored to it.")}</p>
         )}
       </section>
 
       <div className="flex flex-wrap items-center gap-2 pt-2">
         <Button disabled={save.isPending} onClick={() => save.mutate()}>
-          {save.isPending ? "Saving…" : "Save calendar"}
+          {save.isPending ? tr("Saving…") : tr("Save calendar")}
         </Button>
         <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive"
           onClick={onDelete}>
-          <Trash2 className="mr-1.5 h-4 w-4" /> Delete
-        </Button>
+          <Trash2 className="mr-1.5 h-4 w-4" />{" "}{tr("Delete")}</Button>
       </div>
     </div>
   );

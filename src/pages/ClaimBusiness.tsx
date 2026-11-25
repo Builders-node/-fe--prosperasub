@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { accountApi } from "@/integrations/supabase/client";
 import { formatDateHN } from "@/lib/timezone";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * `/claim-business?token=…` — the other end of the admin's "Invite owner" link.
@@ -55,11 +56,11 @@ export default function ClaimBusiness() {
       return data as { providerId: string; name: string; already: boolean; kind?: string };
     },
     onSuccess: (r) => {
-      toast.success(r.kind === "member" ? `You're on the ${r.name} team` : r.already ? `You already own ${r.name}` : `${r.name} is yours`);
+      toast.success(r.kind === "member" ? tr("You're on the {name} team", { name: r.name }) : r.already ? tr("You already own {name}", { name: r.name }) : tr("{name} is yours", { name: r.name }));
       void qc.invalidateQueries();
       navigate(`/my-provider/${r.providerId}`, { replace: true });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not accept the link"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not accept the link")),
   });
 
   const info = infoQ.data;
@@ -82,15 +83,15 @@ export default function ClaimBusiness() {
   let body: React.ReactNode;
   if (!token || infoQ.isError) {
     body = (
-      <Message title="This link doesn't work" text="Check that you opened the whole link, or ask EverySub to send a new one." />
+      <Message title={tr("This link doesn't work")} text={tr("Check that you opened the whole link, or ask EverySub to send a new one.")} />
     );
   } else if (infoQ.isLoading || authLoading || !info) {
     body = <PageLoader />;
   } else if (info.state !== "open") {
     body = (
       <Message
-        title={info.state === "expired" ? "This link has expired" : "This link was already used"}
-        text={`It was for ${info.business.name}. Ask EverySub for a new link if you still need to take it over.`}
+        title={info.state === "expired" ? tr("This link has expired") : tr("This link was already used")}
+        text={tr("It was for {name}. Ask EverySub for a new link if you still need to take it over.", { name: info.business.name })}
       />
     );
   } else {
@@ -101,40 +102,32 @@ export default function ClaimBusiness() {
             <Building2 className="h-5 w-5 text-muted-foreground" />
           </span>
           <div className="min-w-0">
-            <p className="text-meta text-muted-foreground">{info.kind === "member" ? "You're invited to the team of" : "You're invited to own"}</p>
+            <p className="text-meta text-muted-foreground">{info.kind === "member" ? tr("You're invited to the team of") : tr("You're invited to own")}</p>
             <p className="truncate text-title font-semibold text-foreground">{info.business.name}</p>
           </div>
         </div>
         <p className="text-body text-muted-foreground">
           {info.kind === "member"
-            ? "As a manager you see its schedule, customers and plans and help run the day. The owner keeps the money."
-            : "As the owner you manage its plans, schedule and team, see its money and withdraw it."}{" "}
-          The link works once, until {formatDateHN(info.expiresAt)}.
-        </p>
+            ? tr("As a manager you see its schedule, customers and plans and help run the day. The owner keeps the money.")
+            : tr("As the owner you manage its plans, schedule and team, see its money and withdraw it.")}{" "}{trx("The link works once, until {expiresAt}.", { expiresAt: formatDateHN(info.expiresAt) })}</p>
         {user ? (
           <Button size="lg" className="w-full" loading={claim.isPending} onClick={() => claim.mutate()}>
-            {info.kind === "member" ? "Accept and join the team" : "Accept and open my business"}
+            {info.kind === "member" ? tr("Accept and join the team") : tr("Accept and open my business")}
           </Button>
         ) : info.kind === "member" ? (
           <div className="space-y-2">
-            <Button size="lg" className="w-full" onClick={() => openAuthModal("signup", here)}>
-              Create an account and join
-            </Button>
-            <Button size="lg" variant="ghost" className="w-full" onClick={() => openAuthModal("login", here)}>
-              I already have an account
-            </Button>
+            <Button size="lg" className="w-full" onClick={() => openAuthModal("signup", here)}>{tr("Create an account and join")}</Button>
+            <Button size="lg" variant="ghost" className="w-full" onClick={() => openAuthModal("login", here)}>{tr("I already have an account")}</Button>
           </div>
         ) : (
-          <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>
-            Sign in to accept
-          </Button>
+          <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>{tr("Sign in to accept")}</Button>
         )}
       </section>
     );
   }
 
   return (
-    <UserLayout title={info?.kind === "member" ? "Join a team" : "Take over a business"} allowGuest showBottomNav={false}>
+    <UserLayout title={info?.kind === "member" ? tr("Join a team") : tr("Take over a business")} allowGuest showBottomNav={false}>
       <div className="mx-auto max-w-[480px] py-4">{body}</div>
     </UserLayout>
   );

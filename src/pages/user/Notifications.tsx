@@ -11,6 +11,7 @@ import { QueryError } from "@/components/patterns/QueryError";
 import { Button } from "@/components/ui/button";
 import type { NotificationFilter } from "@/lib/notifications/present";
 import { FilterPills, NotificationList, useNotificationFeed } from "@/components/notifications/NotificationFeed";
+import { tr } from "@/lib/tr";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ function Skeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const Notifications = () => {
-  useSeo({ title: "Notifications" });
+  useSeo({ title: tr("Notifications") });
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [filter, setFilter] = useState<NotificationFilter>("all");
@@ -45,7 +46,7 @@ const Notifications = () => {
 
   const handleMarkAllRead = () => {
     markAllRead.mutate(undefined, {
-      onSuccess: () => toast.success("All notifications marked as read"),
+      onSuccess: () => toast.success(tr("All notifications marked as read")),
     });
   };
 
@@ -53,7 +54,7 @@ const Notifications = () => {
 
   if (authLoading) {
     return (
-      <UserLayout title="Notifications">
+      <UserLayout title={tr("Notifications")}>
         <PageLoader />
       </UserLayout>
     );
@@ -61,16 +62,16 @@ const Notifications = () => {
 
   if (!isAuthenticated) {
     return (
-      <UserLayout title="Notifications">
+      <UserLayout title={tr("Notifications")}>
         {/* `EmptyState` was never a component in this codebase — this branch
             threw a ReferenceError and showed the error boundary instead of a
             sign-in prompt. The empty state ten lines down is the real one. */}
         <div className="app-container pt-5">
           <YdEmptyState
             icon={Bell}
-            title="Log in to see your notifications"
-            subtitle="Stay updated on your bookings, payments, and plan activity."
-            action={<Button onClick={() => openAuthModal("login", "/notifications")}>Log in</Button>}
+            title={tr("Log in to see your notifications")}
+            subtitle={tr("Stay updated on your bookings, payments, and plan activity.")}
+            action={<Button onClick={() => openAuthModal("login", "/notifications")}>{tr("Log in")}</Button>}
           />
         </div>
       </UserLayout>
@@ -83,7 +84,7 @@ const Notifications = () => {
 
   return (
     <UserLayout
-      title="Notifications"
+      title={tr("Notifications")}
       showBackButton
       backTo="/discovery"
       // A screen opened from the bell: Back is the way out, so no tab bar, and
@@ -92,8 +93,8 @@ const Notifications = () => {
       headerAction={unreadCount > 0 ? (
         <button
           type="button"
-          aria-label="Mark all read"
-          title="Mark all read"
+          aria-label={tr("Mark all read")}
+          title={tr("Mark all read")}
           onClick={handleMarkAllRead}
           disabled={markAllRead.isPending}
           className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted disabled:opacity-50"
@@ -107,11 +108,10 @@ const Notifications = () => {
       <div className="app-container pb-space-8 pt-4 md:pt-8">
         <div className="mx-auto w-full max-w-[720px] space-y-4">
           <div className="hidden items-center justify-between gap-4 md:flex">
-            <h1 className="text-[28px] font-bold tracking-tight text-foreground">Notifications</h1>
+            <h1 className="text-[28px] font-bold tracking-tight text-foreground">{tr("Notifications")}</h1>
             {unreadCount > 0 && (
               <Button variant="secondary" size="sm" onClick={handleMarkAllRead} loading={markAllRead.isPending}>
-                <CheckCheck /> Mark all read
-              </Button>
+                <CheckCheck />{" "}{tr("Mark all read")}</Button>
             )}
           </div>
 
@@ -121,7 +121,7 @@ const Notifications = () => {
             <Skeleton />
           ) : isError ? (
             <QueryError
-              title="Couldn't load notifications"
+              title={tr("Couldn't load notifications")}
               error={error instanceof Error ? error.message : undefined}
               onRetry={() => refetch()}
               retrying={isFetching}
@@ -129,10 +129,10 @@ const Notifications = () => {
           ) : groups.length === 0 ? (
             <YdEmptyState
               icon={Bell}
-              title={filter === "unread" ? "You're all caught up" : "No notifications"}
+              title={filter === "unread" ? tr("You're all caught up") : tr("No notifications")}
               subtitle={filter === "unread"
-                ? "Nothing new since you last looked."
-                : "Activity on your account will appear here."}
+                ? tr("Nothing new since you last looked.")
+                : tr("Activity on your account will appear here.")}
             />
           ) : (
             <div className="rounded-radius-lg bg-card p-1.5 md:p-2">
@@ -145,9 +145,7 @@ const Notifications = () => {
             </div>
           )}
           {groups.length > 0 && (
-            <p className="px-1 text-center text-meta text-muted-foreground md:hidden">
-              Swipe a notification left to archive it.
-            </p>
+            <p className="px-1 text-center text-meta text-muted-foreground md:hidden">{tr("Swipe a notification left to archive it.")}</p>
           )}
         </div>
       </div>

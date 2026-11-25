@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
 import { PayoutBasisCard } from "@/components/admin/PayoutBasisCard";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * What the platform makes, business by business.
@@ -173,7 +174,7 @@ export function NetProfitPanel() {
       return changed.length + (defaultForm !== defaultPct ? 1 : 0);
     },
     onSuccess: (n) => {
-      toast.success(n ? "Commission updated" : "Nothing to save");
+      toast.success(n ? tr("Commission updated") : tr("Nothing to save"));
       setEditing(false);
       qc.invalidateQueries({ queryKey: ["finance-providers"] });
       qc.invalidateQueries({ queryKey: ["finance-settings"] });
@@ -199,24 +200,21 @@ export function NetProfitPanel() {
         <section className="rounded-radius-md bg-card">
           <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <Wallet className="h-4 w-4" /> Total revenue
-            </div>
+              <Wallet className="h-4 w-4" />{" "}{tr("Total revenue")}</div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(totalRevenue)}</p>
           </div>
         </section>
         <section className="rounded-radius-md bg-card">
           <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <TrendingDown className="h-4 w-4" /> Providers' share
-            </div>
+              <TrendingDown className="h-4 w-4" />{" "}{tr("Providers' share")}</div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(toProviders)}</p>
           </div>
         </section>
         <section className="rounded-radius-md bg-primary/10">
           <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <PiggyBank className="h-4 w-4 text-primary" /> Our commission
-            </div>
+              <PiggyBank className="h-4 w-4 text-primary" />{" "}{tr("Our commission")}</div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-primary">{money(netProfit)}</p>
           </div>
         </section>
@@ -226,11 +224,8 @@ export function NetProfitPanel() {
       <section className="rounded-radius-md bg-card mt-space-4">
         <div className="flex flex-col gap-space-2 p-space-6">
           <h3 className="text-panel-title flex items-center gap-space-2">
-            <TrendingUp className="h-5 w-5 text-primary" /> Commission by business
-          </h3>
-          <p className="type-body text-muted-foreground">
-            {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")} · revenue recognized straight-line across each subscription's service days
-            {hiddenCount > 0 && ` · ${hiddenCount} inactive ${hiddenCount === 1 ? "business" : "businesses"} with no revenue hidden`}
+            <TrendingUp className="h-5 w-5 text-primary" />{" "}{tr("Commission by business")}</h3>
+          <p className="type-body text-muted-foreground">{trx("{start} — {end} · revenue recognized straight-line across each subscription's service days", { start: format(start, "MMM d, yyyy", { locale: dfLocale }), end: format(end, "MMM d, yyyy", { locale: dfLocale }) })}{hiddenCount > 0 && (hiddenCount === 1 ? tr(" · {hiddenCount} inactive business with no revenue hidden", { hiddenCount }) : tr(" · {hiddenCount} inactive businesses with no revenue hidden", { hiddenCount }))}
           </p>
         </div>
         <div className="p-space-6 pt-0">
@@ -238,11 +233,11 @@ export function NetProfitPanel() {
             <Table className="min-w-[520px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>Business</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("revenue")}><SortHeader {...sort.headerProps("revenue")} align="right">Revenue</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("rate")}><SortHeader {...sort.headerProps("rate")} align="right">Rate</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("ours")}><SortHeader {...sort.headerProps("ours")} align="right">Our commission</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("theirs")}><SortHeader {...sort.headerProps("theirs")} align="right">They keep</SortHeader></TableHead>
+                  <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>{tr("Business")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("revenue")}><SortHeader {...sort.headerProps("revenue")} align="right">{tr("Revenue")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("rate")}><SortHeader {...sort.headerProps("rate")} align="right">{tr("Rate")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("ours")}><SortHeader {...sort.headerProps("ours")} align="right">{tr("Our commission")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("theirs")}><SortHeader {...sort.headerProps("theirs")} align="right">{tr("They keep")}</SortHeader></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className={cn(isLoading && "opacity-50")}>
@@ -253,9 +248,7 @@ export function NetProfitPanel() {
                     <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
                       {row.pct}%
                       {row.ownClients > 0 && (
-                        <span className="block text-[11px] font-sans" title="Orders from clients this business brought itself carry no commission">
-                          0% on {formatUSD(row.ownClients)}
-                        </span>
+                        <span className="block text-[11px] font-sans" title={tr("Orders from clients this business brought itself carry no commission")}>{trx("0% on {ownClients}", { ownClients: formatUSD(row.ownClients) })}</span>
                       )}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono font-bold tabular-nums text-primary">{money(row.ours)}</TableCell>
@@ -265,7 +258,7 @@ export function NetProfitPanel() {
               </TableBody>
               <TableFooter>
                 <TableRow className="border-t border-border text-foreground">
-                  <TableCell className="py-2.5 pr-4 font-bold">Total</TableCell>
+                  <TableCell className="py-2.5 pr-4 font-bold">{tr("Total")}</TableCell>
                   <TableCell className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(totalRevenue)}</TableCell>
                   <TableCell />
                   <TableCell className="px-3 py-2.5 text-right font-mono font-black tabular-nums text-primary">{money(netProfit)}</TableCell>
@@ -283,12 +276,8 @@ export function NetProfitPanel() {
       <section className="rounded-radius-md bg-card mt-space-4">
         <div className="flex flex-col gap-space-2 p-space-6">
           <h3 className="text-panel-title flex items-center gap-space-2">
-            <Settings2 className="h-5 w-5" /> Commission rates
-          </h3>
-          <p className="type-body text-muted-foreground">
-            What the platform keeps of each business's revenue. The business sees the same
-            rate and the same figures on its own Money tab, and its payout cap follows it.
-          </p>
+            <Settings2 className="h-5 w-5" />{" "}{tr("Commission rates")}</h3>
+          <p className="type-body text-muted-foreground">{tr("What the platform keeps of each business's revenue. The business sees the same rate and the same figures on its own Money tab, and its payout cap follows it.")}</p>
         </div>
         <div className="p-space-6 pt-0 space-y-space-4">
           <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -297,7 +286,7 @@ export function NetProfitPanel() {
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold text-foreground">{p.name}</span>
                   {p.status !== "active" && (
-                    <span className="ml-auto text-xs text-muted-foreground">inactive</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{tr("inactive")}</span>
                   )}
                 </div>
                 {editing ? (
@@ -321,8 +310,8 @@ export function NetProfitPanel() {
 
           <div className="flex flex-wrap items-end gap-space-3 border-t border-[hsl(var(--app-divider))] pt-space-4">
             <div>
-              <p className="text-sm font-semibold text-foreground">Default for new businesses</p>
-              <p className="text-xs text-muted-foreground">Used until a business is given a rate of its own.</p>
+              <p className="text-sm font-semibold text-foreground">{tr("Default for new businesses")}</p>
+              <p className="text-xs text-muted-foreground">{tr("Used until a business is given a rate of its own.")}</p>
             </div>
             {editing ? (
               <div className="relative w-28">
@@ -342,18 +331,13 @@ export function NetProfitPanel() {
 
             {editing ? (
               <div className="ml-auto flex items-center gap-space-2">
-                <Button variant="ghost" onClick={cancelEdit} disabled={saveRates.isPending}>
-                  Cancel
-                </Button>
+                <Button variant="ghost" onClick={cancelEdit} disabled={saveRates.isPending}>{tr("Cancel")}</Button>
                 <Button onClick={() => saveRates.mutate()} disabled={saveRates.isPending}>
-                  {saveRates.isPending && <Spinner size="sm" className="mr-2" />}
-                  Save rates
-                </Button>
+                  {saveRates.isPending && <Spinner size="sm" className="mr-2" />}{tr("Save rates")}</Button>
               </div>
             ) : (
               <Button variant="outline" className="ml-auto gap-2" onClick={() => setEditing(true)}>
-                <Pencil className="h-3.5 w-3.5" /> Edit rates
-              </Button>
+                <Pencil className="h-3.5 w-3.5" />{" "}{tr("Edit rates")}</Button>
             )}
           </div>
         </div>

@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useActiveAds } from "@/hooks/useActiveAd";
 import { cn } from "@/lib/utils";
 import type { Ad } from "@/types/ad";
+import { tr } from "@/lib/tr";
 
 const ROTATE_MS = 5000; // auto-advance interval
 const dismissKey = (sig: string) => `ad_dismissed_${sig}`;
@@ -99,7 +100,7 @@ export function AdBanner({ placement }: { placement: string }) {
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       role="region"
-      aria-label="Promotions"
+      aria-label={tr("Promotions")}
     >
       {/* Sliding track — follows the finger while dragging */}
       <div
@@ -118,7 +119,7 @@ export function AdBanner({ placement }: { placement: string }) {
             <button
               key={ad.id}
               type="button"
-              aria-label={`Go to ad ${i + 1}`}
+              aria-label={tr("Go to ad {value}", { value: i + 1 })}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIndex(i); }}
               className="group flex h-6 items-center px-1"
             >
@@ -168,7 +169,7 @@ function AdSlide({ ad, onClickCapture }: { ad: Ad; onClickCapture?: (e: React.Mo
       href={ad.link_url}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${ad.label} (advertisement)`}
+      aria-label={tr("{label} (advertisement)", { label: ad.label })}
       onClickCapture={onClickCapture}
       className="relative block w-full shrink-0 overflow-hidden"
       style={{
@@ -179,9 +180,7 @@ function AdSlide({ ad, onClickCapture }: { ad: Ad; onClickCapture?: (e: React.Mo
       <span
         className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 text-[9px] font-medium uppercase tracking-wider sm:block"
         style={{ color: ad.text_color, opacity: 0.45 }}
-      >
-        Ad
-      </span>
+      >{tr("Ad")}</span>
 
       <div className="mx-auto flex max-w-[1440px] items-center justify-center gap-2.5 px-12 py-2.5 sm:gap-3">
         <span

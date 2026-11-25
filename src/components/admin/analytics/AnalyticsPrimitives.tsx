@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { tr } from "@/lib/tr";
 
 /**
  * Shared building blocks for the per-service analytics pages.
@@ -101,9 +102,7 @@ export function MonthlyRevenueChart({
   const max = Math.max(...months.map((m) => m.rev), 0);
   if (max === 0) {
     return (
-      <p className="py-8 text-center text-title text-muted-foreground">
-        No revenue recorded in the last 6 months.
-      </p>
+      <p className="py-8 text-center text-title text-muted-foreground">{tr("No revenue recorded in the last 6 months.")}</p>
     );
   }
   return (
@@ -151,9 +150,7 @@ export function StackedRevenueChart({
   const max = Math.max(...totals, 0);
   if (max === 0) {
     return (
-      <p className="py-8 text-center text-title text-muted-foreground">
-        No revenue recorded in the last 6 months.
-      </p>
+      <p className="py-8 text-center text-title text-muted-foreground">{tr("No revenue recorded in the last 6 months.")}</p>
     );
   }
   return (
@@ -213,7 +210,7 @@ export interface RankedRow { key: string; label: string; sublabel?: string; valu
  * producing `width: NaN%`.
  */
 export function RankedBarList({
-  rows, formatValue, barClass = "bg-primary", emptyMessage = "Nothing to show yet.", includeZero = false,
+  rows, formatValue, barClass = "bg-primary", emptyMessage = tr("Nothing to show yet."), includeZero = false,
 }: {
   rows: RankedRow[];
   formatValue: (value: number) => string;

@@ -9,6 +9,7 @@ import { formatUSD } from "@/lib/pricing";
 import { useUpsells, type Upsell } from "@/lib/upsells/useUpsells";
 import { priceUnit } from "@/lib/checkout/ctaLabel";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * "Add to your order" — one block, in the cart and under a product.
@@ -56,7 +57,7 @@ export function UpsellSection({
     });
     // In the cart the line appearing above is the feedback; elsewhere say so.
     if (placement !== "cart") {
-      toast.success("Saved to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
+      toast.success(tr("Saved to your cart"), { action: { label: tr("View cart"), onClick: () => navigate("/cart") } });
     }
   };
 
@@ -81,14 +82,14 @@ export function UpsellSection({
                 <p className="line-clamp-2 text-body font-semibold leading-tight text-foreground">{u.name}</p>
                 <p className="truncate text-meta text-muted-foreground">{u.providerName}</p>
                 <p className="truncate text-meta tabular-nums text-foreground">
-                  {u.from ? "From " : ""}{formatUSD(u.priceCents)} {priceUnit({ period: u.period })}
+                  {u.from ? tr("From ") : ""}{formatUSD(u.priceCents)} {priceUnit({ period: u.period })}
                 </p>
               </div>
               {/* One button, one meaning: "+" adds. A plan that needs options
                   first (size, people) opens its page for them — the same +,
                   not a chevron that looked like a different kind of row. */}
               <Button size="icon" variant="secondary" className="shrink-0"
-                aria-label={u.quickAdd ? `Add ${u.name} to cart` : `Choose options for ${u.name}`}
+                aria-label={u.quickAdd ? tr("Add {name} to cart", { name: u.name }) : tr("Choose options for {name}", { name: u.name })}
                 onClick={(e) => { e.stopPropagation(); if (u.quickAdd) add(u); else open(u); }}>
                 <Plus className="h-5 w-5" />
               </Button>

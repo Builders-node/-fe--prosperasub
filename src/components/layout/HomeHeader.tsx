@@ -12,6 +12,7 @@ import {
   HeaderAccountSkeleton, HeaderBonusChip, HeaderIconLink, HeaderLoginButton, useHeaderSession, type HeaderSession,
 } from "@/components/layout/HeaderParts";
 import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
+import { tr } from "@/lib/tr";
 
 interface HomeHeaderProps {
   title?: string;
@@ -89,7 +90,7 @@ export function HomeHeaderView({
     : (
       <HeaderIconLink
         to="/notifications"
-        label="Notifications"
+        label={tr("Notifications")}
         icon={NotificationsIcon}
         count={session.unread}
         onPointerDown={() => prefetchRoute("/notifications")}
@@ -105,7 +106,7 @@ export function HomeHeaderView({
               favorites had no door on a phone at all, so this is it. */}
           <HeaderIconLink
             to="/favorites"
-            label="Favorites"
+            label={tr("Favorites")}
             icon={FavoriteIcon}
             tone="brand"
             onPointerDown={() => prefetchRoute("/favorites")}
@@ -139,7 +140,7 @@ export function HomeHeaderView({
       <div className="relative flex h-14 items-center justify-between p-2">
         <div className="h-10 min-w-10 shrink-0">
           {showBackButton && (
-            <button type="button" aria-label="Back" onClick={onBack} className={HEADER_ACTION_CLASS}>
+            <button type="button" aria-label={tr("Back")} onClick={onBack} className={HEADER_ACTION_CLASS}>
               <KeyboardArrowLeftIcon className={HEADER_ACTION_ICON_CLASS} />
             </button>
           )}

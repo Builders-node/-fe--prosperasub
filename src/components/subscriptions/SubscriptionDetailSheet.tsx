@@ -15,6 +15,7 @@ import { TipPanel } from "@/components/subscriptions/TipPanel";
 import { RateProviderButton, type Service } from "@/components/reviews/RateProviderButton";
 import { AccessQrCode } from "@/components/account/AccessQrCode";
 import { DeliveryStatusBlock } from "@/components/delivery/DeliveryStatusBlock";
+import { tr } from "@/lib/tr";
 
 /**
  * What a customer sees when they tap a subscription: the purchase, not the
@@ -127,7 +128,7 @@ export function SubscriptionDetailSheet({
 
   return (
     <>
-    <ResponsiveDialog open={!!detail} onOpenChange={(o) => !o && onClose()} title="Your purchase" footer={footer}>
+    <ResponsiveDialog open={!!detail} onOpenChange={(o) => !o && onClose()} title={tr("Your purchase")} footer={footer}>
       {detail && (
         <>
           <DialogBlock>
@@ -141,28 +142,24 @@ export function SubscriptionDetailSheet({
             {detail.amountCents != null && (
               <div className="rounded-radius-md bg-inset p-4">
                 <p className="text-meta text-muted-foreground">
-                  {!detail.paymentStatus || detail.paymentStatus === "paid" ? "Paid" : "Awaiting payment"}
+                  {!detail.paymentStatus || detail.paymentStatus === "paid" ? tr("Paid") : tr("Awaiting payment")}
                 </p>
                 <p className="mt-0.5 text-2xl font-semibold leading-[29px] tabular-nums text-foreground">
                   {formatUSD(detail.amountCents)}
                 </p>
                 {detail.paymentStatus && detail.paymentStatus !== "paid" && (
-                  <p className="mt-1 text-meta text-muted-foreground">
-                    If you've paid, it confirms by itself within a few minutes.
-                  </p>
+                  <p className="mt-1 text-meta text-muted-foreground">{tr("If you've paid, it confirms by itself within a few minutes.")}</p>
                 )}
               </div>
             )}
             {detail.endsOn && (
-              <p className="rounded-radius-md bg-attention/10 px-3 py-2.5 text-body text-foreground">
-                Cancelled — it runs until <span className="font-semibold">{formatDateHN(detail.endsOn)}</span> and won't renew.
-              </p>
+              <p className="rounded-radius-md bg-attention/10 px-3 py-2.5 text-body text-foreground">{tr("Cancelled — it runs until")}{" "}<span className="font-semibold">{formatDateHN(detail.endsOn)}</span>{" "}{tr("and won't renew.")}</p>
             )}
           </DialogBlock>
 
           {/* First after the summary, because at the door this is what the sheet is opened for. */}
           {detail.accessId && !detail.noAccessQr && GRANTS_ACCESS.includes(detail.status.toLowerCase()) && (
-            <DialogBlock title="Access">
+            <DialogBlock title={tr("Access")}>
               <AccessQrCode subscriptionId={detail.accessId} />
             </DialogBlock>
           )}
@@ -171,23 +168,22 @@ export function SubscriptionDetailSheet({
               the sheet stays about this purchase. */}
           {detail.howItWorks && (
             <Button variant="secondary" className="w-full gap-1.5" onClick={() => setShowingHow(true)}>
-              <ListOrdered className="h-4 w-4" /> How it works
-            </Button>
+              <ListOrdered className="h-4 w-4" />{" "}{tr("How it works")}</Button>
           )}
 
           {/* A delivered purchase: where it is and where it is going. */}
           <DeliveryStatusBlock subscriptionId={detail.accessId} />
 
-          <DialogBlock title="Details" className="space-y-0">
-            <Row label="Period" value={formatRangeHN(detail.periodStart, detail.periodEnd) ?? undefined} />
+          <DialogBlock title={tr("Details")} className="space-y-0">
+            <Row label={tr("Period")} value={formatRangeHN(detail.periodStart, detail.periodEnd) ?? undefined} />
             {detail.facts?.map((f, i) => <Row key={i} label={f.label} value={f.value} />)}
-            <Row label="Paid with"
+            <Row label={tr("Paid with")}
               value={detail.paymentMethod ? <PaymentMethodBadge method={detail.paymentMethod} /> : undefined} />
-            <Row label="Reference"
+            <Row label={tr("Reference")}
               value={detail.paymentReference
                 ? <PaymentReference method={detail.paymentMethod} reference={detail.paymentReference} />
                 : undefined} />
-            <Row label="Purchased" value={detail.purchasedAt ? formatDateHN(detail.purchasedAt) : undefined} />
+            <Row label={tr("Purchased")} value={detail.purchasedAt ? formatDateHN(detail.purchasedAt) : undefined} />
           </DialogBlock>
 
           {/* The visits this subscription booked. */}
@@ -222,19 +218,19 @@ export function SubscriptionDetailSheet({
           ))}
 
           {detail.delivery && (
-            <DialogBlock title="Delivered to">
+            <DialogBlock title={tr("Delivered to")}>
               <div className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <p className="min-w-0 flex-1 break-words text-title font-semibold text-foreground">
-                  {detail.delivery.current || "Not set"}
+                  {detail.delivery.current || tr("Not set")}
                 </p>
-                <Button size="sm" variant="secondary" onClick={() => setEditingDelivery(true)}>Change</Button>
+                <Button size="sm" variant="secondary" onClick={() => setEditingDelivery(true)}>{tr("Change")}</Button>
               </div>
             </DialogBlock>
           )}
 
           {detail.review && (
-            <DialogBlock title="Your rating">
+            <DialogBlock title={tr("Your rating")}>
               <RateProviderButton
                 service={detail.review.service}
                 itemId={detail.review.itemId ?? undefined}

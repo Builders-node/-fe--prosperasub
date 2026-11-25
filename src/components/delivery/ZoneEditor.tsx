@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { ZONE_COLORS, etaText, zoneColor, type DeliveryZone } from "@/lib/delivery/zones";
 import type { ZoneDraft } from "@/components/delivery/ZoneMap";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { tr, trx } from "@/lib/tr";
 
 const ZoneMap = lazy(() => import("@/components/delivery/ZoneMap"));
 
@@ -66,7 +67,7 @@ export interface ZoneEditorProps {
   timeLabel?: string;
 }
 
-export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "Delivery time" }: ZoneEditorProps) {
+export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = tr("Delivery time") }: ZoneEditorProps) {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey,
@@ -135,20 +136,20 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
         ? call(`${basePath}/${form.id}`, "PATCH", body)
         : call(basePath, "POST", { ...body, sortOrder: zones.length });
     },
-    onSuccess: () => { toast.success("Zone saved"); close(); refresh(); },
-    onError: (e: Error) => toast.error(e.message || "Could not save the zone"),
+    onSuccess: () => { toast.success(tr("Zone saved")); close(); refresh(); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not save the zone")),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => call<{ archived: boolean }>(`${basePath}/${id}`, "DELETE"),
-    onSuccess: (r) => { toast.success(r?.archived ? "Orders use this zone — it was switched off instead" : "Zone deleted"); close(); refresh(); },
-    onError: (e: Error) => toast.error(e.message || "Could not delete it"),
+    onSuccess: (r) => { toast.success(r?.archived ? tr("Orders use this zone — it was switched off instead") : tr("Zone deleted")); close(); refresh(); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not delete it")),
   });
 
   const toggle = useMutation({
     mutationFn: (z: DeliveryZone) => call(`${basePath}/${z.id}`, "PATCH", { isActive: !z.is_active }),
     onSuccess: refresh,
-    onError: (e: Error) => toast.error(e.message || "Could not change it"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not change it")),
   });
 
   const onMapClick = (pt: { lat: number; lng: number }) => {
@@ -164,12 +165,10 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
 
   const [confirm, confirmDialog] = useConfirm();
   if (q.isLoading) return <Skeleton className="h-[560px]" />;
-  if (q.isError) return <QueryError title="Couldn't load the zones" error={q.error as Error} onRetry={() => void q.refetch()} />;
+  if (q.isError) return <QueryError title={tr("Couldn't load the zones")} error={q.error as Error} onRetry={() => void q.refetch()} />;
   if (q.data && !q.data.enabled) {
     return (
-      <p className="rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-        Delivery needs the database migration (20261124120000_delivery_zones) before zones can be drawn.
-      </p>
+      <p className="rounded-radius-md bg-card p-4 text-body text-muted-foreground">{tr("Delivery needs the database migration (20261124120000_delivery_zones) before zones can be drawn.")}</p>
     );
   }
 
@@ -180,20 +179,20 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
         {form && draft ? (
           <section className="space-y-4 rounded-radius-lg bg-card p-4">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-title font-semibold text-foreground">{form.id ? "Edit zone" : "New zone"}</h2>
-              <Button variant="ghost" size="sm" onClick={close}>Cancel</Button>
+              <h2 className="text-title font-semibold text-foreground">{form.id ? tr("Edit zone") : tr("New zone")}</h2>
+              <Button variant="ghost" size="sm" onClick={close}>{tr("Cancel")}</Button>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="zn">Name</Label>
-              <Input id="zn" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="West End, Sandy Bay…" />
+              <Label htmlFor="zn">{tr("Name")}</Label>
+              <Input id="zn" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={tr("West End, Sandy Bay…")} />
             </div>
 
             {/* Shape */}
             <div className="space-y-2">
-              <Label>Area</Label>
+              <Label>{tr("Area")}</Label>
               <div className="flex rounded-full bg-inset p-0.5">
-                {([["polygon", "Draw on the map", MapPin], ["circle", "Circle", Circle]] as const).map(([v, label, Icon]) => (
+                {([["polygon", tr("Draw on the map"), MapPin], ["circle", "Circle", Circle]] as const).map(([v, label, Icon]) => (
                   <button
                     key={v}
                     type="button"
@@ -210,32 +209,32 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
                   <p className="text-meta text-muted-foreground">
                     {drawing
                       ? draft.points.length < 3
-                        ? `Click the map to place the corners — ${3 - draft.points.length} more to make an area.`
-                        : `${draft.points.length} corners. Keep clicking to add more, or save.`
-                      : `${draft.points.length} corners.`}
+                        ? tr("Click the map to place the corners — {value} more to make an area.", { value: 3 - draft.points.length })
+                        : tr("{length} corners. Keep clicking to add more, or save.", { length: draft.points.length })
+                      : tr("{length} corners.", { length: draft.points.length })}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {!drawing && <Button size="sm" variant="secondary" onClick={() => setDrawing(true)}><Pencil className="mr-1.5 h-4 w-4" /> Add corners</Button>}
+                    {!drawing && <Button size="sm" variant="secondary" onClick={() => setDrawing(true)}><Pencil className="mr-1.5 h-4 w-4" />{" "}{tr("Add corners")}</Button>}
                     <Button size="sm" variant="secondary" disabled={!draft.points.length}
-                      onClick={() => setDraft({ ...draft, points: draft.points.slice(0, -1) })}><Undo2 className="mr-1.5 h-4 w-4" /> Undo</Button>
+                      onClick={() => setDraft({ ...draft, points: draft.points.slice(0, -1) })}><Undo2 className="mr-1.5 h-4 w-4" />{" "}{tr("Undo")}</Button>
                     <Button size="sm" variant="secondary" disabled={!draft.points.length}
-                      onClick={() => { setDraft({ ...draft, points: [] }); setDrawing(true); }}>Redraw</Button>
+                      onClick={() => { setDraft({ ...draft, points: [] }); setDrawing(true); }}>{tr("Redraw")}</Button>
                   </div>
                 </>
               ) : (
                 <>
                   <p className="text-meta text-muted-foreground">
-                    {draft.center ? "Click the map to move the centre." : "Click the map where the circle's centre is."}
+                    {draft.center ? tr("Click the map to move the centre.") : tr("Click the map where the circle's centre is.")}
                   </p>
                   <div className="space-y-1">
                     <div className="flex justify-between text-meta text-muted-foreground">
-                      <span>Radius</span><span className="tabular-nums text-foreground">{(draft.radiusM / 1000).toFixed(1)} km</span>
+                      <span>{tr("Radius")}</span><span className="tabular-nums text-foreground">{trx("{toFixed} km", { toFixed: (draft.radiusM / 1000).toFixed(1) })}</span>
                     </div>
                     <input
                       type="range" min={500} max={20000} step={250} value={draft.radiusM}
                       onChange={(e) => setDraft({ ...draft, radiusM: Number(e.target.value) })}
                       className="w-full accent-[hsl(var(--primary))]"
-                      aria-label="Radius"
+                      aria-label={tr("Radius")}
                     />
                   </div>
                 </>
@@ -243,63 +242,60 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <Money label="Fee" value={form.fee} onChange={(v) => setForm({ ...form, fee: v })} />
-              <Money label="Free from" value={form.freeFrom} onChange={(v) => setForm({ ...form, freeFrom: v })} placeholder="—" />
-              <Money label="Min. order" value={form.minOrder} onChange={(v) => setForm({ ...form, minOrder: v })} placeholder="—" />
+              <Money label={tr("Fee")} value={form.fee} onChange={(v) => setForm({ ...form, fee: v })} />
+              <Money label={tr("Free from")} value={form.freeFrom} onChange={(v) => setForm({ ...form, freeFrom: v })} placeholder="—" />
+              <Money label={tr("Min. order")} value={form.minOrder} onChange={(v) => setForm({ ...form, minOrder: v })} placeholder="—" />
             </div>
 
             <div className="space-y-1.5">
               <Label>{timeLabel}</Label>
               <div className="flex items-center gap-2">
-                <Input inputMode="decimal" value={form.etaMin} onChange={(e) => setForm({ ...form, etaMin: e.target.value })} className="w-20" aria-label="From" />
+                <Input inputMode="decimal" value={form.etaMin} onChange={(e) => setForm({ ...form, etaMin: e.target.value })} className="w-20" aria-label={tr("From")} />
                 <span className="text-muted-foreground">–</span>
-                <Input inputMode="decimal" value={form.etaMax} onChange={(e) => setForm({ ...form, etaMax: e.target.value })} className="w-20" aria-label="To" />
+                <Input inputMode="decimal" value={form.etaMax} onChange={(e) => setForm({ ...form, etaMax: e.target.value })} className="w-20" aria-label={tr("To")} />
                 <Select value={form.etaUnit} onValueChange={(v) => setForm({ ...form, etaUnit: v as Unit })}>
                   <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="min">minutes</SelectItem>
-                    <SelectItem value="h">hours</SelectItem>
-                    <SelectItem value="day">days</SelectItem>
+                    <SelectItem value="min">{tr("minutes")}</SelectItem>
+                    <SelectItem value="h">{tr("hours")}</SelectItem>
+                    <SelectItem value="day">{tr("days")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Colour on the map</Label>
+              <Label>{tr("Colour on the map")}</Label>
               <div className="flex flex-wrap gap-2">
                 {ZONE_COLORS.map((c) => (
-                  <button key={c} type="button" aria-label={`Colour ${c}`} onClick={() => setDraft({ ...draft, color: c })}
+                  <button key={c} type="button" aria-label={tr("Colour {c}", { c })} onClick={() => setDraft({ ...draft, color: c })}
                     className={cn("h-7 w-7 rounded-full", draft.color === c && "outline outline-2 outline-offset-2 outline-foreground")}
                     style={{ background: c }} />
                 ))}
               </div>
             </div>
 
-            <label className="flex items-center justify-between gap-3 text-body text-foreground">
-              Serving this zone
-              <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+            <label className="flex items-center justify-between gap-3 text-body text-foreground">{tr("Serving this zone")}<Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
             </label>
 
             <div className="flex gap-2">
               <Button className="flex-1" disabled={!canSave} onClick={() => save.mutate()}>
-                {save.isPending && <Spinner size="sm" className="mr-2" />}Save zone
-              </Button>
+                {save.isPending && <Spinner size="sm" className="mr-2" />}{tr("Save zone")}</Button>
               {form.id && (
-                <Button variant="secondary" disabled={remove.isPending} aria-label="Delete zone"
-                  onClick={async () => { if (await confirm({ title: `Delete “${form.name}”?`, confirmLabel: "Delete" })) remove.mutate(form.id!); }}>
+                <Button variant="secondary" disabled={remove.isPending} aria-label={tr("Delete zone")}
+                  onClick={async () => { if (await confirm({ title: tr("Delete “{name}”?", { name: form.name }), confirmLabel: tr("Delete") })) remove.mutate(form.id!); }}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
             </div>
           </section>
         ) : (
-          <Button className="w-full" onClick={startNew}><Plus className="mr-2 h-4 w-4" /> New zone</Button>
+          <Button className="w-full" onClick={startNew}><Plus className="mr-2 h-4 w-4" />{" "}{tr("New zone")}</Button>
         )}
 
         {zones.length === 0 && !form ? (
           <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">
-            {emptyText ?? "No zones yet. Draw the first one — offers can then switch delivery on and customers see the price and time under the pin."}
+            {emptyText ?? tr("No zones yet. Draw the first one — offers can then switch delivery on and customers see the price and time under the pin.")}
           </p>
         ) : (
           <div className="space-y-1">
@@ -318,7 +314,7 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
                     ].filter(Boolean).join(" · ")}
                   </p>
                 </button>
-                <Switch checked={z.is_active} onCheckedChange={() => toggle.mutate(z)} aria-label={`Deliver to ${z.name}`} />
+                <Switch checked={z.is_active} onCheckedChange={() => toggle.mutate(z)} aria-label={tr("Deliver to {name}", { name: z.name })} />
               </div>
             ))}
           </div>

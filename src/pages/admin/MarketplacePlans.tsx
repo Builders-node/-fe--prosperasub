@@ -16,6 +16,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { formatUSD } from "@/lib/pricing";
+import { tr, trx } from "@/lib/tr";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface Plan {
@@ -182,26 +183,26 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     <>
       {!archetypeKey && (
         <Select value={service} onValueChange={(v) => { setServiceFilter(v); setProviderId("all"); }}>
-          <SelectTrigger inputSize="sm" className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
+          <SelectTrigger inputSize="sm" className="w-40 rounded-full"><SelectValue placeholder={tr("All services")} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All services</SelectItem>
+            <SelectItem value="all">{tr("All services")}</SelectItem>
             {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
           </SelectContent>
         </Select>
       )}
       <Select value={providerId} onValueChange={setProviderId}>
-        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder="All businesses" /></SelectTrigger>
+        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder={tr("All businesses")} /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All businesses</SelectItem>
+          <SelectItem value="all">{tr("All businesses")}</SelectItem>
           {providersInService.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger inputSize="sm" className="w-32 rounded-full"><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectTrigger inputSize="sm" className="w-32 rounded-full"><SelectValue placeholder={tr("Status")} /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
+          <SelectItem value="all">{tr("All statuses")}</SelectItem>
+          <SelectItem value="active">{tr("Active")}</SelectItem>
+          <SelectItem value="inactive">{tr("Inactive")}</SelectItem>
         </SelectContent>
       </Select>
     </>
@@ -239,9 +240,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                 the list says which is which — otherwise "Meal Plan"
                 and its six combinations read as seven products. */}
             {variantCounts[p.id] ? (
-              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
-                {variantCounts[p.id]} options
-              </span>
+              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">{trx("{value} options", { value: variantCounts[p.id] })}</span>
             ) : p.parent_plan_id ? (
               <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-meta font-semibold text-muted-foreground">
                 {Object.values(p.option_keys ?? {}).join(" · ") || "variant"}
@@ -258,7 +257,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     const priceCell = (
       <div className="text-right">
         <p className="text-sm font-bold tabular-nums text-foreground">
-          {from != null ? <><span className="text-meta font-normal text-muted-foreground">from </span>{formatUSD(from, p.currency)}</> : formatUSD(p.price_cents, p.currency)}
+          {from != null ? <><span className="text-meta font-normal text-muted-foreground">{tr("from")}{" "}</span>{formatUSD(from, p.currency)}</> : formatUSD(p.price_cents, p.currency)}
         </p>
         <p className="text-meta text-muted-foreground">
           /{formatPeriod(p.period)}
@@ -276,8 +275,8 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
           onClick={(e) => e.stopPropagation()}
           to={`/admin/marketplace/providers/${prov.id}?tab=offerings`}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={`Edit in ${prov.name}`}
-          title="Edit in the business's Offerings"
+          aria-label={tr("Edit in {name}", { name: prov.name })}
+          title={tr("Edit in the business's Offerings")}
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </Link>
@@ -341,23 +340,23 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
   const body = (
       <AdminListShell
-        search={search} onSearch={setSearch} searchPlaceholder="Search plans, businesses…"
+        search={search} onSearch={setSearch} searchPlaceholder={tr("Search plans, businesses…")}
         filters={filters}
         isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
         isEmpty={inScope.length === 0}
         isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-        emptyTitle="No plans yet" emptySubtitle="Businesses create plans in their workspace."
+        emptyTitle={tr("No plans yet")} emptySubtitle={tr("Businesses create plans in their workspace.")}
         onClearFilters={() => { setSearch(""); setServiceFilter("all"); setProviderId("all"); setStatus("all"); }}
       >
         <div className="overflow-hidden rounded-radius-md bg-card">
           {/* Desktop header row */}
           <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
-            <div aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></div>
-            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Business</SortHeader></div>
-            <div aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></div>
-            <div className="flex justify-end" aria-sort={sort.ariaSort("price")}><SortHeader {...sort.headerProps("price")} align="right">Price</SortHeader></div>
-            <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></div>
-            <div className="text-right">Actions</div>
+            <div aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>{tr("Plan")}</SortHeader></div>
+            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>{tr("Business")}</SortHeader></div>
+            <div aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>{tr("Service")}</SortHeader></div>
+            <div className="flex justify-end" aria-sort={sort.ariaSort("price")}><SortHeader {...sort.headerProps("price")} align="right">{tr("Price")}</SortHeader></div>
+            <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>{tr("Status")}</SortHeader></div>
+            <div className="text-right">{tr("Actions")}</div>
           </div>
 
           <div className="divide-y divide-border/40">
@@ -378,7 +377,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Plans" subtitle="Every plan offered by every business">
+    <SuperAdminLayout title={tr("Plans")} subtitle={tr("Every plan offered by every business")}>
       {body}
     </SuperAdminLayout>
   );

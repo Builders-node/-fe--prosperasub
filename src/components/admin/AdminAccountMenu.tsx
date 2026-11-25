@@ -16,6 +16,7 @@ import {
 import { publicRoutes } from "@/config/adminRoutes";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
+import { tr } from "@/lib/tr";
 
 export function AdminAccountMenu() {
   const { userData, logout } = useAuth();
@@ -56,8 +57,8 @@ export function AdminAccountMenu() {
                 at the storefront had to log out and back in. */}
             <AppDropdownItem
               icon={Store}
-              title="Go to the site"
-              subtitle="Browse EverySub as a customer"
+              title={tr("Go to the site")}
+              subtitle={tr("Browse EverySub as a customer")}
               onSelect={() => navigate(publicRoutes.userSite)}
             />
           </div>

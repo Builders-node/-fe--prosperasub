@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { PhotoSlider } from "@/components/patterns/PhotoSlider";
+import { tr } from "@/lib/tr";
 
 /**
  * The plan card. One of them.
@@ -165,7 +166,7 @@ export function PlanCard({
           </p>
         ) : hasPrice ? (
           <p className="text-[20px] font-bold leading-tight tracking-tight tabular-nums text-foreground">
-            {price.from && <span className="text-meta font-medium tracking-normal text-muted-foreground">From </span>}
+            {price.from && <span className="text-meta font-medium tracking-normal text-muted-foreground">{tr("From")}{" "}</span>}
             {formatUSD(price.cents!)}
             {price.unit && (
               <span className="text-meta font-medium tracking-normal text-muted-foreground">
@@ -176,7 +177,7 @@ export function PlanCard({
         ) : (
           // A plan with no price is a half-finished admin entry. Saying so
           // beats rendering "$0.00".
-          <p className="text-meta font-semibold text-muted-foreground">Price on request</p>
+          <p className="text-meta font-semibold text-muted-foreground">{tr("Price on request")}</p>
         )}
         <h3 className="line-clamp-2 text-body font-normal leading-snug text-foreground">
           {title}

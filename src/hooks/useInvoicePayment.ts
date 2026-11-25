@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 /**
  * Unified Blink invoice + polling hook. Handles both Lightning and on-chain
@@ -116,7 +117,7 @@ export function useInvoicePayment({
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        if (!data?.address) throw new Error("Could not generate a Bitcoin address.");
+        if (!data?.address) throw new Error(tr("Could not generate a Bitcoin address."));
         const uri = `bitcoin:${data.address}?amount=${(amountSats / 1e8).toFixed(8)}&label=EverySub&message=${encodeURIComponent(description)}`;
         setState((s) => ({ ...s, address: data.address, uri, isGenerating: false }));
         onInvoiceReady?.(data.address, "onchain");
@@ -147,7 +148,7 @@ export function useInvoicePayment({
       setState(INITIAL);
       // The raw text is an edge-function status line ("non-2xx…"), which
       // tells a customer nothing they can act on.
-      toast.error("We couldn't create the payment. Try again, or pick another method.");
+      toast.error(tr("We couldn't create the payment. Try again, or pick another method."));
       return false;
     }
   };

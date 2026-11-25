@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { CollectionCard, CollectionCover } from "@/components/discovery/CollectionCover";
 import { PlanTile, planIndex, planPhotos, useHomePlans } from "@/components/discovery/homePlans";
 import { collectionHref, collectionPlans, offersLabel, useCollections } from "@/lib/collections";
+import { tr } from "@/lib/tr";
 
 /**
  * `/collections/:slug` — one collection as a page: its cover, its title and a
@@ -33,7 +34,7 @@ export default function CollectionPage() {
   const items = useMemo(() => (c ? collectionPlans(c, plans, index) : []), [c, plans, index]);
 
   useSeo({
-    title: c?.title ?? (loadingCollections ? null : "Collection"),
+    title: c?.title ?? (loadingCollections ? null : tr("Collection")),
     description: c ? (c.description || c.subtitle || `${c.title} on EverySub, Roatán.`) : null,
     path: c ? collectionHref(c) : null,
     image: c ? (c.coverUrl || planPhotos(items[0])[0] || null) : null,
@@ -42,21 +43,21 @@ export default function CollectionPage() {
   if (c && c.slug && slug !== c.slug) return <Navigate to={collectionHref(c)} replace />;
 
   const crumbs = [
-    { label: "Home", href: "/discovery" },
-    { label: "Collections", href: "/collections" },
-    { label: c?.title ?? "Collection" },
+    { label: tr("Home"), href: "/discovery" },
+    { label: tr("Collections"), href: "/collections" },
+    { label: c?.title ?? tr("Collection") },
   ];
 
   if (!loadingCollections && !c) {
     return (
       <BrowseLayout>
-        <DetailHeader title="Collection" centreLabel="Collection" onBack={goBack} />
+        <DetailHeader title={tr("Collection")} centreLabel={tr("Collection")} onBack={goBack} />
         <main className="app-container py-space-6">
           <YdEmptyState
             icon={LayoutGrid}
-            title="This collection is not on the site"
-            subtitle="It may have been renamed or taken down. Have a look at the others."
-            action={<Button asChild size="sm"><Link to="/collections">All collections</Link></Button>}
+            title={tr("This collection is not on the site")}
+            subtitle={tr("It may have been renamed or taken down. Have a look at the others.")}
+            action={<Button asChild size="sm"><Link to="/collections">{tr("All collections")}</Link></Button>}
           />
         </main>
       </BrowseLayout>
@@ -68,8 +69,8 @@ export default function CollectionPage() {
   return (
     <BrowseLayout>
       <DetailHeader
-        title={c?.title ?? "Collection"}
-        centreLabel="Collection"
+        title={c?.title ?? tr("Collection")}
+        centreLabel={tr("Collection")}
         onBack={goBack}
         overPhoto
         rightAction={c ? <ShareButton title={c.title} text={c.subtitle ?? undefined} className="hover:bg-black/10 md:text-foreground" /> : undefined}
@@ -124,9 +125,9 @@ export default function CollectionPage() {
         ) : items.length === 0 ? (
           <YdEmptyState
             icon={LayoutGrid}
-            title="Nothing here yet"
-            subtitle="Offers will appear here as soon as they are added to this collection."
-            action={<Button asChild size="sm" variant="secondary"><Link to="/discovery">Browse all plans</Link></Button>}
+            title={tr("Nothing here yet")}
+            subtitle={tr("Offers will appear here as soon as they are added to this collection.")}
+            action={<Button asChild size="sm" variant="secondary"><Link to="/discovery">{tr("Browse all plans")}</Link></Button>}
           />
         ) : (
           <div className="stagger grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-4 xl:grid-cols-5">
@@ -154,8 +155,8 @@ function MoreCollections({ currentId }: { currentId: string | null }) {
   return (
     <section className="space-y-3 pt-space-4">
       <div className="flex items-end justify-between gap-3">
-        <h2 className="text-heading font-semibold text-foreground">More collections</h2>
-        <Link to="/collections" className="text-body font-semibold text-foreground hover:underline">All</Link>
+        <h2 className="text-heading font-semibold text-foreground">{tr("More collections")}</h2>
+        <Link to="/collections" className="text-body font-semibold text-foreground hover:underline">{tr("All")}</Link>
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {others.map(({ c, items }) => <CollectionCard key={c.id} title={c.title} href={collectionHref(c)} coverUrl={c.coverUrl} plans={items} />)}

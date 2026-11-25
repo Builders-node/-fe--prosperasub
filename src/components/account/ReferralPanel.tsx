@@ -9,6 +9,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { useReferrals, useClaimReferral, referralLinkFor } from "@/hooks/useReferrals";
 import { useI18n, type TranslationKey } from "@/i18n";
 import { useBonusRules } from "@/hooks/useBonusRules";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * "Bring a neighbour" — the account screen for it.
@@ -128,12 +129,8 @@ export function ReferralPanel() {
         <section className="flex items-start gap-3 rounded-radius-md bg-card p-4 shadow-figma">
           <Gift className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0">
-            <p className="text-title font-semibold text-foreground">
-              {bonusRules.cashbackPct}% back on every paid order
-            </p>
-            <p className="mt-0.5 text-meta text-muted-foreground">
-              It lands in your bonus balance and pays for {bonusRules.maxSharePct < 100 ? `up to ${bonusRules.maxSharePct}% of ` : ""}your next order or renewal at checkout.
-              {hasCredit ? ` You have ${usd(data.balanceCents)}.` : ""}
+            <p className="text-title font-semibold text-foreground">{trx("{cashbackPct}% back on every paid order", { cashbackPct: bonusRules.cashbackPct })}</p>
+            <p className="mt-0.5 text-meta text-muted-foreground">{tr("It lands in your bonus balance and pays for")}{" "}{bonusRules.maxSharePct < 100 ? tr("up to {maxSharePct}% of ", { maxSharePct: bonusRules.maxSharePct }) : ""}{tr("your next order or renewal at checkout.")}{hasCredit ? tr(" You have {balanceCents}.", { balanceCents: usd(data.balanceCents) }) : ""}
             </p>
           </div>
         </section>

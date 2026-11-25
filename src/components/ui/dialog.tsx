@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { DialogBlock, groupIntoBlocks, preventTouchAutoFocus } from "@/components/ui/dialog-blocks";
+import { tr } from "@/lib/tr";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -105,7 +106,7 @@ const DialogContent = React.forwardRef<
       </div>
       <DialogPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 sm:top-[9px] items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <span className="sr-only">{tr("Close")}</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal></ControlSize>

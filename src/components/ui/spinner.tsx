@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Unified loading system for the whole platform.
@@ -56,7 +57,7 @@ export function PageLoader({ label, className }: PageLoaderProps) {
         className,
       )}
     >
-      <Spinner size="lg" className="text-primary" label={label ?? "Loading"} />
+      <Spinner size="lg" className="text-primary" label={label ?? tr("Loading")} />
       {label && <p className="text-sm">{label}</p>}
     </div>
   );

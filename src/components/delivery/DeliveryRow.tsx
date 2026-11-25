@@ -6,6 +6,7 @@ import { AddressMapDialog } from "@/components/location/AddressMapDialog";
 import { useLocationControl } from "@/contexts/LocationContext";
 import { offerDeliveryOf, quoteFor, quoteLine, useDeliveryZones, useProviderZones, type OfferDelivery } from "@/lib/delivery/zones";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * "Delivery to West Bay Beach · $5 · 30–60 min" — on a product page, before
@@ -62,7 +63,7 @@ export function DeliveryRow({ planId, priceCents, className }: { planId: string 
     return (
       <div className={cn("flex items-center gap-3 rounded-radius-md bg-inset p-3", className)}>
         <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
-        <span className="text-body font-semibold text-foreground">Self-service — you go to them</span>
+        <span className="text-body font-semibold text-foreground">{tr("Self-service — you go to them")}</span>
       </div>
     );
   }
@@ -77,10 +78,10 @@ export function DeliveryRow({ planId, priceCents, className }: { planId: string 
         <Icon className={cn("h-5 w-5 shrink-0", quote?.ok ? "text-primary" : "text-muted-foreground")} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-body font-semibold text-foreground">
-            {quote ? quoteLine(quote) : waysText ?? (pinMode === "on_site" ? "They come to you" : "Delivered to you")}
+            {quote ? quoteLine(quote) : waysText ?? (pinMode === "on_site" ? tr("They come to you") : tr("Delivered to you"))}
           </span>
           <span className={cn("block truncate text-meta", quote && !quote.ok ? "text-negative" : "text-muted-foreground")}>
-            {address ? `To ${address.line}` : "Choose your address to see the price and time"}
+            {address ? tr("To {line}", { line: address.line }) : tr("Choose your address to see the price and time")}
           </span>
         </span>
         <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -88,8 +89,8 @@ export function DeliveryRow({ planId, priceCents, className }: { planId: string 
       <AddressMapDialog
         open={open}
         onOpenChange={setOpen}
-        title={pinMode === "on_site" ? "Where should they come?" : "Where should we deliver it?"}
-        description="Move the map until the pin sits on your door."
+        title={pinMode === "on_site" ? tr("Where should they come?") : tr("Where should we deliver it?")}
+        description={tr("Move the map until the pin sits on your door.")}
         coverage={(pt) => {
           const q = quoteFor(pinMode, offer, zones, own, pt, priceCents);
           return { ok: q.ok, text: quoteLine(q) };

@@ -1,5 +1,6 @@
 import { Phone, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The customer's phone on a provider-facing order row.
@@ -41,12 +42,12 @@ export function normalizePhone(raw: unknown): string | null {
  */
 export function phoneError(raw: string): string | null {
   const trimmed = raw.trim();
-  if (!trimmed) return "Phone number is required.";
+  if (!trimmed) return tr("Phone number is required.");
   const d = digits(trimmed);
-  if (d.length < 8) return "That doesn't look like a phone number.";
-  if (d.length > 15) return "That number is too long.";
+  if (d.length < 8) return tr("That doesn't look like a phone number.");
+  if (d.length > 15) return tr("That number is too long.");
   // Anything beyond digits, spaces, +, -, ( ) and . is a typo, not a format.
-  if (/[^0-9+\-().\s]/.test(trimmed)) return "That doesn't look like a phone number.";
+  if (/[^0-9+\-().\s]/.test(trimmed)) return tr("That doesn't look like a phone number.");
   return null;
 }
 
@@ -92,8 +93,8 @@ export function CustomerPhone({ phone, whatsapp = true, className }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          aria-label={`WhatsApp ${value}`}
-          title="WhatsApp"
+          aria-label={tr("WhatsApp {value}", { value })}
+          title={tr("WhatsApp")}
           className="text-muted-foreground hover:text-positive"
         >
           <MessageCircle className="h-3 w-3" />

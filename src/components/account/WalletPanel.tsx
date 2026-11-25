@@ -17,6 +17,7 @@ import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * The wallet (Edge routes/wallet.ts): a balance in dollars, topped up with an
@@ -30,7 +31,7 @@ import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
  */
 
 /** The marker the server checks a top-up invoice by — same string in routes/wallet.ts. */
-export const TOPUP_SERVICE_NAME = "EverySub balance top-up";
+export const TOPUP_SERVICE_NAME = tr("EverySub balance top-up");
 
 interface RenewableSub { id: string; planName: string; endDate: string | null; priceCents: number; autoRenew: boolean; viaPayPal: boolean }
 interface WalletData {
@@ -61,10 +62,10 @@ export function WalletPanel() {
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
-      toast.success(v.enabled ? "Renews from your balance" : "Auto-renew off");
+      toast.success(v.enabled ? tr("Renews from your balance") : tr("Auto-renew off"));
       void qc.invalidateQueries({ queryKey: KEY });
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't change that"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't change that")),
   });
 
   /**
@@ -79,11 +80,11 @@ export function WalletPanel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("PayPal won't charge again. Your plan runs to the end of this term.");
+      toast.success(tr("PayPal won't charge again. Your plan runs to the end of this term."));
       setConfirmPayPalOff(null);
       void qc.invalidateQueries({ queryKey: KEY });
     },
-    onError: () => toast.error("We couldn't reach PayPal. Try again in a minute."),
+    onError: () => toast.error(tr("We couldn't reach PayPal. Try again in a minute.")),
   });
 
   if (q.isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
@@ -91,9 +92,9 @@ export function WalletPanel() {
     // A network blip is not a missing feature — say which one this is.
     return (
       <section className="rounded-radius-md bg-card p-6 text-center shadow-figma">
-        <p className="text-title font-semibold text-foreground">Couldn't load your wallet</p>
-        <p className="mt-1 text-meta text-muted-foreground">Check your connection and try again.</p>
-        <Button variant="secondary" className="mt-3" onClick={() => void q.refetch()}>Try again</Button>
+        <p className="text-title font-semibold text-foreground">{tr("Couldn't load your wallet")}</p>
+        <p className="mt-1 text-meta text-muted-foreground">{tr("Check your connection and try again.")}</p>
+        <Button variant="secondary" className="mt-3" onClick={() => void q.refetch()}>{tr("Try again")}</Button>
       </section>
     );
   }
@@ -107,16 +108,16 @@ export function WalletPanel() {
     <div className="space-y-4">
       {/* Balance, and what it is about to pay for. */}
       <section className="rounded-radius-md bg-card p-4 shadow-figma">
-        <p className="text-meta text-muted-foreground">Balance</p>
+        <p className="text-meta text-muted-foreground">{tr("Balance")}</p>
         <p className="text-[32px] font-semibold leading-[40px] tracking-tight tabular-nums text-foreground">{formatUSD(w.balanceCents)}</p>
         {nextDue ? (
           <p className={cn("mt-1 text-[14px]", shortBy > 0 ? "font-semibold text-primary" : "text-muted-foreground")}>
             {shortBy > 0
-              ? `Top up ${formatUSD(shortBy)} to renew ${nextDue.planName}${nextDue.endDate ? ` before ${formatDateHN(nextDue.endDate)}` : ""}.`
-              : `Next: ${nextDue.planName}, ${formatUSD(nextDue.priceCents)}${nextDue.endDate ? ` on ${formatDateHN(nextDue.endDate)}` : ""}.`}
+              ? tr("Top up {shortBy} to renew {planName}{value}.", { shortBy: formatUSD(shortBy), planName: nextDue.planName, value: nextDue.endDate ? tr(" before {date}", { date: formatDateHN(nextDue.endDate) }) : "" })
+              : tr("Next: {planName}, {priceCents}{value}.", { planName: nextDue.planName, priceCents: formatUSD(nextDue.priceCents), value: nextDue.endDate ? tr(" on {date}", { date: formatDateHN(nextDue.endDate) }) : "" })}
           </p>
         ) : (
-          <p className="mt-1 text-[14px] text-muted-foreground">Switch on auto-renew below and your subscriptions pay for themselves from here.</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">{tr("Switch on auto-renew below and your subscriptions pay for themselves from here.")}</p>
         )}
       </section>
 
@@ -125,9 +126,9 @@ export function WalletPanel() {
 
       {/* Which subscriptions renew from it. */}
       <section className="space-y-2">
-        <h2 className="text-[20px] font-semibold text-foreground">Auto-renew</h2>
+        <h2 className="text-[20px] font-semibold text-foreground">{tr("Auto-renew")}</h2>
         {w.subscriptions.length === 0 ? (
-          <p className="rounded-radius-md bg-card p-4 text-[14px] text-muted-foreground shadow-figma">No running subscriptions to renew.</p>
+          <p className="rounded-radius-md bg-card p-4 text-[14px] text-muted-foreground shadow-figma">{tr("No running subscriptions to renew.")}</p>
         ) : (
           <div className="rounded-radius-md bg-card p-1.5 shadow-figma">
             {w.subscriptions.map((s) => (
@@ -135,15 +136,14 @@ export function WalletPanel() {
               <div className="flex items-center gap-3 rounded-radius-md p-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[16px] font-semibold text-foreground">{s.planName}</p>
-                  <p className="truncate text-meta text-muted-foreground">
-                    {formatUSD(s.priceCents)} per term{s.endDate ? ` · current term ends ${formatDateHN(s.endDate)}` : ""}
-                    {s.viaPayPal ? " · renews through PayPal" : ""}
+                  <p className="truncate text-meta text-muted-foreground">{trx("{priceCents} per term", { priceCents: formatUSD(s.priceCents) })}{s.endDate ? tr(" · current term ends {endDate}", { endDate: formatDateHN(s.endDate) }) : ""}
+                    {s.viaPayPal ? tr(" · renews through PayPal") : ""}
                   </p>
                 </div>
                 <Switch
                   checked={s.autoRenew}
                   disabled={toggle.isPending || stopPayPal.isPending}
-                  aria-label={s.viaPayPal ? `Auto-renew ${s.planName} through PayPal` : `Auto-renew ${s.planName} from balance`}
+                  aria-label={s.viaPayPal ? tr("Auto-renew {planName} through PayPal", { planName: s.planName }) : tr("Auto-renew {planName} from balance", { planName: s.planName })}
                   onCheckedChange={(v) => {
                     if (s.viaPayPal && !v) { setConfirmPayPalOff(s.id); return; }
                     toggle.mutate({ id: s.id, enabled: v });
@@ -152,13 +152,11 @@ export function WalletPanel() {
               </div>
               {confirmPayPalOff === s.id && (
                 <div className="mx-3 mb-3 rounded-radius-md bg-inset p-3">
-                  <p className="text-[14px] text-foreground">
-                    PayPal stops charging {formatUSD(s.priceCents)}. {s.planName} keeps running
-                    {s.endDate ? ` until ${formatDateHN(s.endDate)}` : " to the end of this term"}.
+                  <p className="text-[14px] text-foreground">{trx("PayPal stops charging {priceCents}. {planName} keeps running", { priceCents: formatUSD(s.priceCents), planName: s.planName })}{s.endDate ? ` until ${formatDateHN(s.endDate)}` : tr(" to the end of this term")}.
                   </p>
                   <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="secondary" loading={stopPayPal.isPending} onClick={() => stopPayPal.mutate(s.id)}>Turn off</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setConfirmPayPalOff(null)}>Keep it</Button>
+                    <Button size="sm" variant="secondary" loading={stopPayPal.isPending} onClick={() => stopPayPal.mutate(s.id)}>{tr("Turn off")}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmPayPalOff(null)}>{tr("Keep it")}</Button>
                   </div>
                 </div>
               )}
@@ -170,13 +168,13 @@ export function WalletPanel() {
 
       {w.entries.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-[20px] font-semibold text-foreground">History</h2>
+          <h2 className="text-[20px] font-semibold text-foreground">{tr("History")}</h2>
           <div className="rounded-radius-md bg-card p-1.5 shadow-figma">
             {w.entries.map((e) => (
               <div key={e.id} className="flex items-center justify-between gap-3 rounded-radius-md p-3">
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-semibold text-foreground">{e.note ?? (e.kind === "topup" ? "Top-up" : "Renewal")}</p>
-                  <p className="text-meta text-muted-foreground">{format(new Date(e.created_at), "MMM d, yyyy · h:mm a")}</p>
+                  <p className="text-meta text-muted-foreground">{format(new Date(e.created_at), "MMM d, yyyy · h:mm a", { locale: dfLocale })}</p>
                 </div>
                 <span className={cn("shrink-0 text-[16px] font-semibold tabular-nums", e.amount_cents > 0 ? "text-positive" : "text-foreground")}>
                   {e.amount_cents > 0 ? "+" : "−"}{formatUSD(Math.abs(e.amount_cents))}
@@ -211,14 +209,14 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
     for (let i = 0; i < 6; i++) {
       const { data } = await accountApi("/account/wallet/topups/confirm", { method: "POST", body: JSON.stringify({ reference }) });
       if ((data as { status?: string })?.status === "paid") {
-        toast.success(`${formatUSD(base)} added to your balance`);
+        toast.success(tr("{base} added to your balance", { base: formatUSD(base) }));
         setPaying(false);
         onDone();
         return;
       }
       await new Promise((r) => setTimeout(r, 2500));
     }
-    toast("Payment received — the balance updates in a minute.");
+    toast(tr("Payment received — the balance updates in a minute."));
     setPaying(false);
     onDone();
   };
@@ -227,7 +225,7 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
     const { error } = await accountApi("/account/wallet/topups", {
       method: "POST", body: JSON.stringify({ amountCents: base, method: m, reference }),
     });
-    if (error) toast.error(error.message || "Couldn't start the top-up");
+    if (error) toast.error(error.message || tr("Couldn't start the top-up"));
   };
 
   const inv = useInvoicePayment({
@@ -239,7 +237,7 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
     if (!valid) return;
     setPaying(true);
     if (method === "paypal") return; // the PayPal panel takes it from here
-    if (!btcPrice) { toast.error("BTC price not loaded yet."); setPaying(false); return; }
+    if (!btcPrice) { toast.error(tr("BTC price not loaded yet.")); setPaying(false); return; }
     setBusy(true);
     try {
       const sats = convertToSats(total / 100);
@@ -266,7 +264,7 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
 
   return (
     <section className="space-y-3 rounded-radius-md bg-card p-4 shadow-figma">
-      <h2 className="text-[20px] font-semibold text-foreground">Top up</h2>
+      <h2 className="text-[20px] font-semibold text-foreground">{tr("Top up")}</h2>
       {!paying ? (
         <>
           {/* The usual amounts as one even row; any other amount gets a
@@ -295,18 +293,17 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
               type="number"
               inputMode="decimal"
               min={minCents / 100}
-              placeholder={`Other amount — from ${formatUSD(minCents)}`}
-              aria-label="Other amount in dollars"
+              placeholder={tr("Other amount — from {minCents}", { minCents: formatUSD(minCents) })}
+              aria-label={tr("Other amount in dollars")}
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
               className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground"
             />
           </label>
           <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
-          <Button className="w-full" disabled={!valid || !methods.length} loading={busy} onClick={() => void start()}>
-            Top up {formatUSD(base)}{total > base ? ` · pay ${formatUSD(total)} incl. ${surchargePercent(method)}% fee` : ""}
+          <Button className="w-full" disabled={!valid || !methods.length} loading={busy} onClick={() => void start()}>{trx("Top up {base}", { base: formatUSD(base) })}{total > base ? tr(" · pay {total} incl. {surchargePercent}% fee", { total: formatUSD(total), surchargePercent: surchargePercent(method) }) : ""}
           </Button>
-          {!valid && <p className="text-meta text-muted-foreground">From {formatUSD(minCents)}.</p>}
+          {!valid && <p className="text-meta text-muted-foreground">{trx("From {minCents}.", { minCents: formatUSD(minCents) })}</p>}
         </>
       ) : method === "paypal" ? (
         <>
@@ -315,7 +312,7 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
             orderMeta={{ description: `${TOPUP_SERVICE_NAME} · ${formatUSD(base)}`, service_name: TOPUP_SERVICE_NAME }}
             onPaid={(captureId) => { void register(captureId, "paypal").then(() => confirm(captureId)); }}
           />
-          <Button variant="ghost" className="w-full" onClick={() => setPaying(false)}>Cancel</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setPaying(false)}>{tr("Cancel")}</Button>
         </>
       ) : (
         <>
@@ -330,10 +327,10 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
               isPaid={inv.state.isPaid}
               isExpired={inv.state.isExpired}
               onRetry={() => { inv.reset(); void start(); }}
-              successLabel="Adding to your balance…"
+              successLabel={tr("Adding to your balance…")}
             />
           ) : <div className="flex justify-center py-8"><Spinner /></div>}
-          <Button variant="ghost" className="w-full" onClick={() => { inv.reset(); setPaying(false); }}>Cancel</Button>
+          <Button variant="ghost" className="w-full" onClick={() => { inv.reset(); setPaying(false); }}>{tr("Cancel")}</Button>
         </>
       )}
     </section>

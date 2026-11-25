@@ -3,6 +3,7 @@ import { Photo } from "@/components/patterns/Photo";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { FIELD_SURFACE } from "@/components/ui/input";
+import { tr } from "@/lib/tr";
 
 /**
  * The checkout, as cards — measured off the Figma frame rather than guessed.
@@ -92,7 +93,7 @@ export function PersonalDataCard({
 }) {
   const shown = lines.filter((l): l is string => !!l && !!l.trim());
   return (
-    <CheckoutCard title="Personal data">
+    <CheckoutCard title={tr("Personal data")}>
       <button
         type="button"
         onClick={onEdit}
@@ -104,7 +105,7 @@ export function PersonalDataCard({
             "block text-[16px] font-semibold",
             name ? "text-foreground" : "text-muted-foreground",
           )}>
-            {name || "Add your details"}
+            {name || tr("Add your details")}
           </span>
           {shown.map((line) => (
             <span key={line} className="mt-0.5 block truncate text-[12px] text-muted-foreground">
@@ -112,9 +113,7 @@ export function PersonalDataCard({
             </span>
           ))}
           {incomplete && (
-            <span className="mt-1 block text-[12px] font-semibold text-destructive">
-              Needed before you can pay
-            </span>
+            <span className="mt-1 block text-[12px] font-semibold text-destructive">{tr("Needed before you can pay")}</span>
           )}
         </span>
         <ChevronRight
@@ -141,15 +140,15 @@ export function ResumeCard({
   extra?: Array<{ label: string; value: string }>;
 }) {
   return (
-    <CheckoutCard title="Resume">
+    <CheckoutCard title={tr("Resume")}>
       <dl className="space-y-2">
         {extra?.map((row) => (
           <Line key={row.label} label={row.label} value={row.value} />
         ))}
-        <Line label="Goods" value={formatUSD(goodsCents)} />
+        <Line label={tr("Goods")} value={formatUSD(goodsCents)} />
         {feeCents > 0 && <Line label={feeLabel} value={formatUSD(feeCents)} />}
         <div className="flex items-center justify-between border-t border-border/60 pt-2">
-          <dt className="text-[14px] font-semibold text-foreground">Total</dt>
+          <dt className="text-[14px] font-semibold text-foreground">{tr("Total")}</dt>
           <dd className="text-[16px] font-semibold tabular-nums text-foreground">{formatUSD(totalCents)}</dd>
         </div>
       </dl>

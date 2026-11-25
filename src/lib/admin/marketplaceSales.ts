@@ -1,5 +1,6 @@
 import { adminApi, supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
+import { tr } from "@/lib/tr";
 
 /**
  * Every sale across every service — read from `subscriptions_unified`.
@@ -251,7 +252,7 @@ export function buildSalePatch(
   if (src.apiManaged) {
     // Caught here rather than producing a patch aimed at a table that will
     // accept it and change nothing.
-    throw new Error(`${row.source_service_key} rows are managed through the booking API, not a table write`);
+    throw new Error(tr("{source_service_key} rows are managed through the booking API, not a table write", { source_service_key: row.source_service_key }));
   }
   const patch: Record<string, unknown> = {};
 
@@ -277,7 +278,7 @@ export function buildSalePatch(
  * where "paid" is recorded as a manual payment with a note and a status never
  * implies money. Every other table is still written directly.
  */
-export async function updateSaleRow(table: string, id: string, patch: Record<string, unknown>, note = "Marked paid by an admin"): Promise<void> {
+export async function updateSaleRow(table: string, id: string, patch: Record<string, unknown>, note = tr("Marked paid by an admin")): Promise<void> {
   if (table === "rental_bookings") {
     const { payment_status, updated_at: _u, payment_method, payment_reference, ...fields } = patch as Record<string, unknown>;
     const body: Record<string, unknown> = {};

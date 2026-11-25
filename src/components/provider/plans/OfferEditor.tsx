@@ -20,6 +20,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { TagPicker } from "@/components/provider/plans/TagPicker";
 import { SERVICE_MODES, etaText, offerDeliveryOf, useDeliveryZones, useProviderZones, type ServiceMode } from "@/lib/delivery/zones";
+import { tr } from "@/lib/tr";
 
 /**
  * One plan, with its prices inside it.
@@ -430,11 +431,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   // ── Save ──────────────────────────────────────────────────────────────────
   const save = useMutation({
     mutationFn: async (publish: boolean) => {
-      if (!name.trim()) throw new Error("The plan needs a name.");
+      if (!name.trim()) throw new Error(tr("The plan needs a name."));
       // A draft may be unpriced; putting it on sale may not.
       if (publish && !priced.length) throw new Error(draftGroups.length
-        ? "Give at least one combination a price."
-        : "Give the plan a price.");
+        ? tr("Give at least one combination a price.")
+        : tr("Give the plan a price."));
 
       // A new plan is written here, on its first save.
       let o: PlanRow | null = offer;
@@ -444,12 +445,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           amount: draftGroups.length ? 0 : cents(prices[""] ?? ""),
           sortOrder: offers.length, period: sold.period, draft: true,
         });
-        if (!id) throw new Error("Couldn't create the plan.");
+        if (!id) throw new Error(tr("Couldn't create the plan."));
         const { data: row, error } = await supabaseDb.from("provider_plans").select("*").eq("id", id).single();
         if (error) throw error;
         o = row as PlanRow;
       }
-      if (!o) throw new Error("Nothing to save yet.");
+      if (!o) throw new Error(tr("Nothing to save yet."));
 
       // 1. The plan's own fields — on provider_plans, like everything else.
       await writePlanFields(o, name.trim(), description.trim() || null);
@@ -604,14 +605,14 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       }
     },
     onSuccess: (_d, publish) => {
-      toast.success(publish ? "On sale" : "Saved");
+      toast.success(publish ? tr("On sale") : tr("Saved"));
       setBaseline(snapshot);
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["plan-offers"] });
       qc.invalidateQueries({ queryKey: ["food-meal-plans"] });
       onSaved?.();
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't save"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't save")),
   });
 
   /**
@@ -626,18 +627,18 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   const addPlan = useMutation({
     mutationFn: async () => {
       const id = await createPlanRow({
-        providerId, sourceKey, name: "New plan", amount: 0,
+        providerId, sourceKey, name: tr("New plan"), amount: 0,
         sortOrder: offers.length, period: offers[0]?.period ?? null, draft: true,
       });
-      if (!id) throw new Error("The plan was created but could not be opened — reload the page.");
+      if (!id) throw new Error(tr("The plan was created but could not be opened — reload the page."));
       return id;
     },
     onSuccess: async (id) => {
       await qc.invalidateQueries({ queryKey: KEY });
       setOfferId(id);
-      toast.success("Plan added — name it and set its price");
+      toast.success(tr("Plan added — name it and set its price"));
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't add the plan"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't add the plan")),
   });
 
   const archive = useMutation({
@@ -646,11 +647,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       await writeStatus(offer, status);
     },
     onSuccess: (_d, status) => {
-      toast.success(status === "active" ? "Back on sale" : "Taken off sale");
+      toast.success(status === "active" ? tr("Back on sale") : tr("Taken off sale"));
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["plan-offers"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Couldn't change the plan"),
+    onError: (e: Error) => toast.error(e.message || tr("Couldn't change the plan")),
   });
 
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
@@ -661,7 +662,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   if (loadFailed && !data) {
     return (
       <QueryError
-        title="Couldn't load this plan"
+        title={tr("Couldn't load this plan")}
         error={loadError}
         onRetry={() => refetchOffer()}
         retrying={offerFetching}
@@ -672,8 +673,8 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
     return (
       <YdEmptyState
         icon={PackageX}
-        title="This plan is no longer here"
-        subtitle="It may have been deleted in another window."
+        title={tr("This plan is no longer here")}
+        subtitle={tr("It may have been deleted in another window.")}
       />
     );
   }
@@ -681,11 +682,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
     return (
       <YdEmptyState
         icon={Package}
-        title="This business sells nothing yet"
-        subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
+        title={tr("This business sells nothing yet")}
+        subtitle={tr("A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it.")}
         action={
           <Button className="gap-1.5" disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
-            <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "Add the first plan"}
+            <Plus className="h-4 w-4" /> {addPlan.isPending ? tr("Adding…") : tr("Add the first plan")}
           </Button>
         }
       />
@@ -701,8 +702,8 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   // A restaurant brings its own food: no platform couriers to pick from.
   const ownDelivery = legacyKey === "food";
   const moreSummary = [
-    sold.pricingMode !== "flat" ? (sold.pricingMode === "per_person" ? "Per person" : "Per unit") : "Flat price",
-    "terms, rescheduling, tags",
+    sold.pricingMode !== "flat" ? (sold.pricingMode === "per_person" ? tr("Per person") : tr("Per unit")) : tr("Flat price"),
+    tr("terms, rescheduling, tags"),
   ].join(" · ");
 
   return (
@@ -717,19 +718,19 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
               o.id === offerId ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground",
             )}>
             {o.name}
-            {o.status !== "active" && <span className="ml-1.5 text-[12px] opacity-70">off</span>}
+            {o.status !== "active" && <span className="ml-1.5 text-[12px] opacity-70">{tr("off")}</span>}
           </button>
         ))}
         <Button variant="secondary" size="sm" className="gap-1.5"
           disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
-          <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "New plan"}
+          <Plus className="h-4 w-4" /> {addPlan.isPending ? tr("Adding…") : tr("New plan")}
         </Button>
       </div>
 
       {/* 1. What a customer reads on the card: the name, how it is sold, the price. */}
       <section className="space-y-4 rounded-radius-lg bg-card p-4">
-        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Monthly membership" />
+        <Input label={tr("Name")} value={name} onChange={(e) => setName(e.target.value)}
+          placeholder={tr("e.g. Monthly membership")} />
         <div className="flex rounded-radius-md bg-inset p-0.5">
           {([["sub", "Subscription"], ["once", "One-time"]] as const).map(([k, label]) => (
             <button key={k} type="button"
@@ -752,36 +753,35 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           </div>
         )}
         {draftGroups.length === 0 ? (
-          <Input label="Price" inputMode="decimal" value={prices[""] ?? ""}
+          <Input label={tr("Price")} inputMode="decimal" value={prices[""] ?? ""}
             onChange={(e) => setPrices((p) => ({ ...p, [""]: e.target.value }))}
             placeholder="0.00" className="tabular-nums"
             leftIcon={<span className="text-body text-muted-foreground">$</span>}
             rightIcon={!oneTime ? <span className="text-meta text-muted-foreground">/ {PER[sold.period] ?? "period"}</span> : undefined}
-            helperText={oneTime ? "Bought once — a product, a session, a day pass." : "Renews every period until the customer stops it."} />
+            helperText={oneTime ? tr("Bought once — a product, a session, a day pass.") : tr("Renews every period until the customer stops it.")} />
         ) : (
-          <p className="text-body text-muted-foreground">
-            Priced per option below — customers see “from {fromCents ? formatUSD(fromCents) : "—"}”.
+          <p className="text-body text-muted-foreground">{tr("Priced per option below — customers see “from")}{" "}{fromCents ? formatUSD(fromCents) : "—"}”.
           </p>
         )}
       </section>
 
       {/* 2. Photos — the cover is the picture on the card. */}
       <section className="rounded-radius-lg bg-card p-4">
-        <GalleryField label="Photos" value={gallery} onChange={setGallery} pathPrefix="plans/gallery" max={8} />
-        <p className="mt-2 text-meta text-muted-foreground">The first photo is the cover on this plan's card.</p>
+        <GalleryField label={tr("Photos")} value={gallery} onChange={setGallery} pathPrefix="plans/gallery" max={8} />
+        <p className="mt-2 text-meta text-muted-foreground">{tr("The first photo is the cover on this plan's card.")}</p>
       </section>
 
       {/* 3. What they get. */}
       <section className="space-y-4 rounded-radius-lg bg-card p-4">
-        <p className="text-title font-semibold text-foreground">What they get</p>
-        <Textarea label="Description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)}
-          placeholder="One or two sentences a customer reads first." />
-        <Field label="Included" hint="One per line — shown on the plan page.">
+        <p className="text-title font-semibold text-foreground">{tr("What they get")}</p>
+        <Textarea label={tr("Description")} rows={3} value={description} onChange={(e) => setDescription(e.target.value)}
+          placeholder={tr("One or two sentences a customer reads first.")} />
+        <Field label={tr("Included")} hint={tr("One per line — shown on the plan page.")}>
           <Textarea rows={4} value={includes.features}
             onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
             placeholder={placeholdersFor(sourceKey).features} />
         </Field>
-        <Field label="Not included" hint="One per line.">
+        <Field label={tr("Not included")} hint={tr("One per line.")}>
           <Textarea rows={3} value={includes.excludes}
             onChange={(e) => setIncludes((v) => ({ ...v, excludes: e.target.value }))}
             placeholder={placeholdersFor(sourceKey).excludes} />
@@ -805,13 +805,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           keep their own flows). */}
       {choosesWays && (
         <section className="space-y-4 rounded-radius-lg bg-card p-4">
-          <p className="text-title font-semibold text-foreground">How the customer gets it</p>
+          <p className="text-title font-semibold text-foreground">{tr("How the customer gets it")}</p>
           <div className="space-y-3">
                 <Field
-                  label="Ways to receive it"
+                  label={tr("Ways to receive it")}
                   hint={deliv.modes.length === 0
-                    ? "None picked — the customer just buys it (a membership, an online service)."
-                    : deliv.modes.length > 1 ? "The customer picks one at checkout." : "Pick more than one to let the customer choose."}
+                    ? tr("None picked — the customer just buys it (a membership, an online service).")
+                    : deliv.modes.length > 1 ? tr("The customer picks one at checkout.") : tr("Pick more than one to let the customer choose.")}
                 >
                   <div className="grid gap-2 sm:grid-cols-3">
                     {SERVICE_MODES.map((m) => {
@@ -835,20 +835,20 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                 </Field>
                 {(deliv.modes.includes("on_site") || deliv.modes.includes("delivery")) && (
                   <Field
-                    label="Where you go"
+                    label={tr("Where you go")}
                     hint={ownZones.length
-                      ? "Your own zones (workspace → Delivery). Their fees are yours."
+                      ? tr("Your own zones (workspace → Delivery). Their fees are yours.")
                       : ownDelivery
-                        ? "You haven't drawn zones, so you deliver anywhere with no fee. Draw them in the Delivery tab to charge by area."
+                        ? tr("You haven't drawn zones, so you deliver anywhere with no fee. Draw them in the Delivery tab to charge by area.")
                       : deliv.modes.includes("delivery")
-                        ? "You haven't drawn zones, so EverySub's couriers deliver in the platform's zones (their fee is the platform's). A visit goes anywhere. Draw your own in the Delivery tab."
-                        : "You haven't drawn zones, so you go anywhere with no call-out fee. Draw them in the Delivery tab."}
+                        ? tr("You haven't drawn zones, so EverySub's couriers deliver in the platform's zones (their fee is the platform's). A visit goes anywhere. Draw your own in the Delivery tab.")
+                        : tr("You haven't drawn zones, so you go anywhere with no call-out fee. Draw them in the Delivery tab.")}
                   >
                     {ownZones.length ? (
                       <div className="flex flex-wrap gap-2">
                         {ownZones.map((z) => (
                           <span key={z.id} className="h-8 rounded-full bg-inset px-3 text-[13px] font-semibold leading-8 text-foreground">
-                            {z.name} · {z.fee_cents ? formatUSD(z.fee_cents) : "Free"}
+                            {z.name} · {z.fee_cents ? formatUSD(z.fee_cents) : tr("Free")}
                           </span>
                         ))}
                       </div>
@@ -856,9 +856,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => setDeliv((v) => ({ ...v, zoneIds: null }))}
                           className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
-                            deliv.zoneIds === null ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
-                          All platform zones
-                        </button>
+                            deliv.zoneIds === null ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>{tr("All platform zones")}</button>
                         {(zonesQ.data ?? []).map((z) => {
                           const on = deliv.zoneIds?.includes(z.id) ?? false;
                           return (
@@ -880,19 +878,19 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                   </Field>
                 )}
                 {(deliv.modes.includes("on_site") || deliv.modes.includes("delivery")) && (
-                  <Field label="Fee for this offer ($)" hint="Empty = each zone's own price. Use it for something heavy, bulky or far.">
-                    <Input inputSize="sm" inputMode="decimal" value={deliv.fee} placeholder="Zone price"
+                  <Field label={tr("Fee for this offer ($)")} hint={tr("Empty = each zone's own price. Use it for something heavy, bulky or far.")}>
+                    <Input inputSize="sm" inputMode="decimal" value={deliv.fee} placeholder={tr("Zone price")}
                       onChange={(e) => setDeliv((v) => ({ ...v, fee: e.target.value }))} />
                   </Field>
                 )}
               </div>
           {(deliv.modes.includes("delivery") || (!deliv.modes.length && sold.fulfilment === "deliveries")) && (
             <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Earliest arrival" hint="When the first delivery window opens.">
+                <Field label={tr("Earliest arrival")} hint={tr("When the first delivery window opens.")}>
                   <Input inputSize="sm" type="time" value={minutesToTime(sold.leadMinutes)}
                     onChange={(e) => setSold((v) => ({ ...v, leadMinutes: timeToMinutes(e.target.value) }))} />
                 </Field>
-                <Field label="Window width (minutes)" hint="120 = a two-hour promise.">
+                <Field label={tr("Window width (minutes)")} hint={tr("120 = a two-hour promise.")}>
                   <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
                     onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
                 </Field>
@@ -906,22 +904,22 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           asked when its court hours reset. */}
       {calendarCount > 0 && (
         <section className="space-y-3 rounded-radius-lg bg-card p-4">
-          <p className="text-title font-semibold text-foreground">Booking access</p>
+          <p className="text-title font-semibold text-foreground">{tr("Booking access")}</p>
           <PlanResourcePicker
             providerId={providerId}
             value={access.resourceIds}
             onChange={(resourceIds) => setAccess((v) => ({ ...v, resourceIds }))}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Hours included" hint="Leave empty for unlimited, or set a number of hours.">
+            <Field label={tr("Hours included")} hint={tr("Leave empty for unlimited, or set a number of hours.")}>
               <Input
-                inputMode="numeric" inputSize="sm" value={access.hours} placeholder="Unlimited"
+                inputMode="numeric" inputSize="sm" value={access.hours} placeholder={tr("Unlimited")}
                 onChange={(e) => setAccess((v) => ({ ...v, hours: e.target.value }))}
               />
             </Field>
             <Field
-              label="Hours reset"
-              hint={access.hours.trim() ? "When the allowance starts again." : "Only matters once hours are limited."}
+              label={tr("Hours reset")}
+              hint={access.hours.trim() ? tr("When the allowance starts again.") : tr("Only matters once hours are limited.")}
             >
               <select
                 value={access.hoursPeriod}
@@ -929,7 +927,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                 onChange={(e) => setAccess((v) => ({ ...v, hoursPeriod: e.target.value }))}
                 className={cn(fieldClass, "disabled:opacity-50")}
               >
-                <option value="">Same as billing</option>
+                <option value="">{tr("Same as billing")}</option>
                 {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
                   <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
                 ))}
@@ -949,7 +947,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           className="flex w-full items-center justify-between p-4 text-left"
         >
           <span className="min-w-0">
-            <span className="block text-title font-semibold text-foreground">More settings</span>
+            <span className="block text-title font-semibold text-foreground">{tr("More settings")}</span>
             {!advancedOpen && <span className="mt-0.5 block text-meta text-muted-foreground">{moreSummary}</span>}
           </span>
           <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
@@ -957,24 +955,24 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         {advancedOpen && (
           <div className="space-y-5 p-4 pt-0">
             {/* 1 — how the price is worked out and what happens after the sale. */}
-            <MoreGroup title="Price">
-              <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
+            <MoreGroup title={tr("Price")}>
+              <Field label={tr("Price is")} hint={PRICING_HINT[sold.pricingMode] ?? ""}>
                 <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
                   className={fieldClass}>
-                  <option value="flat">Flat</option>
-                  <option value="per_unit">Per unit</option>
-                  <option value="per_person">Per person</option>
+                  <option value="flat">{tr("Flat")}</option>
+                  <option value="per_unit">{tr("Per unit")}</option>
+                  <option value="per_person">{tr("Per person")}</option>
                 </select>
               </Field>
               {/* A per-person price can also be a marked-up one (the beach club).
                   Filling these in is what makes a price derived. */}
               {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
                 <>
-                  <Field label="Provider is paid ($)">
+                  <Field label={tr("Provider is paid ($)")}>
                     <Input inputSize="sm" inputMode="decimal" value={sold.providerPrice}
                       onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
                   </Field>
-                  <Field label="Platform adds ($)">
+                  <Field label={tr("Platform adds ($)")}>
                     <Input inputSize="sm" inputMode="decimal" value={sold.markup}
                       onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
                   </Field>
@@ -987,13 +985,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                 nothing to count, and a stale value is still shown so it can be
                 cleared. */}
             {(sold.fulfilment !== "none" || sold.pricingMode === "per_unit" || !!sold.unit || !!sold.quantity) && (
-              <MoreGroup title={oneTime ? "What one purchase includes" : `What one ${PER[sold.period] ?? "period"} includes`}>
-                <Field label="Counted in" hint="The word customers see, e.g. visit, meal, session.">
-                  <Input inputSize="sm" value={sold.unit} placeholder={UNIT_EXAMPLE[sold.fulfilment] ?? "e.g. session"}
+              <MoreGroup title={oneTime ? tr("What one purchase includes") : tr("What one {value} includes", { value: PER[sold.period] ?? "period" })}>
+                <Field label={tr("Counted in")} hint={tr("The word customers see, e.g. visit, meal, session.")}>
+                  <Input inputSize="sm" value={sold.unit} placeholder={UNIT_EXAMPLE[sold.fulfilment] ?? tr("e.g. session")}
                     onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
                 </Field>
-                <Field label="How many" hint="Leave empty if it is not limited.">
-                  <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="Unlimited"
+                <Field label={tr("How many")} hint={tr("Leave empty if it is not limited.")}>
+                  <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder={tr("Unlimited")}
                     onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
                 </Field>
               </MoreGroup>
@@ -1001,17 +999,17 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
 
             {/* 3 — how long a customer can buy at once. A one-time offer has no term. */}
             {!oneTime && (
-              <MoreGroup title="How long they can buy for">
-                <Field label="Pre-selected at checkout" hint={`In ${PER[sold.period] ?? "period"}s.`}>
+              <MoreGroup title={tr("How long they can buy for")}>
+                <Field label={tr("Pre-selected at checkout")} hint={tr("In {value}s.", { value: PER[sold.period] ?? "period" })}>
                   <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault} placeholder="1"
                     onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
                 </Field>
-                <Field label="Shortest – longest" hint="Leave the right side empty for no limit.">
+                <Field label={tr("Shortest – longest")} hint={tr("Leave the right side empty for no limit.")}>
                   <div className="flex items-center gap-2">
                     <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin} placeholder="1"
                       onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
                     <span className="text-muted-foreground">–</span>
-                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="No limit"
+                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder={tr("No limit")}
                       onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
                   </div>
                 </Field>
@@ -1023,10 +1021,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                 provider can always move their own day from Operations; this
                 decides whether the customer gets a door of their own. */}
             {sold.fulfilment !== "none" && (
-              <MoreGroup title="Rescheduling">
+              <MoreGroup title={tr("Rescheduling")}>
                 <Field
-                  label="Customer can move an appointment"
-                  hint="Off means they have to ask you. You can always move one yourself."
+                  label={tr("Customer can move an appointment")}
+                  hint={tr("Off means they have to ask you. You can always move one yourself.")}
                 >
                   <Switch
                     checked={sold.rescheduleAllowed}
@@ -1035,21 +1033,21 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                 </Field>
                 {sold.rescheduleAllowed && (
                   <>
-                    <Field label="Notice needed (hours)" hint="How long before it starts they can still move it. Empty = any time before.">
+                    <Field label={tr("Notice needed (hours)")} hint={tr("How long before it starts they can still move it. Empty = any time before.")}>
                       <Input
                         inputSize="sm"
                         inputMode="numeric"
                         value={hoursFromMinutes(sold.rescheduleNotice)}
-                        placeholder="Any time"
+                        placeholder={tr("Any time")}
                         onChange={(e) => setSold((v) => ({ ...v, rescheduleNotice: minutesFromHours(e.target.value) }))}
                       />
                     </Field>
-                    <Field label="Times one appointment can move" hint="Empty = no limit. Bounds the customer who keeps pushing the same visit a day at a time.">
-                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleMax} placeholder="No limit"
+                    <Field label={tr("Times one appointment can move")} hint={tr("Empty = no limit. Bounds the customer who keeps pushing the same visit a day at a time.")}>
+                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleMax} placeholder={tr("No limit")}
                         onChange={(e) => setSold((v) => ({ ...v, rescheduleMax: e.target.value }))} />
                     </Field>
-                    <Field label="How far it can move (days)" hint="Empty = anywhere ahead. Stops something bought for September being parked in December.">
-                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleWindow} placeholder="Anywhere ahead"
+                    <Field label={tr("How far it can move (days)")} hint={tr("Empty = anywhere ahead. Stops something bought for September being parked in December.")}>
+                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleWindow} placeholder={tr("Anywhere ahead")}
                         onChange={(e) => setSold((v) => ({ ...v, rescheduleWindow: e.target.value }))} />
                     </Field>
                   </>
@@ -1057,9 +1055,9 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
               </MoreGroup>
             )}
 
-            <MoreGroup title="Search">
+            <MoreGroup title={tr("Search")}>
               <div className="sm:col-span-2">
-                <Field label="Tags" hint="What customers filter and search by. The list is kept by EverySub — ask us to add a word.">
+                <Field label={tr("Tags")} hint={tr("What customers filter and search by. The list is kept by EverySub — ask us to add a word.")}>
                   <TagPicker
                     value={tagsFromText(includes.tags)}
                     onChange={(list) => setIncludes((v) => ({ ...v, tags: list.join(", ") }))}
@@ -1078,14 +1076,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         <section className="flex flex-wrap gap-2 rounded-radius-lg bg-card p-4">
           {/* Off sale, not deleted: somebody may be subscribed to it. */}
           {live && (
-            <Button variant="secondary" size="sm" disabled={archive.isPending} onClick={() => archive.mutate("inactive")}>
-              Take off sale
-            </Button>
+            <Button variant="secondary" size="sm" disabled={archive.isPending} onClick={() => archive.mutate("inactive")}>{tr("Take off sale")}</Button>
           )}
           {onDelete && (
             <Button variant="ghost" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={onDelete}>
-              <Trash2 /> Delete plan
-            </Button>
+              <Trash2 />{" "}{tr("Delete plan")}</Button>
           )}
         </section>
       )}
@@ -1095,19 +1090,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       {(!live || dirty) && (
       <div className="sticky bottom-0 z-10 flex gap-2 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         {live ? (
-          <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText="Saving…"
-            onClick={() => save.mutate(false)}>
-            Save changes
-          </Button>
+          <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText={tr("Saving…")}
+            onClick={() => save.mutate(false)}>{tr("Save changes")}</Button>
         ) : (
           <>
-            <Button variant="secondary" className="flex-1" disabled={save.isPending} onClick={() => save.mutate(false)}>
-              Save draft
-            </Button>
-            <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText="Saving…"
-              onClick={() => save.mutate(true)}>
-              Put on sale
-            </Button>
+            <Button variant="secondary" className="flex-1" disabled={save.isPending} onClick={() => save.mutate(false)}>{tr("Save draft")}</Button>
+            <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText={tr("Saving…")}
+              onClick={() => save.mutate(true)}>{tr("Put on sale")}</Button>
           </>
         )}
       </div>
@@ -1129,12 +1118,12 @@ export async function createDraftPlan(input: {
   const id = await createPlanRow({
     providerId: input.providerId,
     sourceKey: input.sourceKey,
-    name: input.name ?? "New plan",
+    name: input.name ?? tr("New plan"),
     amount: 0,
     sortOrder: input.sortOrder,
     draft: true,
   });
-  if (!id) throw new Error("The plan was created but could not be opened — reload the page.");
+  if (!id) throw new Error(tr("The plan was created but could not be opened — reload the page."));
   return id;
 }
 
@@ -1150,9 +1139,9 @@ const DEFAULT_FULFILMENT: Record<string, string> = {
 const HOUR_UNIT = "hour";
 
 const PRICING_HINT: Record<string, string> = {
-  flat: "One price for the period.",
-  per_unit: "Price × how many they take.",
-  per_person: "Price × people on the booking.",
+  flat: tr("One price for the period."),
+  per_unit: tr("Price × how many they take."),
+  per_person: tr("Price × people on the booking."),
 
 };
 
@@ -1163,26 +1152,26 @@ const PRICING_HINT: Record<string, string> = {
  */
 const SERVICE_PLACEHOLDERS: Record<string, { features: string; excludes: string; tags: string }> = {
   cleaning: {
-    features: "Full apartment cleaning\nBathroom and kitchen",
-    excludes: "Windows from outside\nLaundry",
-    tags: "eco, deep clean",
+    features: tr("Full apartment cleaning\nBathroom and kitchen"),
+    excludes: tr("Windows from outside\nLaundry"),
+    tags: tr("eco, deep clean"),
   },
   food: {
-    features: "Lunch and dinner, Monday to Friday\nDelivered to your door",
-    excludes: "Weekends\nDrinks",
-    tags: "vegetarian, keto",
+    features: tr("Lunch and dinner, Monday to Friday\nDelivered to your door"),
+    excludes: tr("Weekends\nDrinks"),
+    tags: tr("vegetarian, keto"),
   },
   beach: {
-    features: "Pool and beach access\nTowels and loungers",
-    excludes: "Court bookings after 6 PM",
+    features: tr("Pool and beach access\nTowels and loungers"),
+    excludes: tr("Court bookings after 6 PM"),
     tags: "family",
   },
 };
 const placeholdersFor = (sourceKey: string) =>
   SERVICE_PLACEHOLDERS[sourceKey] ?? {
-    features: "What the customer gets\nOne line per item",
-    excludes: "What is not part of the plan",
-    tags: "premium, weekend",
+    features: tr("What the customer gets\nOne line per item"),
+    excludes: tr("What is not part of the plan"),
+    tags: tr("premium, weekend"),
   };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -1245,7 +1234,7 @@ async function createPlanRow(input: {
     const { data: provider } = await supabaseDb.from("providers")
       .select("source_provider_id").eq("id", providerId).maybeSingle();
     const legacyProvider = provider?.source_provider_id;
-    if (!legacyProvider) throw new Error("This restaurant has no legacy record to add a plan to.");
+    if (!legacyProvider) throw new Error(tr("This restaurant has no legacy record to add a plan to."));
     const days = numeric("days") ?? numeric("days_per_week") ?? 5;
     const meals = numeric("meals_per_day") ?? numeric("meals") ?? 1;
     const { data: created, error } = await supabaseDb.from("food_meal_plans").insert({

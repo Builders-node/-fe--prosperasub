@@ -30,6 +30,7 @@ import {
 import { useState } from "react";
 import { adminRoutes } from "@/config/adminRoutes";
 import { fetchApplications } from "@/lib/admin/providerApplications";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * Admin Overview.
@@ -101,7 +102,7 @@ async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) =
     user: r.user_id ? userMap.get(String(r.user_id)) : null,
     customerName: r.customer_name ?? null,
     clientName: null,
-    fallback: "Customer",
+    fallback: tr("Customer"),
   });
 }
 
@@ -188,12 +189,12 @@ const AdminDashboard = () => {
       await approvePayment(row.service, row.id, { adminUserId: userData?.id });
     },
     onSuccess: () => {
-      toast.success("Payment approved");
+      toast.success(tr("Payment approved"));
       // Refresh EVERY dashboard block so metrics + queue update in one go.
       qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0] ?? "").startsWith("super-admin-") });
       qc.invalidateQueries({ queryKey: ["admin-recent-activity-subscriptions"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not approve payment"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not approve payment")),
   });
 
   // Which payment to approve — always through a confirm that shows HOW it was
@@ -234,12 +235,12 @@ const AdminDashboard = () => {
     },
   });
   const needAll = [
-    { key: "applications", label: "Applications to review", value: needs?.applications ?? 0, href: adminRoutes.superAdminProviderApplications },
-    { key: "payouts", label: "Payouts to send", value: needs?.payouts ?? 0, href: `${adminRoutes.superAdminPayments}?tab=payouts` },
-    { key: "support", label: "New support messages", value: needs?.support ?? 0, href: adminRoutes.superAdminSupport },
-    { key: "expiring", label: "Ending in 2 days", value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?ending=2" },
-    { key: "ready", label: "Businesses ready to go live", value: needs?.ready ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=ready` },
-    { key: "drafts", label: "Businesses in draft", value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
+    { key: "applications", label: tr("Applications to review"), value: needs?.applications ?? 0, href: adminRoutes.superAdminProviderApplications },
+    { key: "payouts", label: tr("Payouts to send"), value: needs?.payouts ?? 0, href: `${adminRoutes.superAdminPayments}?tab=payouts` },
+    { key: "support", label: tr("New support messages"), value: needs?.support ?? 0, href: adminRoutes.superAdminSupport },
+    { key: "expiring", label: tr("Ending in 2 days"), value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?ending=2" },
+    { key: "ready", label: tr("Businesses ready to go live"), value: needs?.ready ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=ready` },
+    { key: "drafts", label: tr("Businesses in draft"), value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
   ];
   const needItems = needAll.filter((n) => (n.value ?? 0) > 0);
   const needFailed = needs ? needAll.filter((n) => n.value === null) : [];
@@ -276,7 +277,7 @@ const AdminDashboard = () => {
             Icon: view.icon,
             tone: r.paid ? ("paid" as const) : ("pending" as const),
             label: `${nameOf(r)} — ${view.label}`,
-            detail: r.paid ? formatUSD(Number(r.price_cents) || 0) : "Awaiting payment",
+            detail: r.paid ? formatUSD(Number(r.price_cents) || 0) : tr("Awaiting payment"),
             date: r.created_at,
             // This sale, opened — not the whole list.
             href: `/admin/marketplace/subscriptions?order=${encodeURIComponent(r.id)}`,
@@ -292,7 +293,7 @@ const AdminDashboard = () => {
   const pfByService = (key: string) => periodFigures(allRows.filter((r) => r.service === key), period);
 
   return (
-    <SuperAdminLayout title="Today" subtitle="What needs you, then how the platform is doing">
+    <SuperAdminLayout title={tr("Today")} subtitle={tr("What needs you, then how the platform is doing")}>
       {/*
         Written in the platform's own vocabulary rather than an admin dialect —
         see DESIGN.md §3 and §4. Three type sizes carry the page (20 / 16 / 12,
@@ -307,15 +308,14 @@ const AdminDashboard = () => {
       {/* What is waiting on a person — first, because it is why you opened this. */}
       {needFailed.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-radius-md bg-card p-3 text-meta">
-          <span className="text-foreground">
-            Could not check: {needFailed.map((n) => n.label.toLowerCase()).join(", ")}.
+          <span className="text-foreground">{tr("Could not check:")}{" "}{needFailed.map((n) => n.label.toLowerCase()).join(", ")}.
           </span>
-          <Button size="sm" variant="secondary" onClick={() => refetchNeeds()}>Try again</Button>
+          <Button size="sm" variant="secondary" onClick={() => refetchNeeds()}>{tr("Try again")}</Button>
         </div>
       )}
       {needItems.length > 0 && (
         <section className="mb-8">
-          <YdSectionHeading title="Needs you" />
+          <YdSectionHeading title={tr("Needs you")} />
           <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
             {needItems.map((n) => (
               <Link key={n.key} to={n.href}
@@ -334,26 +334,26 @@ const AdminDashboard = () => {
       {/* Headline metrics. Colour lives on the NUMBER, never on the card: a
           tinted panel is a second background, and this design has one. */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <YdSectionHeading title="How it's going" className="mb-0" />
+        <YdSectionHeading title={tr("How it's going")} className="mb-0" />
         <PeriodPicker value={period} onChange={setPeriod} className="max-w-full" />
       </div>
       {statsError && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-radius-md bg-card p-3 text-meta">
-          <span className="text-foreground">The figures could not load. What you see below is not real data.</span>
-          <Button size="sm" variant="secondary" onClick={() => refetchStats()}>Try again</Button>
+          <span className="text-foreground">{tr("The figures could not load. What you see below is not real data.")}</span>
+          <Button size="sm" variant="secondary" onClick={() => refetchStats()}>{tr("Try again")}</Button>
         </div>
       )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricTile loading={statsLoading} label="Revenue" value={formatUSD(pf.revenueCents)}
+        <MetricTile loading={statsLoading} label={tr("Revenue")} value={formatUSD(pf.revenueCents)}
           // A calendar month opens Finance on the same month, so the two
           // numbers can be checked against each other.
           href={financeRangeFor(period) ? `/admin/payments?range=${financeRangeFor(period)}` : `/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
-        <MetricTile loading={statsLoading} label="Sales" value={String(pf.sales)}
+        <MetricTile loading={statsLoading} label={tr("Sales")} value={String(pf.sales)}
           href={`/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.sales, pf.prevSales)} />
-        <MetricTile loading={statsLoading} label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />
+        <MetricTile loading={statsLoading} label={tr("Users")} value={String(stats?.users ?? 0)} href="/admin/users" />
         <MetricTile
           loading={statsLoading}
-          label="Awaiting payment"
+          label={tr("Awaiting payment")}
           value={String(stats?.pending ?? 0)}
           // The stage, not the raw status: a row can be "active" and unpaid.
           href="/admin/marketplace/subscriptions?stage=pending_payment"
@@ -367,8 +367,8 @@ const AdminDashboard = () => {
         <section className="mt-8">
           <YdSectionHeading
             title={(stats?.pending ?? 0) > pendingQueue.length
-              ? `Awaiting payment · latest ${pendingQueue.length} of ${stats?.pending}`
-              : "Awaiting payment"}
+              ? tr("Awaiting payment · latest {length} of {pending}", { length: pendingQueue.length, pending: stats?.pending })
+              : tr("Awaiting payment")}
             count={(stats?.pending ?? 0) > pendingQueue.length ? undefined : pendingQueue.length}
           />
           <div className="space-y-2">
@@ -387,7 +387,7 @@ const AdminDashboard = () => {
                       {row.userLabel} · {row.serviceLabel}
                     </p>
                     <p className="mt-0.5 text-meta text-muted-foreground">
-                      {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a")}
+                      {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a", { locale: dfLocale })}
                     </p>
                   </div>
                   <span className="shrink-0 text-title font-semibold tabular-nums text-primary">
@@ -400,9 +400,7 @@ const AdminDashboard = () => {
                     disabled={approve.isPending}
                     onClick={() => setApproving(row)}
                   >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Approve
-                  </Button>
+                    <CheckCircle2 className="h-3.5 w-3.5" />{tr("Approve")}</Button>
                 </div>
               );
             })}
@@ -413,7 +411,7 @@ const AdminDashboard = () => {
       <AlertDialog open={!!approving} onOpenChange={(o) => !o && setApproving(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark {approving ? formatUSD(approving.amountCents) : ""} as paid?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Mark")}{" "}{approving ? formatUSD(approving.amountCents) : ""}{" "}{tr("as paid?")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>{approving?.userLabel} · {approving?.serviceLabel}</p>
@@ -421,29 +419,24 @@ const AdminDashboard = () => {
                   <PaymentMethodBadge method={approving?.method} />
                   {approving?.reference
                     ? <PaymentReference method={approving.method} reference={approving.reference} />
-                    : <span className="text-meta">No payment reference</span>}
+                    : <span className="text-meta">{tr("No payment reference")}</span>}
                 </div>
                 {approving && autoChecked(approving.method) && (
-                  <p className="text-attention">
-                    This method is checked automatically. Approve only if you received the money another way —
-                    an abandoned checkout looks exactly like this row.
-                  </p>
+                  <p className="text-attention">{tr("This method is checked automatically. Approve only if you received the money another way — an abandoned checkout looks exactly like this row.")}</p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (approving) approve.mutate(approving); setApproving(null); }}>
-              Mark paid
-            </AlertDialogAction>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (approving) approve.mutate(approving); setApproving(null); }}>{tr("Mark paid")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Per-service breakdown. */}
       <section className="mt-8">
-        <YdSectionHeading title="By service" />
+        <YdSectionHeading title={tr("By service")} />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {(stats?.services ?? []).map((st) => {
             const key = st.key;
@@ -470,13 +463,13 @@ const AdminDashboard = () => {
                     <p className="truncate text-heading font-semibold tabular-nums text-foreground">
                       {formatUSD(sp.revenueCents)}
                     </p>
-                    <p className="text-meta text-muted-foreground">Revenue</p>
+                    <p className="text-meta text-muted-foreground">{tr("Revenue")}</p>
                   </div>
                   <div className="min-w-0 text-right">
                     <p className="text-heading font-semibold tabular-nums text-foreground">
                       {st?.active ?? 0}
                     </p>
-                    <p className="text-meta text-muted-foreground">Active</p>
+                    <p className="text-meta text-muted-foreground">{tr("Active")}</p>
                   </div>
                 </div>
               </Link>
@@ -495,32 +488,28 @@ const AdminDashboard = () => {
           shown and the rest a tap away — "View all" opens every sale. */}
       <section className="mt-8">
         <YdSectionHeading
-          title="Recent activity"
+          title={tr("Recent activity")}
           count={recentActivity.length}
           action={
             recentActivity.length > 0 ? (
               <Link
                 to={adminRoutes.superAdminMarketplaceSubscriptions}
                 className="shrink-0 text-meta font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                View all
-              </Link>
+              >{tr("View all")}</Link>
             ) : undefined
           }
         />
         {activityError ? (
           /* A quiet day and a failed request are not the same news. */
           <QueryError
-            title="Couldn't load recent activity"
+            title={tr("Couldn't load recent activity")}
             error={activityErrorObj}
             onRetry={() => void refetchActivity()}
           />
         ) : recentActivity.length === 0 ? (
           <div className="rounded-radius-md bg-card p-8 text-center">
-            <p className="text-title font-semibold text-foreground">No activity yet</p>
-            <p className="mt-1 text-meta text-muted-foreground">
-              Sales across every service appear here as they happen.
-            </p>
+            <p className="text-title font-semibold text-foreground">{tr("No activity yet")}</p>
+            <p className="mt-1 text-meta text-muted-foreground">{tr("Sales across every service appear here as they happen.")}</p>
           </div>
         ) : (
           <>
@@ -540,7 +529,7 @@ const AdminDashboard = () => {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold leading-5 text-foreground">{a.label}</p>
                         <p className="text-meta leading-4 text-muted-foreground">
-                          {format(d, d.getFullYear() === new Date().getFullYear() ? "MMM d · h:mm a" : "MMM d, yyyy · h:mm a")}
+                          {format(d, d.getFullYear() === new Date().getFullYear() ? "MMM d · h:mm a" : "MMM d, yyyy · h:mm a", { locale: dfLocale })}
                         </p>
                       </div>
                       <span
@@ -562,7 +551,7 @@ const AdminDashboard = () => {
                 onClick={() => setShowAllActivity((v) => !v)}
                 className="mt-2 w-full rounded-radius-md py-2 text-meta font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
               >
-                {showAllActivity ? "Show less" : `Show ${recentActivity.length - ACTIVITY_PREVIEW} more`}
+                {showAllActivity ? tr("Show less") : tr("Show {value} more", { value: recentActivity.length - ACTIVITY_PREVIEW })}
               </button>
             )}
           </>
@@ -599,7 +588,7 @@ function MetricTile({
       </div>
       {loading ? (
         // A skeleton, not "$0": zero is a real answer and must not flash.
-        <span className="my-1 block h-7 w-24 animate-pulse rounded-radius-sm bg-muted" aria-label="Loading" />
+        <span className="my-1 block h-7 w-24 animate-pulse rounded-radius-sm bg-muted" aria-label={tr("Loading")} />
       ) : (
         <p
           className={cn(
@@ -612,7 +601,7 @@ function MetricTile({
       )}
       {!loading && change !== undefined && (
         <p className={cn("text-meta", change ? (change.up ? "text-positive" : "text-negative") : "text-muted-foreground")}>
-          {change ? `${change.text} vs previous` : "No earlier sales"}
+          {change ? tr("{text} vs previous", { text: change.text }) : tr("No earlier sales")}
         </p>
       )}
     </Link>

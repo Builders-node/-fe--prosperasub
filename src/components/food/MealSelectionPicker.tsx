@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import {
   itemKeys, itemLabel, sortItemKeys, LEGACY_MEAL_KEYS, type ProviderItem,
 } from "@/lib/services/providerItems";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * What a customer picks is what the provider offers.
@@ -92,16 +93,14 @@ export function MealSelectionPicker({
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-title font-semibold text-foreground">
-          {cap === 1 ? "Your meal each day" : `Your ${cap} meals each day`}
+          {cap === 1 ? tr("Your meal each day") : tr("Your {cap} meals each day", { cap })}
         </p>
-        <p className="shrink-0 text-meta tabular-nums text-muted-foreground">
-          {value.length} of {cap}
-        </p>
+        <p className="shrink-0 text-meta tabular-nums text-muted-foreground">{trx("{length} of {cap}", { length: value.length, cap })}</p>
       </div>
 
       <div
         role="group"
-        aria-label="Meals each day"
+        aria-label={tr("Meals each day")}
         className="grid w-full gap-0.5 rounded-radius-md bg-inset p-0.5"
         style={{ gridTemplateColumns: `repeat(${Math.min(options.length, 4)}, minmax(0, 1fr))` }}
       >
@@ -136,8 +135,8 @@ export function MealSelectionPicker({
       {remaining > 0 && (
         <p className="text-meta text-muted-foreground">
           {value.length === 0
-            ? `Choose ${cap === 1 ? "the meal" : `${cap} meals`} you want delivered every day.`
-            : `Pick ${remaining} more to continue.`}
+            ? tr("Choose {value} you want delivered every day.", { value: cap === 1 ? tr("the meal") : tr("{cap} meals", { cap }) })
+            : tr("Pick {remaining} more to continue.", { remaining })}
         </p>
       )}
     </div>

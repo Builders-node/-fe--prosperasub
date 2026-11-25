@@ -12,6 +12,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * /courier — a platform courier's day, on their phone.
@@ -59,27 +60,26 @@ export default function Courier() {
     },
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: KEY });
-      toast.success(v.status === "on_the_way" ? "The customer knows it's on the way" : v.status === "delivered" ? "Delivered" : "Marked as not delivered");
+      toast.success(v.status === "on_the_way" ? tr("The customer knows it's on the way") : v.status === "delivered" ? tr("Delivered") : tr("Marked as not delivered"));
     },
-    onError: (e: Error) => toast.error(e.message || "Could not update it"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not update it")),
   });
 
   const notCourier = q.isError && /not_a_courier|403/i.test(String((q.error as Error)?.message));
 
   return (
-    <UserLayout title="Deliveries">
+    <UserLayout title={tr("Deliveries")}>
       <AppContainer className="max-w-[720px] space-y-3 py-4">
         {q.isLoading ? (
           <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-40" />)}</div>
         ) : notCourier ? (
-          <YdEmptyState icon={Package} title="This account isn't a courier"
-            subtitle="Ask EverySub to link your account in Admin → Delivery → Couriers." />
+          <YdEmptyState icon={Package} title={tr("This account isn't a courier")}
+            subtitle={tr("Ask EverySub to link your account in Admin → Delivery → Couriers.")} />
         ) : q.isError ? (
-          <QueryError title="Couldn't load your deliveries" error={q.error as Error} onRetry={() => void q.refetch()} />
+          <QueryError title={tr("Couldn't load your deliveries")} error={q.error as Error} onRetry={() => void q.refetch()} />
         ) : (
           <>
-            <p className="text-body text-muted-foreground">
-              Hi {q.data!.courier.name} — {q.data!.open.length ? `${q.data!.open.length} to deliver` : "nothing to deliver right now"}.
+            <p className="text-body text-muted-foreground">{trx("Hi {name} —", { name: q.data!.courier.name })}{" "}{q.data!.open.length ? tr("{length} to deliver", { length: q.data!.open.length }) : tr("nothing to deliver right now")}.
             </p>
             {q.data!.open.map((j) => (
               <JobCard key={j.id} job={j} busy={move.isPending && move.variables?.id === j.id}
@@ -87,12 +87,12 @@ export default function Courier() {
             ))}
             {q.data!.done.length > 0 && (
               <>
-                <h2 className="pt-3 text-title font-semibold text-foreground">Done</h2>
+                <h2 className="pt-3 text-title font-semibold text-foreground">{tr("Done")}</h2>
                 {q.data!.done.map((j) => (
                   <div key={j.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-card p-3">
                     <span className="min-w-0 truncate text-body text-foreground">{j.metadata?.plan_name ?? "Order"} · {j.delivery_point?.line ?? "—"}</span>
                     <span className={cn("shrink-0 text-meta font-semibold", j.delivery_status === "failed" ? "text-negative" : "text-positive")}>
-                      {j.delivery_status === "failed" ? "Not delivered" : j.delivered_at ? format(new Date(j.delivered_at), "HH:mm") : "Delivered"}
+                      {j.delivery_status === "failed" ? tr("Not delivered") : j.delivered_at ? format(new Date(j.delivered_at), "HH:mm") : tr("Delivered")}
                     </span>
                   </div>
                 ))}
@@ -116,12 +116,12 @@ function JobCard({ job, busy, onMove }: { job: Job; busy: boolean; onMove: (stat
         <div className="min-w-0">
           <p className="text-title font-semibold text-foreground">{job.metadata?.plan_name ?? "Order"}</p>
           <p className="text-meta text-muted-foreground">
-            {[job.delivery_zones?.name, format(new Date(job.created_at), "MMM d, HH:mm")].filter(Boolean).join(" · ")}
+            {[job.delivery_zones?.name, format(new Date(job.created_at), "MMM d, HH:mm", { locale: dfLocale })].filter(Boolean).join(" · ")}
           </p>
         </div>
         <span className={cn("shrink-0 rounded-full px-3 py-1 text-[13px] font-semibold",
           onTheWay ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground")}>
-          {onTheWay ? "On the way" : "To pick up"}
+          {onTheWay ? tr("On the way") : tr("To pick up")}
         </span>
       </div>
 
@@ -133,7 +133,7 @@ function JobCard({ job, busy, onMove }: { job: Job; busy: boolean; onMove: (stat
           {job.providers?.location && <p className="text-meta text-muted-foreground">{job.providers.location}</p>}
         </div>
         {job.providers?.contact_phone && (
-          <a href={waLink(job.providers.contact_phone)} target="_blank" rel="noreferrer" aria-label="Message the business"
+          <a href={waLink(job.providers.contact_phone)} target="_blank" rel="noreferrer" aria-label={tr("Message the business")}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-foreground">
             <MessageCircle className="h-5 w-5" />
           </a>
@@ -144,22 +144,22 @@ function JobCard({ job, busy, onMove }: { job: Job; busy: boolean; onMove: (stat
       <div className="flex items-start gap-3 rounded-radius-md bg-inset p-3">
         <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1 text-body">
-          <p className="font-semibold text-foreground">{p?.line ?? "Pinned location"}</p>
+          <p className="font-semibold text-foreground">{p?.line ?? tr("Pinned location")}</p>
           {p?.details && <p className="text-meta text-foreground">{p.details}</p>}
           <p className="text-meta text-muted-foreground">
             {[job.metadata?.customer_name, job.customer_whatsapp].filter(Boolean).join(" · ")}
           </p>
-          {job.notes && <p className="text-meta text-muted-foreground">Note: {job.notes}</p>}
+          {job.notes && <p className="text-meta text-muted-foreground">{trx("Note: {notes}", { notes: job.notes })}</p>}
         </div>
         <div className="flex shrink-0 flex-col gap-2">
           {p && (
-            <a href={mapsLink(p)} target="_blank" rel="noreferrer" aria-label="Directions"
+            <a href={mapsLink(p)} target="_blank" rel="noreferrer" aria-label={tr("Directions")}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-foreground">
               <Navigation className="h-5 w-5 fill-current" strokeWidth={0} />
             </a>
           )}
           {job.customer_whatsapp && (
-            <a href={waLink(job.customer_whatsapp)} target="_blank" rel="noreferrer" aria-label="Message the customer"
+            <a href={waLink(job.customer_whatsapp)} target="_blank" rel="noreferrer" aria-label={tr("Message the customer")}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-foreground">
               <MessageCircle className="h-5 w-5" />
             </a>
@@ -171,17 +171,13 @@ function JobCard({ job, busy, onMove }: { job: Job; busy: boolean; onMove: (stat
         {onTheWay ? (
           <>
             <Button size="lg" className="flex-1" disabled={busy} onClick={() => onMove("delivered")}>
-              {busy && <Spinner size="sm" className="mr-2" />}Delivered
-            </Button>
+              {busy && <Spinner size="sm" className="mr-2" />}{tr("Delivered")}</Button>
             <Button size="lg" variant="secondary" disabled={busy}
-              onClick={async () => { if (await confirm({ title: "Mark it as not delivered?", confirmLabel: "Not delivered" })) onMove("failed"); }}>
-              Couldn't deliver
-            </Button>
+              onClick={async () => { if (await confirm({ title: tr("Mark it as not delivered?"), confirmLabel: tr("Not delivered") })) onMove("failed"); }}>{tr("Couldn't deliver")}</Button>
           </>
         ) : (
           <Button size="lg" className="flex-1" disabled={busy} onClick={() => onMove("on_the_way")}>
-            {busy && <Spinner size="sm" className="mr-2" />}Picked up — on my way
-          </Button>
+            {busy && <Spinner size="sm" className="mr-2" />}{tr("Picked up — on my way")}</Button>
         )}
       </div>
     </section>

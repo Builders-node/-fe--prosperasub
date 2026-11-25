@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { accountApi } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics/ga";
+import { tr } from "@/lib/tr";
 
 /**
  * Favourites — the logic in one place.
@@ -101,7 +102,7 @@ export function useFavorites() {
     },
     onError: (e: Error, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(QUERY_KEY, ctx.prev);
-      toast.error(e.message || "Couldn't update your favourites.");
+      toast.error(e.message || tr("Couldn't update your favourites."));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
   });
@@ -123,9 +124,9 @@ export function useFavorites() {
     setSaved(kind, id, save);
     if (save) {
       trackEvent("add_to_wishlist", { items: [{ item_id: id, item_name: opts.name, item_category: kind }] });
-      toast.success("Saved to favourites", opts.onView ? { action: { label: "View", onClick: opts.onView } } : undefined);
+      toast.success(tr("Saved to favourites"), opts.onView ? { action: { label: tr("View"), onClick: opts.onView } } : undefined);
     } else {
-      toast("Removed from favourites", { action: { label: "Undo", onClick: () => setSaved(kind, id, true) } });
+      toast(tr("Removed from favourites"), { action: { label: tr("Undo"), onClick: () => setSaved(kind, id, true) } });
     }
   }, [isSaved, setSaved]);
 

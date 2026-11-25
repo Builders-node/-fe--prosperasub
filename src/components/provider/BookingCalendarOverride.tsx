@@ -7,6 +7,7 @@ import {
   normalizeBookingSettings,
   type BookingSettings,
 } from "@/lib/booking/bookingSettings";
+import { tr } from "@/lib/tr";
 
 interface Props {
   value: unknown | null;
@@ -33,8 +34,8 @@ interface Props {
  */
 export function BookingCalendarOverride({
   value, onChange,
-  parentLabel = "the provider's calendar",
-  entityLabel = "This record",
+  parentLabel = tr("the provider's calendar"),
+  entityLabel = tr("This record"),
 }: Props) {
   const overrideOn = value !== null && value !== undefined;
   // Keep an in-progress edit around so toggling off/on doesn't discard the
@@ -64,15 +65,15 @@ export function BookingCalendarOverride({
             <CalendarClock className="h-4 w-4" />
           </span>
           <div>
-            <h3 className="font-bold text-foreground">Booking calendar</h3>
+            <h3 className="font-bold text-foreground">{tr("Booking calendar")}</h3>
             <p className="text-sm text-muted-foreground">
               {overrideOn
-                ? `${entityLabel} uses its own working hours and session settings.`
-                : `${entityLabel} inherits ${parentLabel}.`}
+                ? tr("{entityLabel} uses its own working hours and session settings.", { entityLabel })
+                : tr("{entityLabel} inherits {parentLabel}.", { entityLabel, parentLabel })}
             </p>
           </div>
         </div>
-        <Switch checked={overrideOn} onCheckedChange={handleToggle} aria-label="Custom calendar" />
+        <Switch checked={overrideOn} onCheckedChange={handleToggle} aria-label={tr("Custom calendar")} />
       </div>
 
       {overrideOn && (

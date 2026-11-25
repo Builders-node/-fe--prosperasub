@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * How finished a business's public profile is.
  *
@@ -43,14 +44,14 @@ const hasHours = (v: unknown) => {
 export function profileChecklist(p: ProfileInput): ProfileField[] {
   const gallery = Array.isArray(p.gallery_urls) ? p.gallery_urls.filter(Boolean) : [];
   return [
-    { key: "description", label: "Description", why: "The line customers read under your name.", done: filled(p.description) },
-    { key: "avatar", label: "Logo", why: "Shown on every card and in search.", done: filled(p.avatar_url) },
-    { key: "banner", label: "Cover photo", why: "The top of your public page.", done: filled(p.banner_url) },
-    { key: "gallery", label: "Photos", why: "Businesses with photos get opened more often.", done: gallery.length > 0 },
-    { key: "location", label: "Address", why: "Where you are, on the map and the profile.", done: filled(p.location) },
-    { key: "hours", label: "Opening hours", why: "The booking calendar offers times from these.", done: hasHours(p.working_hours) },
-    { key: "phone", label: "Phone", why: "How a customer reaches you when plans change.", done: filled(p.contact_phone) },
-    { key: "email", label: "Email", why: "Where the platform shares your Google calendar.", done: filled(p.contact_email) },
+    { key: "description", label: tr("Description"), why: tr("The line customers read under your name."), done: filled(p.description) },
+    { key: "avatar", label: tr("Logo"), why: tr("Shown on every card and in search."), done: filled(p.avatar_url) },
+    { key: "banner", label: tr("Cover photo"), why: tr("The top of your public page."), done: filled(p.banner_url) },
+    { key: "gallery", label: tr("Photos"), why: tr("Businesses with photos get opened more often."), done: gallery.length > 0 },
+    { key: "location", label: tr("Address"), why: tr("Where you are, on the map and the profile."), done: filled(p.location) },
+    { key: "hours", label: tr("Opening hours"), why: tr("The booking calendar offers times from these."), done: hasHours(p.working_hours) },
+    { key: "phone", label: tr("Phone"), why: tr("How a customer reaches you when plans change."), done: filled(p.contact_phone) },
+    { key: "email", label: tr("Email"), why: tr("Where the platform shares your Google calendar."), done: filled(p.contact_email) },
   ];
 }
 

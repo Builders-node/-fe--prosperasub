@@ -1,5 +1,6 @@
 import { Network } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Where a sale came from.
@@ -31,7 +32,7 @@ export function saleOrigin(paymentReference: unknown): SaleOrigin {
   // that back would be noise.
   let ref = paymentReference;
   while (ref.startsWith(BN_PREFIX)) ref = ref.slice(BN_PREFIX.length);
-  return { key: "builders_node", label: "Builders Node", externalRef: ref };
+  return { key: "builders_node", label: tr("Builders Node"), externalRef: ref };
 }
 
 /** True when this sale arrived through the partner rather than our checkout. */
@@ -51,7 +52,7 @@ export function isFromBuildersNode(paymentReference: unknown): boolean {
  */
 export function bookingOrigin(source: unknown): SaleOrigin {
   return source === "builders_node"
-    ? { key: "builders_node", label: "Builders Node", externalRef: "" }
+    ? { key: "builders_node", label: tr("Builders Node"), externalRef: "" }
     : { key: "platform", label: null, externalRef: null };
 }
 
@@ -84,8 +85,8 @@ export function SaleOriginBadge({
     <span
       title={
         origin.externalRef
-          ? `Provisioned by Builders Node · ref ${origin.externalRef}`
-          : "Booked through Builders Node"
+          ? tr("Provisioned by Builders Node · ref {externalRef}", { externalRef: origin.externalRef })
+          : tr("Booked through Builders Node")
       }
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5",

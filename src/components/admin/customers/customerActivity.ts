@@ -10,6 +10,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { fetchAllProfiles } from "@/lib/account/profiles";
+import { tr } from "@/lib/tr";
 
 /**
  * What a customer has bought, across EVERY source.
@@ -173,7 +174,7 @@ export function useCustomerSales(userId: string | null | undefined) {
         return {
           key: `${r.service}-${r.id}`,
           service,
-          name: r.plan_name || (r.service === "cars" ? "Car rental" : `${serviceLabelOf(service, index)} plan`),
+          name: r.plan_name || (r.service === "cars" ? tr("Car rental") : `${serviceLabelOf(service, index)} plan`),
           status: r.status ?? "—",
           paymentStatus: r.payment_status ?? null,
           active: isLive(r),

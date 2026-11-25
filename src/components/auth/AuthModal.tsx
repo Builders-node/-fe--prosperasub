@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { tr } from "@/lib/tr";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ function PasswordInput({
         tabIndex={-1}
         onClick={() => setShow((s) => !s)}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-        aria-label={show ? "Hide password" : "Show password"}
+        aria-label={show ? tr("Hide password") : tr("Show password")}
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
@@ -127,10 +128,10 @@ function AuthForm({
     const { error, roles: userRoles } = await login(email, password);
     setIsLoading(false);
     if (error) {
-      toast.error(error.message || "Login failed. Check your email and password.");
+      toast.error(error.message || tr("Login failed. Check your email and password."));
       return;
     }
-    toast.success("Welcome back!");
+    toast.success(tr("Welcome back!"));
     onSuccess();
     const target =
       redirectTo === "/" && userRoles?.includes("super_admin")
@@ -145,10 +146,10 @@ function AuthForm({
     const { error } = await signUp(email, password, name);
     setIsLoading(false);
     if (error) {
-      toast.error(error.message || "Could not create account. Please try again.");
+      toast.error(error.message || tr("Could not create account. Please try again."));
       return;
     }
-    toast.success("Account created! Welcome to EverySub.");
+    toast.success(tr("Account created! Welcome to EverySub."));
     onSuccess();
     navigate(redirectTo, { replace: true });
   };
@@ -158,7 +159,7 @@ function AuthForm({
     const { error } = await loginWithGoogle(redirectTo);
     if (error) {
       setIsLoading(false);
-      toast.error(error.message || "Google login failed.");
+      toast.error(error.message || tr("Google login failed."));
     }
     // On success, Google redirects away — no need to setIsLoading(false)
   };
@@ -179,33 +180,23 @@ function AuthForm({
     return (
       <div className="w-full">
         <div className="mb-6">
-          <h2 className="text-heading font-semibold text-foreground">
-            Reset password
-          </h2>
-          <p className="mt-1 text-meta text-muted-foreground">
-            Enter your email and we'll send a reset link.
-          </p>
+          <h2 className="text-heading font-semibold text-foreground">{tr("Reset password")}</h2>
+          <p className="mt-1 text-meta text-muted-foreground">{tr("Enter your email and we'll send a reset link.")}</p>
         </div>
 
         {resetEmailSent ? (
           <div className="space-y-5">
-            <div className="flex items-center gap-3 rounded-radius-md bg-inset p-4 text-title font-semibold text-foreground">
-              ✓ Check your email for the password reset link.
-            </div>
+            <div className="flex items-center gap-3 rounded-radius-md bg-inset p-4 text-title font-semibold text-foreground">{tr("✓ Check your email for the password reset link.")}</div>
             <Button
               type="button"
               onClick={() => setView("login")}
               className="w-full font-semibold"
-            >
-              Back to login
-            </Button>
+            >{tr("Back to login")}</Button>
           </div>
         ) : (
           <form onSubmit={handleForgotPassword} className="space-y-3">
             <div>
-              <label htmlFor="reset-email" className={LABEL_CLASS}>
-                Email
-              </label>
+              <label htmlFor="reset-email" className={LABEL_CLASS}>{tr("Email")}</label>
               <input
                 id="reset-email"
                 type="email"
@@ -221,7 +212,7 @@ function AuthForm({
               disabled={isLoading}
               className="mt-2 w-full font-semibold"
             >
-              {isLoading ? <Spinner size="md" /> : "Send reset link"}
+              {isLoading ? <Spinner size="md" /> : tr("Send reset link")}
             </Button>
           </form>
         )}
@@ -230,9 +221,7 @@ function AuthForm({
           type="button"
           onClick={() => setView("login")}
           className="mt-4 flex w-full items-center justify-center text-meta font-semibold text-primary transition-colors hover:opacity-70"
-        >
-          ← Back to login
-        </button>
+        >{tr("← Back to login")}</button>
 
         {/* The one place a locked-out person can ask for help. /support was
             linked only from the account menu, which is behind the door they
@@ -241,9 +230,7 @@ function AuthForm({
           to="/support"
           onClick={onSuccess}
           className="mt-3 flex w-full items-center justify-center text-meta text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Still stuck? Contact support
-        </Link>
+        >{tr("Still stuck? Contact support")}</Link>
       </div>
     );
   }
@@ -253,12 +240,12 @@ function AuthForm({
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-heading font-semibold text-foreground">
-          {view === "login" ? "Log in" : "Create account"}
+          {view === "login" ? tr("Log in") : tr("Create account")}
         </h2>
         <p className="mt-1 text-meta text-muted-foreground">
           {view === "login"
-            ? "With your email or Google account"
-            : "Subscriptions and services in Roatán, in one place"}
+            ? tr("With your email or Google account")
+            : tr("Subscriptions and services in Roatán, in one place")}
         </p>
       </div>
 
@@ -272,9 +259,7 @@ function AuthForm({
             "h-10 rounded-radius-sm text-meta font-semibold transition-colors",
             view === "login" ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
-        >
-          Log in
-        </button>
+        >{tr("Log in")}</button>
         <button
           type="button"
           onClick={() => setView("signup")}
@@ -283,24 +268,20 @@ function AuthForm({
             "h-10 rounded-radius-sm text-meta font-semibold transition-colors",
             view === "signup" ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
-        >
-          Create account
-        </button>
+        >{tr("Create account")}</button>
       </div>
 
       {/* Form */}
       <form onSubmit={view === "login" ? handleLogin : handleSignup} className="space-y-3">
         {view === "signup" && (
           <div>
-            <label htmlFor="auth-name" className={LABEL_CLASS}>
-              Full name
-            </label>
+            <label htmlFor="auth-name" className={LABEL_CLASS}>{tr("Full name")}</label>
             <input
               id="auth-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder={tr("Your name")}
               required
               className={INPUT_CLASS}
             />
@@ -308,9 +289,7 @@ function AuthForm({
         )}
 
         <div>
-          <label htmlFor="auth-email" className={LABEL_CLASS}>
-            Email
-          </label>
+          <label htmlFor="auth-email" className={LABEL_CLASS}>{tr("Email")}</label>
           <input
             id="auth-email"
             type="email"
@@ -324,29 +303,25 @@ function AuthForm({
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor="auth-password" className="text-meta font-semibold text-foreground">
-              Password
-            </label>
+            <label htmlFor="auth-password" className="text-meta font-semibold text-foreground">{tr("Password")}</label>
             {view === "login" && (
               <button
                 type="button"
                 onClick={() => { setResetEmailSent(false); setView("forgot_password"); }}
                 className="text-meta font-semibold text-primary transition-colors hover:opacity-70"
-              >
-                Forgot password?
-              </button>
+              >{tr("Forgot password?")}</button>
             )}
           </div>
           <PasswordInput
             id="auth-password"
             value={password}
             onChange={setPassword}
-            placeholder="Password"
+            placeholder={tr("Password")}
             required
             minLength={6}
           />
           {view === "signup" && (
-            <p className="mt-1 text-meta text-muted-foreground">At least 6 characters</p>
+            <p className="mt-1 text-meta text-muted-foreground">{tr("At least 6 characters")}</p>
           )}
         </div>
 
@@ -359,13 +334,13 @@ function AuthForm({
           {isLoading ? (
             <Spinner size="md" />
           ) : (
-            view === "login" ? "Log in" : "Create account"
+            view === "login" ? tr("Log in") : tr("Create account")
           )}
         </Button>
       </form>
 
       {/* Separator — plain words, no rule splitting the sheet */}
-      <p className="my-4 text-center text-meta text-muted-foreground">or</p>
+      <p className="my-4 text-center text-meta text-muted-foreground">{tr("or")}</p>
 
       {/* Google */}
       <Button
@@ -375,16 +350,10 @@ function AuthForm({
         disabled={isLoading}
         className="w-full gap-3 bg-inset font-semibold text-foreground hover:bg-inset hover:opacity-80"
       >
-        <GoogleIcon />
-        Continue with Google
-      </Button>
+        <GoogleIcon />{tr("Continue with Google")}</Button>
 
       {/* Terms */}
-      <p className="mt-5 text-center text-meta leading-relaxed text-muted-foreground">
-        By continuing, you agree to our{" "}
-        <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-70">Terms of Service</a>{" "}
-        and{" "}
-        <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-70">Privacy Policy</a>.
+      <p className="mt-5 text-center text-meta leading-relaxed text-muted-foreground">{tr("By continuing, you agree to our")}{" "}<a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-70">{tr("Terms of Service")}</a>{" "}{tr("and")}{" "}<a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-70">{tr("Privacy Policy")}</a>.
       </p>
     </div>
   );
@@ -416,11 +385,9 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogTitle className="sr-only">
-          {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to EverySub" : "Create an EverySub account"}
+          {defaultView === "forgot_password" ? tr("Reset your password") : defaultView === "login" ? tr("Log in to EverySub") : tr("Create an EverySub account")}
         </DialogTitle>
-        <DialogDescription className="sr-only">
-          Enter your credentials to continue.
-        </DialogDescription>
+        <DialogDescription className="sr-only">{tr("Enter your credentials to continue.")}</DialogDescription>
 
         {/* DialogContent already renders a Close button in the top-right corner. */}
         {formContent}

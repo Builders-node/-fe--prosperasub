@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Tags as chips: type, press Enter or comma, a chip appears; × or Backspace
@@ -16,7 +17,7 @@ export function TagInput({
   onChange,
   suggestions = [],
   max = 20,
-  placeholder = "Add a tag",
+  placeholder = tr("Add a tag"),
   className,
 }: {
   value: string[];
@@ -67,7 +68,7 @@ export function TagInput({
             {t}
             <button
               type="button"
-              aria-label={`Remove ${t}`}
+              aria-label={tr("Remove {t}", { t })}
               onClick={(e) => { e.stopPropagation(); remove(t); }}
               className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             >
@@ -92,9 +93,7 @@ export function TagInput({
         )}
       </div>
       {offered.length > 0 && !full && (
-        <p className="text-meta text-muted-foreground">
-          Suggested:{" "}
-          {offered.map((s, i) => (
+        <p className="text-meta text-muted-foreground">{tr("Suggested:")}{" "}{offered.map((s, i) => (
             <span key={s}>
               <button type="button" onClick={() => add(s)} className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
                 {s}

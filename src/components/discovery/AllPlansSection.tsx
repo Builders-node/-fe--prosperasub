@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { useI18n } from "@/i18n";
 import { PlanTile, interleaveByProvider, useHomePlans } from "@/components/discovery/homePlans";
+import { trx } from "@/lib/tr";
 
 /**
  * Every plan on the platform, one card each, at the foot of the home page —
@@ -40,9 +41,7 @@ export function AllPlansSection() {
           type="button"
           onClick={() => setAll(true)}
           className="w-full rounded-radius-md bg-inset px-4 py-2.5 text-body font-semibold text-foreground transition-colors hover:bg-segment"
-        >
-          Show all {plans.length} plans
-        </button>
+        >{trx("Show all {length} plans", { length: plans.length })}</button>
       )}
     </section>
   );

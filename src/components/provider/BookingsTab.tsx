@@ -13,6 +13,7 @@ import { NewCalendarBookingDialog } from "@/components/provider/NewCalendarBooki
 import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
 import { NewBeachMembershipDialog } from "@/legacy/beach";
+import { tr } from "@/lib/tr";
 
 /**
  * The schedule — one tab, three questions.
@@ -87,9 +88,9 @@ export function BookingsTab({
   const shape = weekShape ?? (hasCalendars ? "grid" : "list");
 
   const options: Array<{ key: View; label: string; icon: typeof Users }> = [
-    ...(today ? [{ key: "today" as View, label: "Today", icon: Wrench }] : []),
-    { key: "week", label: "Week", icon: CalendarDays },
-    ...(byCustomer ? [{ key: "customer" as View, label: "Customers", icon: Users }] : []),
+    ...(today ? [{ key: "today" as View, label: tr("Today"), icon: Wrench }] : []),
+    { key: "week", label: tr("Week"), icon: CalendarDays },
+    ...(byCustomer ? [{ key: "customer" as View, label: tr("Customers"), icon: Users }] : []),
   ];
 
   const isCleaning = sourceKey === "cleaning";
@@ -163,8 +164,7 @@ export function BookingsTab({
               universalProviderId={universalProviderId ?? null}
               trigger={
                 <Button variant="secondary" className="gap-2">
-                  <Plus className="h-4 w-4" /> New subscription
-                </Button>
+                  <Plus className="h-4 w-4" />{" "}{tr("New subscription")}</Button>
               }
             />
           )}
@@ -173,8 +173,7 @@ export function BookingsTab({
               providerUniversalId={calendarsId}
               trigger={
                 <Button variant="secondary" className="gap-2">
-                  <Plus className="h-4 w-4" /> New membership
-                </Button>
+                  <Plus className="h-4 w-4" />{" "}{tr("New membership")}</Button>
               }
             />
           )}
@@ -206,7 +205,7 @@ export function BookingsTab({
       {active === "week" && countError && (
         <QueryError
           compact
-          title="Couldn't load your calendars"
+          title={tr("Couldn't load your calendars")}
           error={countErr}
           onRetry={() => refetchCount()}
           retrying={countFetching}

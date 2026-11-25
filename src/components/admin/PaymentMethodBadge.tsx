@@ -1,5 +1,6 @@
 import { Zap, Bitcoin, Coins, Wallet, Banknote, Gift, HandCoins, Minus, ExternalLink, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /** Collapse the various stored values into a canonical payment method. */
 export function normalizePaymentMethod(method?: string | null): PaymentMethodKey {
@@ -22,14 +23,14 @@ export function normalizePaymentMethod(method?: string | null): PaymentMethodKey
 type PaymentMethodKey = "lightning" | "onchain" | "infinita" | "crypto_gateway" | "paypal" | "cash" | "free" | "manual" | "unknown";
 
 const META: Record<PaymentMethodKey, { label: string; Icon: LucideIcon; className: string }> = {
-  lightning: { label: "Lightning", Icon: Zap,      className: "bg-muted text-foreground" },
-  onchain:   { label: "On-chain",  Icon: Bitcoin,  className: "bg-muted text-foreground" },
+  lightning: { label: tr("Lightning"), Icon: Zap,      className: "bg-muted text-foreground" },
+  onchain:   { label: tr("On-chain"),  Icon: Bitcoin,  className: "bg-muted text-foreground" },
   infinita:  { label: "LIVES",     Icon: Coins,    className: "bg-muted text-foreground" },
-  crypto_gateway: { label: "Crypto", Icon: Coins, className: "bg-muted text-foreground" },
-  paypal:    { label: "PayPal",    Icon: Wallet,   className: "bg-muted text-foreground" },
-  cash:      { label: "Cash",      Icon: Banknote, className: "bg-muted text-foreground" },
-  free:      { label: "Free",      Icon: Gift,     className: "bg-muted text-foreground" },
-  manual:    { label: "Manual",    Icon: HandCoins, className: "bg-muted text-foreground" },
+  crypto_gateway: { label: tr("Crypto"), Icon: Coins, className: "bg-muted text-foreground" },
+  paypal:    { label: tr("PayPal"),    Icon: Wallet,   className: "bg-muted text-foreground" },
+  cash:      { label: tr("Cash"),      Icon: Banknote, className: "bg-muted text-foreground" },
+  free:      { label: tr("Free"),      Icon: Gift,     className: "bg-muted text-foreground" },
+  manual:    { label: tr("Manual"),    Icon: HandCoins, className: "bg-muted text-foreground" },
   unknown:   { label: "—",         Icon: Minus,    className: "bg-muted text-muted-foreground" },
 };
 
@@ -45,7 +46,7 @@ export function PaymentReference({ method, reference }: { method?: string | null
         href={`https://solscan.io/tx/${reference}`}
         target="_blank"
         rel="noopener noreferrer"
-        title={`View on Solscan: ${reference}`}
+        title={tr("View on Solscan: {reference}", { reference })}
         className="inline-flex items-center gap-1 font-mono text-meta text-primary hover:underline"
       >
         {short}
@@ -65,7 +66,7 @@ export function PaymentMethodBadge({ method, className }: { method?: string | nu
   return (
     <span
       className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold", tint, className)}
-      title={key === "unknown" ? "Payment method not recorded" : `Paid with ${label}`}
+      title={key === "unknown" ? tr("Payment method not recorded") : tr("Paid with {label}", { label })}
     >
       <Icon className="h-3 w-3" />
       {label}

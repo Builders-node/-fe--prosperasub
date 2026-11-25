@@ -6,6 +6,7 @@ import { useLocationControl } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { AddressMapDialog } from "@/components/location/AddressMapDialog";
+import { tr } from "@/lib/tr";
 
 interface Props {
   /**
@@ -54,7 +55,7 @@ export function LocationSelector({ variant = "chip", className, always = false }
 
   /** The pin they dropped says more than the community it is in. */
   const place = address?.line || residence;
-  const label = place || "Choose location";
+  const label = place || tr("Choose location");
 
 
   const trigger = variant === "row" ? (
@@ -87,7 +88,7 @@ export function LocationSelector({ variant = "chip", className, always = false }
       <span className="flex min-w-0 items-center gap-1.5">
         <MapPin className={cn("h-4 w-4 shrink-0", place ? "text-primary" : "text-muted-foreground")} />
         <span className={cn("truncate", !place && "text-muted-foreground")}>
-          <span className="text-muted-foreground">Deliver to: </span>
+          <span className="text-muted-foreground">{tr("Deliver to:")}{" "}</span>
           {label}
         </span>
       </span>
@@ -125,7 +126,7 @@ export function LocationChipView({ label, onClick, className }: { label: string 
     <button
       type="button"
       onClick={onClick}
-      aria-label="Choose location"
+      aria-label={tr("Choose location")}
       className={cn(
         "flex h-12 w-[280px] min-w-0 shrink items-center gap-3 rounded-radius-md bg-card px-4 text-left outline outline-1 -outline-offset-1 outline-foreground/15 transition-colors hover:bg-muted/50",
         className,
@@ -133,7 +134,7 @@ export function LocationChipView({ label, onClick, className }: { label: string 
     >
       <Navigation className={cn("h-5 w-5 shrink-0 fill-current", label ? "text-primary" : "text-foreground")} strokeWidth={0} />
       <span className={cn("min-w-0 flex-1 truncate text-[16px]", label ? "text-foreground" : "text-muted-foreground")}>
-        {label || "Choose location"}
+        {label || tr("Choose location")}
       </span>
       <KeyboardArrowRightIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
     </button>
@@ -146,7 +147,7 @@ export function LocationRowView({ label, onClick, className }: { label: string |
     <button
       type="button"
       onClick={onClick}
-      aria-label="Choose location"
+      aria-label={tr("Choose location")}
       className={cn(
         "flex w-full items-center gap-2 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40",
         className,
@@ -154,7 +155,7 @@ export function LocationRowView({ label, onClick, className }: { label: string |
     >
       <LocationOnIcon className={cn("h-6 w-6 shrink-0", label ? "text-primary" : "text-muted-foreground")} />
       <span className={cn("min-w-0 flex-1 truncate text-title", label ? "text-foreground" : "text-muted-foreground")}>
-        {label || "Choose location"}
+        {label || tr("Choose location")}
       </span>
       <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
     </button>

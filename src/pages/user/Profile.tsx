@@ -32,6 +32,7 @@ import { formatUSD } from "@/lib/pricing";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { cn } from "@/lib/utils";
 import { fetchMyProfile } from "@/lib/account/profiles";
+import { tr } from "@/lib/tr";
 
 /**
  * The profile, as a page.
@@ -48,14 +49,14 @@ import { fetchMyProfile } from "@/lib/account/profiles";
 type Section = "view" | "edit" | "password" | "locations" | "reminders" | "referrals" | "wallet" | "favorites";
 
 const SECTION_TITLES: Record<Section, string> = {
-  view: "Profile",
-  favorites: "Favorites",
-  edit: "Edit Profile",
-  password: "Change Password",
-  locations: "Saved Locations",
-  reminders: "Reminders",
-  referrals: "Invite a Friend",
-  wallet: "Balance",
+  view: tr("Profile"),
+  favorites: tr("Favorites"),
+  edit: tr("Edit Profile"),
+  password: tr("Change Password"),
+  locations: tr("Saved Locations"),
+  reminders: tr("Reminders"),
+  referrals: tr("Invite a Friend"),
+  wallet: tr("Balance"),
 };
 
 interface CleaningPrefs {
@@ -111,7 +112,7 @@ function PasswordInput({ id, label, value, onChange, placeholder, error, autoFoc
         />
         <button type="button" tabIndex={-1} onClick={() => setShow((s) => !s)}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={show ? "Hide" : "Show"}
+          aria-label={show ? tr("Hide") : tr("Show")}
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
@@ -145,16 +146,16 @@ function PillSelector<T extends string | number>({ options, value, onChange }: {
 }
 
 function reminderLabel(min: number) {
-  if (min < 60) return `${min} min before`;
-  if (min === 60) return "1 hour before";
-  if (min < 1440) return `${min / 60} hours before`;
-  return "1 day before";
+  if (min < 60) return tr("{min} min before", { min });
+  if (min === 60) return tr("1 hour before");
+  if (min < 1440) return tr("{value} hours before", { value: min / 60 });
+  return tr("1 day before");
 }
 
 function methodLabel(m: string) {
-  if (m === "email") return "Email";
-  if (m === "in_app") return "In-app";
-  return "All channels";
+  if (m === "email") return tr("Email");
+  if (m === "in_app") return tr("In-app");
+  return tr("All channels");
 }
 
 /**
@@ -245,7 +246,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 const Profile = () => {
-  useSeo({ title: "Account" });
+  useSeo({ title: tr("Account") });
   const navigate = useNavigate();
   const favorites = useFavorites();
   const [params, setParams] = useSearchParams();
@@ -405,7 +406,7 @@ const Profile = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!userData?.id) throw new Error("Not authenticated");
+      if (!userData?.id) throw new Error(tr("Not authenticated"));
       if (userData.lightning_pubkey) await supabase.rpc("set_lightning_session", { p_pubkey: userData.lightning_pubkey });
       const { data: ex } = await supabase.from("user_profiles").select("id").eq("user_id", userData.id).maybeSingle();
       const payload = { phone_number: draftPhone.trim() || null, telegram_username: draftTelegram.trim() || null, whatsapp: draftWhatsApp.trim() || null } as any;
@@ -414,14 +415,14 @@ const Profile = () => {
       if (provider !== "lightning") { const { error } = await supabase.auth.updateUser({ data: { name: draftName.trim() } }); if (error) throw error; }
     },
     onSuccess: () => {
-      toast.success("Profile updated");
+      toast.success(tr("Profile updated"));
       setSavedName(draftName.trim()); setSavedPhone(draftPhone.trim());
       setSavedTelegram(draftTelegram.trim()); setSavedWhatsApp(draftWhatsApp.trim());
       setEditOpen(false);
       queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       refreshUserData();
     },
-    onError: (err: Error) => toast.error(err.message || "Failed to save"),
+    onError: (err: Error) => toast.error(err.message || tr("Failed to save")),
   });
 
   const savePrefsMutation = useMutation({
@@ -430,18 +431,18 @@ const Profile = () => {
       if (error) throw error;
       return data as CleaningPrefs;
     },
-    onSuccess: (data) => { setPrefs(data); setDraftPrefs(data); openSection("view", { replace: true }); toast.success("Preferences saved"); },
-    onError: (err: Error) => toast.error(err.message || "Failed to save"),
+    onSuccess: (data) => { setPrefs(data); setDraftPrefs(data); openSection("view", { replace: true }); toast.success(tr("Preferences saved")); },
+    onError: (err: Error) => toast.error(err.message || tr("Failed to save")),
   });
 
   const validatePw = () => {
     const e: Record<string, string> = {};
-    if (!currentPw) e.current = "Current password is required";
-    if (!newPw) e.new = "New password is required";
-    else if (newPw.length < 8) e.new = "Must be at least 8 characters";
-    else if (newPw === currentPw) e.new = "Must differ from current password";
-    if (!confirmPw) e.confirm = "Please confirm your new password";
-    else if (newPw !== confirmPw) e.confirm = "Passwords do not match";
+    if (!currentPw) e.current = tr("Current password is required");
+    if (!newPw) e.new = tr("New password is required");
+    else if (newPw.length < 8) e.new = tr("Must be at least 8 characters");
+    else if (newPw === currentPw) e.new = tr("Must differ from current password");
+    if (!confirmPw) e.confirm = tr("Please confirm your new password");
+    else if (newPw !== confirmPw) e.confirm = tr("Passwords do not match");
     setPwErrors(e); return Object.keys(e).length === 0;
   };
 
@@ -450,11 +451,11 @@ const Profile = () => {
       const { data, error } = await accountApi("/account/change-password", { method: "PATCH", body: JSON.stringify({ current_password: currentPw, new_password: newPw }) });
       if (error) throw error; return data;
     },
-    onSuccess: () => { toast.success("Password updated successfully"); openSection("view", { replace: true }); },
+    onSuccess: () => { toast.success(tr("Password updated successfully")); openSection("view", { replace: true }); },
     onError: (err: Error) => {
       const msg = err.message || "";
-      if (msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("invalid")) setPwErrors((e) => ({ ...e, current: "Current password is incorrect" }));
-      else toast.error(msg || "Failed to update password");
+      if (msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("invalid")) setPwErrors((e) => ({ ...e, current: tr("Current password is incorrect") }));
+      else toast.error(msg || tr("Failed to update password"));
     },
   });
 
@@ -462,9 +463,9 @@ const Profile = () => {
   const avatarLabel = displayName.slice(0, 1).toUpperCase();
   const canChangePassword = provider !== "lightning" && !isGoogle;
   const contacts = [
-    savedPhone && { key: "phone", label: "Phone", value: savedPhone, icon: <span className="text-title">📱</span> },
+    savedPhone && { key: "phone", label: tr("Phone"), value: savedPhone, icon: <span className="text-title">📱</span> },
     savedWhatsApp && { key: "wa", label: "WhatsApp", value: savedWhatsApp, icon: <WhatsAppIcon className="h-4 w-4 text-positive" /> },
-    savedTelegram && { key: "tg", label: "Telegram", value: savedTelegram.startsWith("@") ? savedTelegram : `@${savedTelegram}`, icon: <TelegramIcon className="h-4 w-4 text-[#2AABEE]" /> },
+    savedTelegram && { key: "tg", label: tr("Telegram"), value: savedTelegram.startsWith("@") ? savedTelegram : `@${savedTelegram}`, icon: <TelegramIcon className="h-4 w-4 text-[#2AABEE]" /> },
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; icon: JSX.Element }>;
 
   /** Who you are and every way into a section. */
@@ -482,26 +483,24 @@ const Profile = () => {
                 <p className="mt-0.5 truncate text-meta text-muted-foreground">{email}</p>
                 {isGoogle && (
                   <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-inset px-2 py-1 text-meta text-muted-foreground">
-                    <GoogleIcon /> Google account
-                  </span>
+                    <GoogleIcon />{" "}{tr("Google account")}</span>
                 )}
               </div>
               {/* A phone has Edit in the title bar instead (where the bell was). */}
               {!isMobile && (
                 <Button variant="secondary" size="sm" className="shrink-0 gap-1.5 self-start" onClick={() => setEditOpen(true)}>
-                  <Pencil className="h-4 w-4" /> Edit
-                </Button>
+                  <Pencil className="h-4 w-4" />{" "}{tr("Edit")}</Button>
               )}
               </div>
 
               {/* The account at a glance — each figure is a door to its section. */}
               <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-                <Stat label="Active subscriptions" value={activeSubsQ.data == null ? "—" : String(activeSubsQ.data)}
+                <Stat label={tr("Active subscriptions")} value={activeSubsQ.data == null ? "—" : String(activeSubsQ.data)}
                   onClick={() => navigate("/my-subscriptions")} />
-                <Stat label="Balance" value={walletQ.data == null ? "—" : formatUSD(walletQ.data)}
+                <Stat label={tr("Balance")} value={walletQ.data == null ? "—" : formatUSD(walletQ.data)}
                   onClick={() => openSection("wallet")} />
                 {bonus.balanceCents > 0 && (
-                  <Stat label="Bonus" value={formatUSD(bonus.balanceCents)} onClick={() => openSection("referrals")} />
+                  <Stat label={tr("Bonus")} value={formatUSD(bonus.balanceCents)} onClick={() => openSection("referrals")} />
                 )}
               </div>
             </section>
@@ -522,32 +521,32 @@ const Profile = () => {
               </section>
             )}
 
-            <SectionTitle>Account</SectionTitle>
+            <SectionTitle>{tr("Account")}</SectionTitle>
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row
                 icon={Heart}
-                label="Favorites"
+                label={tr("Favorites")}
                 value={favorites.count ? `${favorites.count} saved` : "Tap the heart on anything you like"}
                 onClick={() => openSection("favorites")}
                 active={!isMobile && active === "favorites"}
               />
               <Row
                 icon={Wallet}
-                label="Balance & auto-renew"
+                label={tr("Balance & auto-renew")}
                 value="Top up once, subscriptions renew on their own"
                 onClick={() => openSection("wallet")}
                 active={!isMobile && active === "wallet"}
               />
               <Row
                 icon={MapPin}
-                label="Saved locations"
+                label={tr("Saved locations")}
                 value={defaultLocation ? defaultLocation.line : "Add a location"}
                 onClick={() => openSection("locations")}
                 active={!isMobile && active === "locations"}
               />
               <Row
                 icon={prefs.reminder_enabled ? Bell : BellOff}
-                label="Reminders"
+                label={tr("Reminders")}
                 value={prefs.reminder_enabled
                   ? [
                       reminderLabel(prefs.reminder_minutes_before),
@@ -576,7 +575,7 @@ const Profile = () => {
                 />
               )}
               {canChangePassword && (
-                <Row icon={KeyRound} label="Change password" onClick={() => openSection("password")} active={!isMobile && active === "password"} />
+                <Row icon={KeyRound} label={tr("Change password")} onClick={() => openSection("password")} active={!isMobile && active === "password"} />
               )}
             </section>
 
@@ -590,7 +589,7 @@ const Profile = () => {
             */}
             {isAdminResolved && isAdmin && (
               <>
-                <SectionTitle>Platform</SectionTitle>
+                <SectionTitle>{tr("Platform")}</SectionTitle>
                 <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
                   <Row
                     icon={Shield}
@@ -607,8 +606,8 @@ const Profile = () => {
                 laptop has them in the site footer — not repeated here. */}
             {isMobile && (
               <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
-                <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/terms")} />
-                <Row icon={Lock} label="Privacy Policy" onClick={() => navigate("/privacy")} />
+                <Row icon={FileText} label={tr("Terms of Service")} onClick={() => navigate("/terms")} />
+                <Row icon={Lock} label={tr("Privacy Policy")} onClick={() => navigate("/privacy")} />
               </section>
             )}
 
@@ -631,8 +630,8 @@ const Profile = () => {
           <section className="space-y-4 rounded-radius-lg bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-title font-semibold text-foreground">Enable reminders</p>
-                <p className="text-meta text-muted-foreground">Before every visit, delivery, booking or car pickup</p>
+                <p className="text-title font-semibold text-foreground">{tr("Enable reminders")}</p>
+                <p className="text-meta text-muted-foreground">{tr("Before every visit, delivery, booking or car pickup")}</p>
               </div>
               <Switch checked={draftPrefs.reminder_enabled} onCheckedChange={(v) => setDraftPrefs((p) => ({ ...p, reminder_enabled: v }))} />
             </div>
@@ -640,9 +639,9 @@ const Profile = () => {
             {draftPrefs.reminder_enabled && (
               <>
                 <div>
-                  <p className="mb-2 px-1 text-meta text-muted-foreground">Remind me</p>
+                  <p className="mb-2 px-1 text-meta text-muted-foreground">{tr("Remind me")}</p>
                   <PillSelector
-                    options={[{ value: 30, label: "30 min" }, { value: 60, label: "1 hour" }, { value: 120, label: "2 hours" }, { value: 1440, label: "1 day" }]}
+                    options={[{ value: 30, label: tr("30 min") }, { value: 60, label: tr("1 hour") }, { value: 120, label: tr("2 hours") }, { value: 1440, label: tr("1 day") }]}
                     value={draftPrefs.reminder_minutes_before}
                     onChange={(v) => setDraftPrefs((p) => ({ ...p, reminder_minutes_before: v as number }))}
                   />
@@ -651,7 +650,7 @@ const Profile = () => {
                     delivered three times a day may want those off. */}
                 {archetypes.length > 1 && (
                   <div>
-                    <p className="mb-2 px-1 text-meta text-muted-foreground">Remind me about</p>
+                    <p className="mb-2 px-1 text-meta text-muted-foreground">{tr("Remind me about")}</p>
                     <div className="flex flex-wrap gap-2">
                       {archetypes.map((a) => {
                         const on = !draftPrefs.reminder_services || draftPrefs.reminder_services.includes(a.key);
@@ -673,9 +672,9 @@ const Profile = () => {
                   </div>
                 )}
                 <div>
-                  <p className="mb-2 px-1 text-meta text-muted-foreground">Notify via</p>
+                  <p className="mb-2 px-1 text-meta text-muted-foreground">{tr("Notify via")}</p>
                   <PillSelector
-                    options={[{ value: "all", label: "All" }, { value: "email", label: "Email" }, { value: "in_app", label: "In-app" }]}
+                    options={[{ value: "all", label: tr("All") }, { value: "email", label: tr("Email") }, { value: "in_app", label: tr("In-app") }]}
                     value={draftPrefs.reminder_method}
                     onChange={(v) => setDraftPrefs((p) => ({ ...p, reminder_method: v as string }))}
                   />
@@ -684,33 +683,33 @@ const Profile = () => {
             )}
 
             <div>
-              <p className="mb-2 px-1 text-meta text-muted-foreground">Access instructions</p>
+              <p className="mb-2 px-1 text-meta text-muted-foreground">{tr("Access instructions")}</p>
               <textarea
                 value={draftPrefs.access_instructions ?? ""}
                 onChange={(e) => setDraftPrefs((p) => ({ ...p, access_instructions: e.target.value || null }))}
-                placeholder="e.g. Door will be open · Key under mat"
+                placeholder={tr("e.g. Door will be open · Key under mat")}
                 rows={3}
                 className={cn(fieldClass, "h-auto resize-none py-3")}
               />
-              <p className="mt-1 px-1 text-meta text-muted-foreground">Shown in reminder notifications sent to you.</p>
+              <p className="mt-1 px-1 text-meta text-muted-foreground">{tr("Shown in reminder notifications sent to you.")}</p>
             </div>
 
           </section>
         )}
         {active === "reminders" && (
-          <SaveBar label="Save" busyLabel="Saving…" busy={savePrefsMutation.isPending}
+          <SaveBar label={tr("Save")} busyLabel={tr("Saving…")} busy={savePrefsMutation.isPending}
             onClick={() => savePrefsMutation.mutate()} />
         )}
 
         {active === "password" && (
           <section className="space-y-3 rounded-radius-lg bg-card p-4">
-            <PasswordInput id="cp" label="Current password" autoFocus value={currentPw} onChange={setCurrentPw} placeholder="Enter current password" error={pwErrors.current} />
-            <PasswordInput id="np" label="New password" value={newPw} onChange={setNewPw} placeholder="At least 8 characters" error={pwErrors.new} />
-            <PasswordInput id="rp" label="Confirm new password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat new password" error={pwErrors.confirm} />
+            <PasswordInput id="cp" label={tr("Current password")} autoFocus value={currentPw} onChange={setCurrentPw} placeholder={tr("Enter current password")} error={pwErrors.current} />
+            <PasswordInput id="np" label={tr("New password")} value={newPw} onChange={setNewPw} placeholder={tr("At least 8 characters")} error={pwErrors.new} />
+            <PasswordInput id="rp" label={tr("Confirm new password")} value={confirmPw} onChange={setConfirmPw} placeholder={tr("Repeat new password")} error={pwErrors.confirm} />
           </section>
         )}
         {active === "password" && (
-          <SaveBar label="Update password" busyLabel="Updating…" busy={changePwMutation.isPending}
+          <SaveBar label={tr("Update password")} busyLabel={tr("Updating…")} busy={changePwMutation.isPending}
             onClick={() => { if (validatePw()) changePwMutation.mutate(); }} />
         )}
     </>
@@ -719,7 +718,7 @@ const Profile = () => {
   return (
     // The account frame, like every other /account screen (PAGE_TYPES §6).
     <UserLayout
-      title={isMobile ? SECTION_TITLES[base] : "Profile"}
+      title={isMobile ? SECTION_TITLES[base] : tr("Profile")}
       showBackButton
       backTo={isMobile ? backTo : "/discovery"}
       // A form is a decision page on a phone: it ends at its own Save, so the
@@ -730,7 +729,7 @@ const Profile = () => {
         // The profile itself: Edit in place of the bell — the one action this
         // page has, and the bell is a tab-bar tap away anyway.
         : base === "view" ? (
-          <button type="button" onClick={() => setEditOpen(true)} aria-label="Edit profile" className={HEADER_ACTION_CLASS}>
+          <button type="button" onClick={() => setEditOpen(true)} aria-label={tr("Edit profile")} className={HEADER_ACTION_CLASS}>
             {/* 20px Lucide = the visual size of the header's 24px Material glyphs
                 (their drawing sits inside a 24px box with padding). */}
             <Pencil className="h-5 w-5" strokeWidth={1.75} />
@@ -762,36 +761,33 @@ const Profile = () => {
       <ResponsiveDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        title="Edit profile"
+        title={tr("Edit profile")}
         footer={
           <Button size="lg" className="w-full" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending}
             disabled={!hasChanges || saveMutation.isPending}>
-            {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
+            {saveMutation.isPending ? <><Spinner size="sm" />{" "}{tr("Saving…")}</> : "Save"}
           </Button>
         }
       >
         <div className="space-y-2">
-            <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
-            <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
-            <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
-            <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
-            <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
+            <Input ref={firstEditRef as any} id="e-name" label={tr("Username")} value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder={tr("Your name")} />
+            <Input id="e-email" label={tr("Email")} type="email" value={email} readOnly className="cursor-default opacity-50" />
+            <Input id="e-phone" label={tr("Phone (optional)")} type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
+            <Input id="e-wa" label={tr("WhatsApp (optional)")} type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
+            <Input id="e-tg" label={tr("Telegram (optional)")} value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder={tr("@username")} leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
 
           {/* Sign-in & security — where people look for "change password". */}
           <div className="mt-2 space-y-2 rounded-radius-md bg-inset p-3">
-            <p className="text-body font-semibold text-foreground">Sign-in & security</p>
+            <p className="text-body font-semibold text-foreground">{tr("Sign-in & security")}</p>
             {isGoogle ? (
-              <p className="text-meta text-muted-foreground">
-                You sign in with Google, so there is no EverySub password — your password and security live in your{" "}
-                <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="font-semibold text-primary">Google account</a>.
+              <p className="text-meta text-muted-foreground">{tr("You sign in with Google, so there is no EverySub password — your password and security live in your")}{" "}<a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="font-semibold text-primary">{tr("Google account")}</a>.
               </p>
             ) : canChangePassword ? (
               <Button variant="secondary" size="sm" className="gap-1.5"
                 onClick={() => { setEditOpen(false); openSection("password"); }}>
-                <KeyRound className="h-4 w-4" /> Change password
-              </Button>
+                <KeyRound className="h-4 w-4" />{" "}{tr("Change password")}</Button>
             ) : (
-              <p className="text-meta text-muted-foreground">This account signs in with a wallet — there is no password to change.</p>
+              <p className="text-meta text-muted-foreground">{tr("This account signs in with a wallet — there is no password to change.")}</p>
             )}
           </div>
         </div>
