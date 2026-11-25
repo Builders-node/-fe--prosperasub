@@ -21,11 +21,18 @@
  * string — business QR codes carry `?ref=`.
  *
  * `?_og=1` forces the robot page, for checking it from a browser.
+ *
+ * Spanish: /es/<path> answers in Spanish for the pages listed in
+ * src/lib/seo/lang.ts BILINGUAL, with hreflang tying each language to the
+ * other. Any other /es address falls through to the app, whose canonical is
+ * the English page.
  */
 import { faqJsonLd, serviceSeo } from "./src/lib/seo/serviceSeo";
+import { GUIDES, GUIDES_INDEX, guideBySlug } from "./src/lib/seo/guides";
+import { isBilingual, langPath, splitLang } from "./src/lib/seo/lang";
 
 export const config = {
-  matcher: ["/", "/services/:path*", "/businesses/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
+  matcher: ["/", "/services/:path*", "/businesses/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about", "/collections", "/collections/:path*", "/guides", "/guides/:path*", "/es", "/es/:path*"],
 };
 
 const PREVIEW_BOT = /facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|vkShare|redditbot|Embedly|Iframely|bitlybot|Applebot/i;
@@ -103,7 +110,9 @@ interface Page {
   title: string;
   description: string;
   image: string;
-  type: "website" | "product" | "business.business";
+  type: "website" | "product" | "business.business" | "article";
+  /** Headed paragraphs — a guide's body. */
+  sections?: Array<{ h: string; p: string[] }>;
   h1?: string;
   /** Plain paragraphs under the H1. */
   text?: string[];
@@ -113,9 +122,20 @@ interface Page {
   jsonLd?: Record<string, unknown>[];
   /** Questions and answers, drawn on the page — the FAQPage JSON-LD repeats them. */
   faq?: Array<{ q: string; a: string }>;
+  /** Review texts, drawn on the page — the Review JSON-LD repeats them. */
+  quotes?: Array<{ who: string; rating: number | null; text: string }>;
   /** Answer with a 301 to this path instead (an old uuid address of a business). */
   redirect?: string;
 }
+
+type Lang = "en" | "es";
+/** Words the robot page itself says, in both languages. */
+const UI = {
+  en: { home: "EverySub", businesses: "Businesses", plans: "Plans", vehicles: "Vehicles", questions: "Questions", services: "Services", forBusiness: "For businesses", guides: "Guides", reviews: "Reviews", collections: "Collections" },
+  es: { home: "EverySub", businesses: "Negocios", plans: "Planes", vehicles: "Vehículos", questions: "Preguntas frecuentes", services: "Servicios", forBusiness: "Para negocios", guides: "Guías", reviews: "Reseñas", collections: "Colecciones" },
+};
+/** The address of a page in this language — Spanish only where Spanish exists. */
+const hrefIn = (href: string, lang: Lang) => (lang === "es" && isBilingual(href) ? langPath(href, "es") : href);
 
 // `*`: the address in words (slug, public_no) arrives with a backend migration;
 // naming the columns before then would fail the whole query.
@@ -134,16 +154,43 @@ function breadcrumbLd(crumbs: Link[]) {
   };
 }
 
-async function servicesList(): Promise<Link[]> {
+async function servicesList(lang: Lang = "en"): Promise<Link[]> {
   const arch = await rows(`service_archetypes?is_active=eq.true&select=key,label,description&order=sort_order`);
   const links: Link[] = arch.filter((a) => a.key !== "vehicles" && a.key !== "rental")
-    .map((a) => ({ href: `/services/${slugOf(a.key)}`, label: `${a.label} in Roatán`, note: clip(a.description, 120) || null }));
-  links.push({ href: "/vehicles", label: "Car rental in Roatán", note: "Cars, jeeps and scooters by the day, week or month." });
+    .map((a) => {
+      const copy = serviceSeo(a.key, lang);
+      return { href: hrefIn(`/services/${slugOf(a.key)}`, lang), label: copy?.h1 ?? `${a.label} in Roatán`, note: lang === "es" ? null : clip(a.description, 120) || null };
+    });
+  const cars = serviceSeo("vehicles", lang)!;
+  links.push({ href: hrefIn("/vehicles", lang), label: cars.h1, note: lang === "es" ? "Autos, jeeps y motos por día, semana o mes." : "Cars, jeeps and scooters by the day, week or month." });
   return links;
 }
 
-async function pageFor(path: string): Promise<Page | null> {
+/** Every public plan of these services, cheapest first — the live price list under a guide. */
+async function plansOf(keys: string[]): Promise<Link[]> {
+  const arch = keys.filter((k) => k !== "vehicles");
+  const out: Link[] = [];
+  if (arch.length) {
+    const provs = await rows(`providers?archetype_key=in.(${arch.join(",")})&status=eq.active&select=id,name`);
+    const names = new Map(provs.map((p) => [p.id, p.name]));
+    if (provs.length) {
+      const plans = await rows(`provider_plans?provider_id=in.(${provs.map((p) => p.id).join(",")})&${PUBLIC_PLANS}&select=${PLAN_COLS}&order=price_cents`);
+      plans.forEach((pl) => out.push({ href: planPath(pl), label: `${pl.name} · ${names.get(pl.provider_id) ?? ""}`.replace(/ · $/, ""), note: priceLine(pl.price_cents, pl.period) }));
+    }
+  }
+  if (keys.includes("vehicles")) {
+    const cars = await rows(`rental_vehicles?status=eq.public&select=*&order=daily_price_cents`);
+    cars.forEach((v) => out.push({ href: carHref(v), label: v.name, note: usd(v.daily_price_cents) ? `${usd(v.daily_price_cents)} / day` : null }));
+  }
+  return out;
+}
+
+/** The first real photo among these businesses — a service's card in a shared link. */
+const photoOf = (provs: Array<{ banner_url?: string | null }>) => provs.find((p) => p.banner_url)?.banner_url ?? null;
+
+async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
   const parts = path.split("/").filter(Boolean);
+  const ui = UI[lang];
 
   // ── A business: /businesses/:slug (old: /services/:s/providers/:id, /vehicles/providers/:id) ──
   const provIdx = parts[0] === "businesses" ? 0 : parts.indexOf("providers");
@@ -156,7 +203,9 @@ async function pageFor(path: string): Promise<Page | null> {
     const self = providerPath(p) ?? path;
     // A uuid or an old address with the service in it: one 301 to /businesses/<slug>.
     if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
-    const reviews = await rows(`provider_reviews?provider_id=eq.${p.id}&hidden_at=is.null&select=rating`);
+    const reviews = await rows(`provider_reviews?provider_id=eq.${p.id}&hidden_at=is.null&select=rating,comment,customer_name,created_at&order=created_at.desc`);
+    // The words of the latest reviews, as the business page shows them.
+    const quoted = reviews.filter((r) => clip(r.comment)).slice(0, 5);
     const ratingCount = reviews.length;
     const ratingAvg = ratingCount ? reviews.reduce((s2, r) => s2 + (Number(r.rating) || 0), 0) / ratingCount : 0;
     let offers: Link[] = [];
@@ -181,11 +230,19 @@ async function pageFor(path: string): Promise<Page | null> {
         ratingCount ? `Rated ${ratingAvg.toFixed(1)} out of 5 from ${ratingCount} review${ratingCount === 1 ? "" : "s"}.` : "",
       ],
       lists: offers.length ? [{ heading: p.unit === "vehicles" ? "Vehicles" : "Plans and offers", links: offers }] : [],
+      quotes: quoted.map((r) => ({ who: clip(r.customer_name, 40) || "Customer", rating: Number(r.rating) || null, text: clip(r.comment, 400) })),
       crumbs,
       jsonLd: [{
         "@context": "https://schema.org", "@type": "LocalBusiness", name: p.name, description, url: `${SITE}${self}`,
         image: p.banner_url || p.avatar_url || undefined,
         address: { "@type": "PostalAddress", addressLocality: p.location || "Roatán", addressRegion: "Islas de la Bahía", addressCountry: "HN" },
+        ...(p.contact_phone ? { telephone: p.contact_phone } : {}),
+        areaServed: { "@type": "Place", name: "Roatán, Islas de la Bahía, Honduras" },
+        ...(quoted.length ? { review: quoted.map((r) => ({
+          "@type": "Review", reviewBody: clip(r.comment, 500), datePublished: String(r.created_at ?? "").slice(0, 10) || undefined,
+          author: { "@type": "Person", name: clip(r.customer_name, 40) || "EverySub customer" },
+          ...(r.rating ? { reviewRating: { "@type": "Rating", ratingValue: Number(r.rating), bestRating: 5, worstRating: 1 } } : {}),
+        })) } : {}),
         ...(ldOffers.length ? { makesOffer: ldOffers } : {}),
         ...(ratingCount ? { aggregateRating: { "@type": "AggregateRating", ratingValue: Number(ratingAvg.toFixed(1)), reviewCount: ratingCount, bestRating: 5, worstRating: 1 } } : {}),
       }, breadcrumbLd(crumbs)],
@@ -267,13 +324,17 @@ async function pageFor(path: string): Promise<Page | null> {
   // ── The fleet: /vehicles ──
   if (parts[0] === "vehicles" && parts.length === 1) {
     const cars = await rows(`rental_vehicles?status=eq.public&select=*&order=daily_price_cents`);
-    const copy = serviceSeo("vehicles")!;
+    const copy = serviceSeo("vehicles", lang)!;
+    const from = lang === "es" ? "desde" : "from", day = lang === "es" ? "día" : "day";
     return {
-      title: `${copy.title} · EverySub`, description: copy.description, image: DEFAULT.image, type: "website",
+      title: `${copy.title} · EverySub`, description: copy.description, image: cars.find((v) => v.image_url)?.image_url || DEFAULT.image, type: "website",
       h1: copy.h1, text: [copy.description],
-      lists: [{ heading: "Vehicles", links: cars.map((v) => ({ href: carHref(v), label: v.name, note: usd(v.daily_price_cents) ? `from ${usd(v.daily_price_cents)} / day` : null })) }],
+      lists: [
+        { heading: ui.vehicles, links: cars.map((v) => ({ href: carHref(v), label: v.name, note: usd(v.daily_price_cents) ? `${from} ${usd(v.daily_price_cents)} / ${day}` : null })) },
+        { heading: ui.guides, links: [{ href: hrefIn("/guides/getting-around-roatan", lang), label: guideBySlug("getting-around-roatan")![lang].title }] },
+      ],
       faq: copy.faq,
-      crumbs: [{ href: "/discovery", label: "EverySub" }, { href: "/vehicles", label: "Car rental" }],
+      crumbs: [{ href: hrefIn("/discovery", lang), label: "EverySub" }, { href: hrefIn("/vehicles", lang), label: copy.h1 }],
       jsonLd: [
         { "@context": "https://schema.org", "@type": "ItemList", itemListElement: cars.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${carHref(v)}`, name: v.name })) },
         faqJsonLd(copy.faq),
@@ -290,17 +351,19 @@ async function pageFor(path: string): Promise<Page | null> {
     const provs = await rows(`providers?archetype_key=eq.${key}&status=eq.active&select=*`);
     const ids = provs.map((p) => p.id);
     const plans = ids.length ? await rows(`provider_plans?provider_id=in.(${ids.join(",")})&${PUBLIC_PLANS}&select=${PLAN_COLS}&order=price_cents`) : [];
-    const copy = serviceSeo(key);
+    const copy = serviceSeo(key, lang);
     const description = copy?.description ?? (clip(a.description) || `${a.label} from local businesses on Roatán — compare plans and subscribe on EverySub.`);
+    const guides = GUIDES.filter((g) => g.services.includes(key));
     return {
-      title: `${copy?.title ?? `${a.label} in Roatán`} · EverySub`, description, image: DEFAULT.image, type: "website",
+      title: `${copy?.title ?? `${a.label} in Roatán`} · EverySub`, description, image: photoOf(provs) || DEFAULT.image, type: "website",
       h1: copy?.h1 ?? `${a.label} in Roatán`, text: [description],
       faq: copy?.faq,
       lists: [
-        { heading: "Businesses", links: provs.map((p) => ({ href: providerPath(p)!, label: p.name, note: clip(p.description, 120) || null })) },
-        { heading: "Plans", links: plans.map((pl) => ({ href: planPath(pl, key), label: pl.name, note: priceLine(pl.price_cents, pl.period) })) },
+        { heading: ui.businesses, links: provs.map((p) => ({ href: providerPath(p)!, label: p.name, note: clip(p.description, 120) || null })) },
+        { heading: ui.plans, links: plans.map((pl) => ({ href: planPath(pl, key), label: pl.name, note: priceLine(pl.price_cents, pl.period) })) },
+        { heading: ui.guides, links: guides.map((g) => ({ href: hrefIn(`/guides/${g.slug}`, lang), label: g[lang].title })) },
       ].filter((l) => l.links.length),
-      crumbs: [{ href: "/discovery", label: "EverySub" }, { href: `/services/${parts[1]}`, label: a.label }],
+      crumbs: [{ href: hrefIn("/discovery", lang), label: "EverySub" }, { href: hrefIn(`/services/${parts[1]}`, lang), label: copy?.h1 ?? a.label }],
       jsonLd: [
         { "@context": "https://schema.org", "@type": "ItemList", itemListElement: plans.map((pl, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${planPath(pl, key)}`, name: pl.name })) },
         ...(copy ? [faqJsonLd(copy.faq)] : []),
@@ -311,16 +374,92 @@ async function pageFor(path: string): Promise<Page | null> {
   // ── Home ──
   if (parts[0] === "discovery") {
     const provs = await rows(`providers?status=eq.active&select=*&order=name`);
+    const es = lang === "es";
+    const description = es
+      ? "Suscripciones para la vida en Roatán — comida, limpieza, membresías, renta de carros y más de negocios locales. Paga con Lightning, Bitcoin, tarjeta o PayPal."
+      : DEFAULT.description;
     return {
-      ...DEFAULT, type: "website",
-      h1: "Subscriptions and services in Roatán",
-      text: [DEFAULT.description, "Local businesses sell meal plans, cleaning, memberships, healthcare and car rentals on EverySub. Pay up front by Lightning, Bitcoin, card or PayPal."],
+      ...DEFAULT, description, image: `${SITE}/for-business/hero.jpg`, type: "website",
+      title: es ? "EverySub — Suscripciones y servicios en Roatán" : DEFAULT.title,
+      h1: es ? "Suscripciones y servicios en Roatán" : "Subscriptions and services in Roatán",
+      text: [description, es
+        ? "Negocios locales venden planes de comida, limpieza, membresías, salud y renta de carros en EverySub. Paga por adelantado con Lightning, Bitcoin, tarjeta o PayPal."
+        : "Local businesses sell meal plans, cleaning, memberships, healthcare and car rentals on EverySub. Pay up front by Lightning, Bitcoin, card or PayPal."],
       lists: [
-        { heading: "Services", links: await servicesList() },
-        { heading: "Businesses", links: provs.map((p) => ({ href: providerPath(p), label: p.name })).filter((l): l is Link => !!l.href) },
-        { heading: "For businesses", links: [{ href: "/for-business", label: "Sell on EverySub" }, { href: "/become-a-provider", label: "Apply to sell" }] },
+        { heading: ui.services, links: await servicesList(lang) },
+        { heading: ui.businesses, links: provs.map((p) => ({ href: providerPath(p), label: p.name })).filter((l): l is Link => !!l.href) },
+        { heading: ui.guides, links: GUIDES.map((g) => ({ href: hrefIn(`/guides/${g.slug}`, lang), label: g[lang].title })) },
+        { heading: ui.forBusiness, links: [{ href: "/for-business", label: es ? "Vende en EverySub" : "Sell on EverySub" }, { href: "/become-a-provider", label: es ? "Solicita vender" : "Apply to sell" }] },
       ],
-      jsonLd: [ORG, { "@context": "https://schema.org", "@type": "WebSite", name: "EverySub", url: SITE }],
+      jsonLd: [ORG, { "@context": "https://schema.org", "@type": "WebSite", name: "EverySub", url: SITE, inLanguage: lang }],
+    };
+  }
+
+  // ── Guides: /guides and /guides/:slug ──
+  if (parts[0] === "guides" && parts.length <= 2) {
+    const idx = GUIDES_INDEX[lang];
+    const home = { href: hrefIn("/discovery", lang), label: "EverySub" };
+    const index = { href: hrefIn("/guides", lang), label: ui.guides };
+    if (parts.length === 1) {
+      return {
+        title: `${idx.title} · EverySub`, description: idx.description, image: `${SITE}/for-business/hero.jpg`, type: "website",
+        h1: idx.h1, text: [idx.intro],
+        lists: [{ heading: ui.guides, links: GUIDES.map((g) => ({ href: hrefIn(`/guides/${g.slug}`, lang), label: g[lang].title, note: g[lang].description })) }],
+        crumbs: [home, index],
+        jsonLd: [{ "@context": "https://schema.org", "@type": "ItemList", itemListElement: GUIDES.map((g, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${hrefIn(`/guides/${g.slug}`, lang)}`, name: g[lang].title })) }],
+      };
+    }
+    const g = guideBySlug(parts[1]);
+    if (!g) return null;
+    const t = g[lang];
+    const self = hrefIn(`/guides/${g.slug}`, lang);
+    const crumbs = [home, index, { href: self, label: t.h1 }];
+    return {
+      title: `${t.title} · EverySub`, description: t.description, image: `${SITE}/for-business/hero.jpg`, type: "article",
+      h1: t.h1, text: [t.intro],
+      sections: t.sections,
+      lists: [
+        { heading: idx.more, links: await plansOf(g.services) },
+        { heading: idx.all, links: GUIDES.filter((x) => x.slug !== g.slug).map((x) => ({ href: hrefIn(`/guides/${x.slug}`, lang), label: x[lang].title })) },
+      ].filter((l) => l.links.length),
+      crumbs,
+      jsonLd: [{
+        "@context": "https://schema.org", "@type": "Article", headline: t.h1, description: t.description, inLanguage: lang,
+        dateModified: g.updated, datePublished: g.updated, mainEntityOfPage: `${SITE}${self}`,
+        image: `${SITE}/for-business/hero.jpg`, author: { "@type": "Organization", name: "EverySub", url: SITE }, publisher: ORG,
+      }, breadcrumbLd(crumbs)],
+    };
+  }
+
+  // ── Collections: /collections and /collections/:slug ──
+  if (parts[0] === "collections" && parts.length <= 2) {
+    const cols = await rows(`home_collections?is_active=eq.true&select=*,home_collection_plans(plan_id,sort_order)&order=sort_order`);
+    const href = (c: { slug?: string | null; id: string }) => `/collections/${c.slug || c.id}`;
+    const home = { href: "/discovery", label: "EverySub" }, index = { href: "/collections", label: "Collections" };
+    if (parts.length === 1) {
+      const description = "Hand-picked subscriptions on EverySub, Roatán: popular plans, ideas for families, date nights and more.";
+      return {
+        title: "Collections · EverySub", description, image: cols.find((c) => c.cover_url)?.cover_url || DEFAULT.image, type: "website",
+        h1: "Collections", text: [description],
+        lists: [{ heading: "Collections", links: cols.map((c) => ({ href: href(c), label: c.title, note: clip(c.subtitle || c.description, 140) || null })) }],
+        crumbs: [home, index],
+        jsonLd: [{ "@context": "https://schema.org", "@type": "ItemList", itemListElement: cols.map((c, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${href(c)}`, name: c.title })) }],
+      };
+    }
+    const c = cols.find((x) => x.slug === parts[1]) ?? cols.find((x) => x.id === parts[1]);
+    if (!c) return null;
+    if (href(c) !== path) return { ...DEFAULT, type: "website", redirect: href(c) };
+    const ids = [...(c.home_collection_plans ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order).map((x: any) => x.plan_id);
+    const plans = ids.length ? await rows(`provider_plans?id=in.(${ids.join(",")})&${PUBLIC_PLANS}&select=${PLAN_COLS}`) : [];
+    const ordered = ids.map((id: string) => plans.find((pl) => pl.id === id)).filter(Boolean) as any[];
+    const description = clip(c.description || c.subtitle) || `${c.title} — hand-picked subscriptions on EverySub, Roatán.`;
+    const crumbs = [home, index, { href: href(c), label: c.title }];
+    return {
+      title: `${c.title} · EverySub`, description, image: c.cover_url || ordered.find((pl) => pl.gallery_urls?.[0])?.gallery_urls?.[0] || DEFAULT.image, type: "website",
+      h1: c.title, text: [description],
+      lists: [{ heading: "Plans", links: ordered.map((pl) => ({ href: planPath(pl), label: pl.name, note: priceLine(pl.price_cents, pl.period) })) }],
+      crumbs,
+      jsonLd: [{ "@context": "https://schema.org", "@type": "ItemList", name: c.title, itemListElement: ordered.map((pl, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${planPath(pl)}`, name: pl.name })) }, breadcrumbLd(crumbs)],
     };
   }
 
@@ -384,21 +523,32 @@ async function pageFor(path: string): Promise<Page | null> {
   return null;
 }
 
-function html(url: string, p: Page) {
+function html(path: string, lang: Lang, p: Page) {
+  const url = `${SITE}${langPath(path, lang)}`;
   const t = esc(p.title), d = esc(p.description), i = esc(p.image), u = esc(url);
+  const ui = UI[lang];
+  // Each language names the other; x-default is the English page.
+  const alt = isBilingual(path)
+    ? ["en", "es"].map((l) => `<link rel="alternate" hreflang="${l}" href="${esc(SITE + langPath(path, l as Lang))}">`).join("\n")
+      + `\n<link rel="alternate" hreflang="x-default" href="${esc(SITE + path)}">`
+    : "";
   const a = (l: Link) => `<a href="${esc(SITE + l.href)}">${esc(l.label)}</a>${l.note ? ` — ${esc(l.note)}` : ""}`;
   const crumbs = p.crumbs?.length ? `<nav aria-label="Breadcrumb">${p.crumbs.map(a).join(" › ")}</nav>` : "";
-  const text = (p.text ?? []).filter(Boolean).map((x) => `<p>${esc(x)}</p>`).join("");
+  const text = (p.text ?? []).filter(Boolean).map((x) => `<p>${esc(x)}</p>`).join("")
+    + (p.sections ?? []).map((s2) => `<h2>${esc(s2.h)}</h2>${s2.p.map((x) => `<p>${esc(x)}</p>`).join("")}`).join("")
+    + (p.quotes?.length ? `<h2>${ui.reviews}</h2>${p.quotes.map((q) => `<blockquote><p>${esc(q.text)}</p><footer>${esc(q.who)}${q.rating ? ` · ${q.rating}/5` : ""}</footer></blockquote>`).join("")}` : "");
   const lists = (p.lists ?? []).map((l) => `<h2>${esc(l.heading)}</h2><ul>${l.links.map((x) => `<li>${a(x)}</li>`).join("")}</ul>`).join("")
-    + (p.faq?.length ? `<h2>Questions</h2>${p.faq.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("")}` : "");
+    + (p.faq?.length ? `<h2>${ui.questions}</h2>${p.faq.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("")}` : "");
   const ld = (p.jsonLd ?? []).map((j) => `<script type="application/ld+json">${JSON.stringify(j).replace(/</g, "\\u003c")}</script>`).join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${t}</title>
 <meta name="description" content="${d}">
 <link rel="canonical" href="${u}">
+${alt}
 <meta property="og:site_name" content="EverySub">
 <meta property="og:type" content="${p.type}">
+<meta property="og:locale" content="${lang === "es" ? "es_HN" : "en_US"}">
 <meta property="og:url" content="${u}">
 <meta property="og:title" content="${t}">
 <meta property="og:description" content="${d}">
@@ -409,7 +559,7 @@ function html(url: string, p: Page) {
 <meta name="twitter:image" content="${i}">
 ${ld}
 </head><body>${crumbs}<main><h1>${esc(p.h1 ?? p.title)}</h1>${text}${lists}</main>
-<footer><a href="${SITE}/discovery">EverySub</a> · <a href="${SITE}/for-business">For businesses</a> · <a href="${SITE}/terms">Terms</a> · <a href="${SITE}/privacy">Privacy</a></footer>
+<footer><a href="${SITE}${hrefIn("/discovery", lang)}">EverySub</a> · <a href="${SITE}${hrefIn("/guides", lang)}">${ui.guides}</a> · <a href="${SITE}/collections">${ui.collections}</a> · <a href="${SITE}/for-business">${ui.forBusiness}</a> · <a href="${SITE}/terms">Terms</a> · <a href="${SITE}/privacy">Privacy</a>${isBilingual(path) ? ` · <a href="${SITE}${langPath(path, lang === "es" ? "en" : "es")}" hreflang="${lang === "es" ? "en" : "es"}">${lang === "es" ? "English" : "Español"}</a>` : ""}</footer>
 </body></html>`;
 }
 
@@ -417,19 +567,26 @@ export default async function middleware(request: Request) {
   const url = new URL(request.url);
 
   // The bare domain is the home page — say so with a 301, for people and robots.
-  if (url.pathname === "/") {
-    return Response.redirect(`${url.origin}/discovery${url.search}`, 301);
+  if (url.pathname === "/" || url.pathname === "/es" || url.pathname === "/es/") {
+    return Response.redirect(`${url.origin}${url.pathname.startsWith("/es") ? "/es" : ""}/discovery${url.search}`, 301);
   }
 
   const ua = request.headers.get("user-agent") ?? "";
   const forced = url.searchParams.get("_og") === "1";
   if (!forced && !PREVIEW_BOT.test(ua) && !SEARCH_BOT.test(ua)) return pass();
   try {
-    const page = await pageFor(url.pathname);
+    const { lang, path } = splitLang(url.pathname);
+    // Spanish exists only for the bilingual pages; the app serves the rest.
+    if (lang === "es" && !isBilingual(path)) return pass();
+    const page = await pageFor(path, lang);
     if (!page) return pass();
-    if (page.redirect) return Response.redirect(`${SITE}${page.redirect}`, 301);
-    return new Response(html(`${SITE}${url.pathname}`, page), {
-      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600", vary: "user-agent" },
+    if (page.redirect) return Response.redirect(`${SITE}${langPath(page.redirect, lang)}`, 301);
+    return new Response(html(path, lang, page), {
+      headers: {
+        "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600", vary: "user-agent",
+        // dev.everysub.net and preview deployments are copies: keep them out of the index.
+        ...(url.hostname === "everysub.net" ? {} : { "x-robots-tag": "noindex, nofollow" }),
+      },
     });
   } catch {
     return pass();

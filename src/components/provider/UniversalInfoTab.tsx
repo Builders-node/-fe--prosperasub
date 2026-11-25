@@ -28,6 +28,8 @@ export interface UniversalProviderRow {
   working_hours?: unknown;
   contact_phone?: string | null;
   contact_email?: string | null;
+  /** The business's "write a review" link on Google (column from the provider_google_review_url migration). */
+  google_review_url?: string | null;
   avatar_url?: string | null;
   banner_url?: string | null;
   status?: string | null;
@@ -121,6 +123,9 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
    */
   const [hours, setHours] = useState<HoursSchedule[]>(() => parseWorkingHours(provider.working_hours));
   const [delivery, setDelivery] = useState(provider.delivery_info ?? "");
+  const [googleReview, setGoogleReview] = useState(provider.google_review_url ?? "");
+  // The field appears once the providers.google_review_url column exists (select=* then returns the key).
+  const hasGoogleReview = "google_review_url" in provider;
   const delivers = (provider.capabilities ?? []).includes("delivery");
   const vatText = (p: UniversalProviderRow) => (Number(p.vat_pct) > 0 ? String(Number(p.vat_pct)) : "");
   const [vat, setVat] = useState(() => vatText(provider));
@@ -134,6 +139,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
     setForm(hydrate(provider));
     setHours(parseWorkingHours(provider.working_hours));
     setDelivery(provider.delivery_info ?? "");
+    setGoogleReview(provider.google_review_url ?? "");
     setVat(vatText(provider));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -157,6 +163,8 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
         ...(isAdmin ? { sort_order: form.sort_order ?? 0 } : {}),
         gallery_urls: form.gallery_urls ?? [],
         ...(delivers ? { delivery_info: delivery.trim() || null } : {}),
+        // Only once the column exists — before the migration, naming it would fail the whole save.
+        ...(hasGoogleReview ? { google_review_url: googleReview.trim() || null } : {}),
         // On the BUSINESS, not the offer: every order stamps it at checkout.
         vat_pct: vatValue && vatValue > 0 ? Math.round(vatValue * 100) / 100 : null,
         // Bookings that follow the working hours move with them — the engine
@@ -168,6 +176,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
       };
       if (!payload.name) throw new Error("Name is required");
       if (vatProblem) throw new Error(`VAT: ${vatProblem}`);
+      if (hasGoogleReview && googleReview.trim() && !/^https:\/\/\S+$/.test(googleReview.trim())) throw new Error("Google review link: paste the full https:// link");
       const { error } = await supabaseDb.from("providers").update(payload).eq("id", provider.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "edit", "provider", provider.id, payload);
@@ -210,6 +219,20 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
               {vatProblem ?? "Added on top of every price at checkout and shown to the customer as a separate line. It is yours in full — no commission is taken on it. Leave empty for none."}
             </p>
           </div>
+          {hasGoogleReview && (
+            <div className="space-y-2">
+              <p className="text-body text-muted-foreground">Google review link</p>
+              <Input
+                inputMode="url"
+                value={googleReview}
+                onChange={(e) => setGoogleReview(e.target.value)}
+                placeholder="https://g.page/r/…/review"
+              />
+              <p className="text-xs text-muted-foreground">
+                From your Google Business Profile → "Ask for reviews". Customers who rate you 4 or 5 stars on EverySub are offered this link, so your Google rating grows too.
+              </p>
+            </div>
+          )}
           {delivers && (
             <div className="space-y-2">
               <p className="text-body text-muted-foreground">Delivery</p>

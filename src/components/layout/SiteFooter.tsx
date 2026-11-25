@@ -64,6 +64,8 @@ export function SiteFooter() {
         <Column title="EverySub" links={[
           { label: "Home", to: "/discovery" },
           { label: "Search", to: "/search" },
+          { label: "Collections", to: "/collections" },
+          { label: "Guides to Roatán", to: "/guides" },
           { label: "Cart", to: "/cart" },
           { label: "My subscriptions", to: "/my-subscriptions" },
         ]} />
