@@ -57,9 +57,14 @@
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Inter Variable — single request covering every weight 100–900 with optical sizing -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <!-- Inter is bundled (src/main.tsx → @fontsource-variable/inter): served from
+         our own origin with the app's year-long cache, instead of a render-blocking
+         stylesheet from fonts.googleapis.com plus a second domain for the files. -->
+    <!-- Warm the connection to Supabase while the JS downloads: the first
+         catalogue query and the first photo then skip DNS + TLS (~200–400 ms).
+         Two lines because fetch() (CORS) and <img> use separate connections. -->
+    <link rel="preconnect" href="https://igbytraidldkhhamsfdo.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://igbytraidldkhhamsfdo.supabase.co">
   </head>
 
   <body>

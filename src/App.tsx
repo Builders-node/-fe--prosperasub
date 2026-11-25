@@ -4,7 +4,9 @@ import { ConsentBanner } from "@/components/seo/ConsentBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { IconTooltips } from "@/components/patterns/IconTooltips";
-import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
+import { QueryClient, QueryCache } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { keepPublicQueries, persistOptions } from "@/lib/queryPersist";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errorMessage";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
@@ -100,7 +102,6 @@ const PaymentSettings = lazy(() => import("./pages/admin/PaymentSettings"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const AdminCustomer = lazy(() => import("./pages/admin/Customer"));
 const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
-const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
 const Diagnostics = lazy(() => import("./pages/admin/Diagnostics"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
@@ -111,7 +112,7 @@ const PromoCodes = lazy(() => import("./pages/admin/PromoCodes"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminSupport = lazy(() => import("./pages/admin/Support"));
 const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
-const MarketplaceServiceDetail = lazy(() => import("./pages/admin/MarketplaceServiceDetail"));
+const ServicePageRedirect = lazy(() => import("./pages/admin/ServicePageRedirect"));
 const MarketplaceSubscriptions = lazy(() => import("./pages/admin/MarketplaceSubscriptions"));
 const MyProvider = lazy(() => import("./pages/user/MyProvider"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
@@ -181,6 +182,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+keepPublicQueries(queryClient);
+const queryPersistOptions = persistOptions();
 
 /**
  * Rewrites the leading `from` segment of the current pathname to `to`,
@@ -196,7 +199,7 @@ function LegacyRewrite({ from, to }: { from: string; to: string }) {
 const App = () => {
   return (
     <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={queryPersistOptions}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <LanguageProvider>
           <AuthProvider>
@@ -229,6 +232,8 @@ const App = () => {
                 <VersionWatcher />
                 <ConsentBanner />
                 <Suspense fallback={<PageFallback />}>
+                {/* Each page's content fades in as it mounts — see "Motion" in index.css. */}
+                <div className="route-stage">
                 <Routes>
               {/* Home → Discovery */}
               <Route path="/" element={<Navigate to="/discovery" replace />} />
@@ -403,21 +408,18 @@ const App = () => {
                   Offerings (OfferEditor writes cleaning_packages). */}
               <Route path="/admin/cleaning/plans" element={<Navigate to="/admin/marketplace/providers?service=cleaning" replace />} />
               <Route path="/admin/cleaning/providers" element={<Navigate to="/admin/marketplace/providers" replace />} />
-              {/* The flat Services + Categories CRUDs are retired: creating a
-                  service lives on the Marketplace hub, editing/hiding/deleting
-                  on the service's own drill-down, categories in its Categories
-                  tab. Old bookmarks land on the hub. */}
+              {/* Services and their categories are edited in one place: the
+                  Services list and its panels. Old bookmarks land there. */}
               <Route path="/admin/categories" element={<Navigate to="/admin/marketplace" replace />} />
               <Route path="/admin/services" element={<Navigate to="/admin/marketplace" replace />} />
               <Route path="/admin/services/categories" element={<Navigate to="/admin/marketplace" replace />} />
-              {/* Drill-down entry point: Marketplace → service → its lists. The flat
-                  lists below stay routable — they're linked from the hub and are the
-                  only way to reach providers whose archetype_key went null. */}
+              {/* Services & categories: one list, a panel per service and per
+                  category. Businesses and Plans are the flat lists below. */}
               <Route path="/admin/marketplace" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceHub /></ProtectedRoute>
               } />
               <Route path="/admin/marketplace/service/:key" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceServiceDetail /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']}><ServicePageRedirect /></ProtectedRoute>
               } />
               <Route path="/admin/marketplace/providers" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceProviders /></ProtectedRoute>
@@ -533,6 +535,7 @@ const App = () => {
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
                 </Routes>
+                </div>
                 </Suspense>
                 <InstallAppModal />
                 </CartProvider>
@@ -543,7 +546,7 @@ const App = () => {
           </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
     </ErrorBoundary>
   );
 };

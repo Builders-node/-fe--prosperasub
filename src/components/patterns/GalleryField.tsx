@@ -1,3 +1,4 @@
+import { IMMUTABLE } from "@/lib/images";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Link2, Trash2, Upload } from "lucide-react";
@@ -64,7 +65,7 @@ export function GalleryField({
         const ext = file.name.split(".").pop();
         const path = `${pathPrefix}/${Date.now()}-${i}.${ext}`;
         const { error } = await supabaseDb.storage
-          .from(bucket).upload(path, file, { upsert: true, contentType: file.type });
+          .from(bucket).upload(path, file, { upsert: true, contentType: file.type, cacheControl: IMMUTABLE });
         if (error) throw error;
         const { data } = supabaseDb.storage.from(bucket).getPublicUrl(path);
         added.push(data.publicUrl);
