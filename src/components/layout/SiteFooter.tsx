@@ -4,7 +4,9 @@ import { MessageCircle } from "lucide-react";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
 import { serviceListingHref } from "@/lib/services/serviceUrls";
-import { tr, trx } from "@/lib/tr";
+import { tr, trx, LANG, LANGUAGE_STORAGE_KEY, type Lang } from "@/lib/tr";
+import { langPath, splitLang } from "@/lib/seo/lang";
+import { cn } from "@/lib/utils";
 
 /**
  * The desktop footer: the site map a laptop visitor scrolls down to look for.
@@ -23,6 +25,44 @@ const WHATSAPP_NUMBER = "+504 9706-7865";
 const WHATSAPP_HREF = "https://wa.me/50497067865";
 
 type FooterLink = { label: string; to: string; external?: boolean };
+
+/**
+ * English | Español, at the foot of every page. Each option is a real link to
+ * the same page in that language (Spanish lives under /es), so it works
+ * without JavaScript and a crawler sees both. The choice is also saved, so
+ * the next visit opens in it.
+ */
+function LanguageSwitch() {
+  const { path } = splitLang(typeof window === "undefined" ? "/" : window.location.pathname);
+  const suffix = typeof window === "undefined" ? "" : `${window.location.search}${window.location.hash}`;
+  const options: Array<{ code: Lang; label: string }> = [
+    { code: "en", label: "English" },
+    { code: "es", label: "Español" },
+  ];
+  return (
+    <nav aria-label={tr("Language")} className="flex items-center gap-1 rounded-full bg-card p-0.5">
+      {options.map((o) => {
+        const active = o.code === LANG;
+        return (
+          <a
+            key={o.code}
+            href={`${langPath(path, o.code)}${suffix}`}
+            hrefLang={o.code}
+            lang={o.code}
+            aria-current={active ? "true" : undefined}
+            onClick={() => { try { window.localStorage.setItem(LANGUAGE_STORAGE_KEY, o.code); } catch { /* private mode */ } }}
+            className={cn(
+              "rounded-full px-3 py-1 text-meta font-semibold transition-colors",
+              active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {o.label}
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
 
 function Column({ title, links }: { title: string; links: FooterLink[] }) {
   return (
@@ -106,8 +146,9 @@ export function SiteFooter() {
       </div>
 
       <div className="bg-inset">
-        <div className="app-container py-4">
+        <div className="app-container flex items-center justify-between gap-4 py-4">
           <p className="text-meta text-muted-foreground">{trx("© EverySub, {getFullYear} · Roatán, Honduras", { getFullYear: new Date().getFullYear() })}</p>
+          <LanguageSwitch />
         </div>
       </div>
     </footer>

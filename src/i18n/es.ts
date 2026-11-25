@@ -1676,6 +1676,7 @@ export const ES: Record<string, string> = {
   "Kids": "Niños",
   "Kind": "Tipo",
   "Label": "Etiqueta",
+  "Language": "Idioma",
   "Lapsed": "Caducada",
   "Largest discount, %": "Descuento máximo, %",
   "Last 3 months": "Últimos 3 meses",
