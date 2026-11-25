@@ -9,7 +9,7 @@ import {
   KeyboardArrowLeftIcon, NotificationsIcon, SearchIcon, FavoriteIcon,
 } from "@/components/icons/FigmaIcons";
 import {
-  HeaderAccountSkeleton, HeaderIconLink, HeaderLoginButton, useHeaderSession, type HeaderSession,
+  HeaderAccountSkeleton, HeaderBonusChip, HeaderIconLink, HeaderLoginButton, useHeaderSession, type HeaderSession,
 } from "@/components/layout/HeaderParts";
 import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
 
@@ -124,6 +124,7 @@ export function HomeHeaderView({
             <span className="truncate text-title text-muted-foreground">{searchLabel}</span>
           </button>
 
+          {session.status === "signedIn" && <HeaderBonusChip cents={session.bonusCents} compact />}
           {account}
         </div>
         {location}

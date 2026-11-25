@@ -178,3 +178,22 @@ export function quoteLabel(q: DiscountQuote): string {
   const base = q.kind === "intro" ? "New customer discount" : q.kind === "prepay" ? "Pay-ahead discount" : "Sale";
   return q.title ? `${base} · ${q.title}` : base;
 }
+
+/**
+ * How much of the bonus balance one order can take.
+ *
+ * Mirrors `bonus_spend_on_order`: at most `maxSharePct` of the order's full
+ * price (integer cents, rounded down as Postgres does), never more than what
+ * is left after the discount, never more than the balance. Asking the
+ * database for more than this gets the whole checkout refused.
+ */
+export function bonusSpendCents(balanceCents: number, fullCents: number, afterDiscountCents: number, maxSharePct: number): number {
+  const shareCap = Math.floor((Math.max(0, fullCents) * Math.max(0, Math.min(100, maxSharePct))) / 100);
+  return Math.max(0, Math.min(balanceCents, afterDiscountCents, shareCap));
+}
+
+/** Cashback a paid order will earn — mirrors `bonus_earn_on_paid`. */
+export function bonusEarnCents(paidGoodsCents: number, cashbackPct: number): number {
+  if (cashbackPct <= 0) return 0;
+  return Math.floor((Math.max(0, paidGoodsCents) * cashbackPct) / 100);
+}

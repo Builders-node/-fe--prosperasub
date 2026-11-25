@@ -9,7 +9,7 @@ import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { FavoriteIcon, NotificationsIcon, ShoppingBagIcon } from "@/components/icons/FigmaIcons";
 import {
-  HeaderAccountSlot, HeaderIconLink, useHeaderSession, type HeaderSession,
+  HeaderAccountSlot, HeaderBonusChip, HeaderIconLink, useHeaderSession, type HeaderSession,
 } from "@/components/layout/HeaderParts";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { cn } from "@/lib/utils";
@@ -122,6 +122,9 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
           <HeaderIconLink to="/cart" label="Cart" icon={ShoppingBagIcon} count={session.cart} />
           {session.status === "signedIn" && (
             bell ?? <HeaderIconLink to="/notifications" label="Notifications" icon={NotificationsIcon} count={session.unread} />
+          )}
+          {session.status === "signedIn" && (
+            <div className="ml-2"><HeaderBonusChip cents={session.bonusCents} /></div>
           )}
           <div className="ml-2">
             <HeaderAccountSlot session={session} onLogin={onLogin} signedIn={account} />

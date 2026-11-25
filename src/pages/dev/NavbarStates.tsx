@@ -17,10 +17,10 @@ import { cn } from "@/lib/utils";
  * so a state cannot look one way here and another way on the site.
  */
 
-const OUT: HeaderSession = { status: "signedOut", favorites: 0, cart: 0, unread: 0, initial: "F" };
+const OUT: HeaderSession = { status: "signedOut", favorites: 0, cart: 0, unread: 0, bonusCents: 0, initial: "F" };
 const LOADING: HeaderSession = { ...OUT, status: "loading" };
-const IN: HeaderSession = { status: "signedIn", favorites: 0, cart: 0, unread: 0, initial: "F" };
-const IN_COUNTS: HeaderSession = { ...IN, favorites: 2, cart: 3, unread: 5 };
+const IN: HeaderSession = { status: "signedIn", favorites: 0, cart: 0, unread: 0, bonusCents: 0, initial: "F" };
+const IN_COUNTS: HeaderSession = { ...IN, favorites: 2, cart: 3, unread: 5, bonusCents: 420 };
 const IN_MANY: HeaderSession = { ...IN, favorites: 14, cart: 1, unread: 120 };
 const OUT_COUNTS: HeaderSession = { ...OUT, favorites: 2, cart: 1 };
 
