@@ -57,7 +57,7 @@ function Badge({ badge }: { badge?: CardBadge }) {
   return (
     <span
       className={cn(
-        "inline-flex w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[11px] font-bold uppercase leading-4 tracking-wide",
+        "inline-flex w-fit max-w-full truncate rounded-full px-2 py-0.5 text-2xs font-bold uppercase leading-4 tracking-wide",
         badge.deal ? "bg-[#e5482d] text-white" : "bg-[#1f1a14] text-white",
       )}
     >
@@ -69,9 +69,9 @@ function Badge({ badge }: { badge?: CardBadge }) {
 function Price({ item, big = false }: { item: CategoryHighlight; big?: boolean }) {
   if (item.fromCents === null) return null;
   return (
-    <p className={cn("leading-tight", big ? "text-[15px]" : "text-meta")} style={{ color: `${CATEGORY_INK}b3` }}>
+    <p className={cn("leading-tight", big ? "text-base" : "text-meta")} style={{ color: `${CATEGORY_INK}b3` }}>
       from{" "}
-      <span className={cn("font-bold tabular-nums", big ? "text-[20px]" : "text-[15px]")} style={{ color: CATEGORY_INK }}>
+      <span className={cn("font-bold tabular-nums", big ? "text-2xl" : "text-base")} style={{ color: CATEGORY_INK }}>
         {formatUSD(item.fromCents)}
       </span>
       {item.unit ? ` ${item.unit}` : ""}
@@ -132,14 +132,14 @@ function FeatureCard({ item, badge }: { item: CategoryHighlight; badge?: CardBad
       <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1 p-6 pr-2">
         <Badge badge={badge} />
         {item.archetype && (
-          <p className="mt-auto truncate text-[15px]" style={{ color: `${CATEGORY_INK}b3` }}>{item.archetype.label}</p>
+          <p className="mt-auto truncate text-base" style={{ color: `${CATEGORY_INK}b3` }}>{item.archetype.label}</p>
         )}
-        <p className={cn("line-clamp-2 text-[28px] font-bold leading-[1.1] tracking-tight", !item.archetype && "mt-auto")} style={{ color: CATEGORY_INK }}>
+        <p className={cn("line-clamp-2 text-4xl font-bold leading-[1.1] tracking-tight", !item.archetype && "mt-auto")} style={{ color: CATEGORY_INK }}>
           {item.label}
         </p>
         <Price item={item} big />
         <span
-          className="mt-3 inline-flex w-fit items-center gap-1 rounded-full px-4 py-2 text-[14px] font-semibold text-white transition-colors"
+          className="mt-3 inline-flex w-fit items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold text-white transition-colors"
           style={{ backgroundColor: CATEGORY_INK }}
         >
           Explore <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

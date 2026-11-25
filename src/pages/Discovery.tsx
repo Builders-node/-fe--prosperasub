@@ -224,7 +224,7 @@ const Discovery = () => {
               {managesBusiness && (
                 <Link
                   to="/my-business"
-                  className="hidden shrink-0 items-center gap-2 rounded-full bg-inset py-2 pl-2 pr-4 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
+                  className="hidden shrink-0 items-center gap-2 rounded-full bg-inset py-2 pl-2 pr-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
                 >
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-card">
                     <BusinessCenterIcon className="h-4 w-4 text-foreground" />
