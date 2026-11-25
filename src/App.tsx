@@ -9,6 +9,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { keepPublicQueries, persistOptions } from "@/lib/queryPersist";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errorMessage";
+import { ES_PREFIX, inSpanishUrl } from "@/lib/seo/lang";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { VersionWatcher } from "@/components/VersionWatcher";
 import { ThemeProvider } from "next-themes";
@@ -59,6 +60,8 @@ const LeavingFeedback = lazy(() => import("./pages/user/LeavingFeedback"));
 const Favorites = lazy(() => import("./pages/user/Favorites"));
 const CollectionsIndex = lazy(() => import("./pages/Collections"));
 const CollectionPage = lazy(() => import("./pages/CollectionPage"));
+const GuidesIndex = lazy(() => import("./pages/Guides"));
+const GuidePage = lazy(() => import("./pages/Guides").then((m) => ({ default: m.GuidePage })));
 const Notifications = lazy(() => import("./pages/user/Notifications"));
 const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
@@ -218,7 +221,9 @@ const App = () => {
                 React keeps the current screen on-screen until the new one is
                 ready, and the shell never moves.
               */}
-              <BrowserRouter future={{ v7_startTransition: true }}>
+              {/* Spanish runs the same app under /es (src/lib/seo/lang.ts): every
+                  link and navigate() stays inside it without knowing. */}
+              <BrowserRouter basename={inSpanishUrl() ? ES_PREFIX : undefined} future={{ v7_startTransition: true }}>
                 <AuthModalProvider>
                 <LocationProvider>
                 <CartProvider>
@@ -363,6 +368,8 @@ const App = () => {
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/collections" element={<CollectionsIndex />} />
               <Route path="/collections/:slug" element={<CollectionPage />} />
+              <Route path="/guides" element={<GuidesIndex />} />
+              <Route path="/guides/:slug" element={<GuidePage />} />
               <Route path="/feedback/leaving" element={
                 <ProtectedRoute><LeavingFeedback /></ProtectedRoute>
               } />

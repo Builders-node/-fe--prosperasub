@@ -44,20 +44,53 @@ async function rows(path) {
   } catch { return []; }
 }
 
-const url = (loc, { lastmod, changefreq = "weekly", priority = 0.6 } = {}) =>
+const one = (loc, { lastmod, changefreq = "weekly", priority = 0.6, alt = null } = {}) =>
   `  <url>\n    <loc>${SITE}${loc}</loc>\n` +
   (lastmod ? `    <lastmod>${String(lastmod).slice(0, 10)}</lastmod>\n` : "") +
+  (alt ? alt : "") +
   `    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+
+// Pages written in both languages (src/lib/seo/lang.ts BILINGUAL — kept in
+// step by hand: this script runs in plain node and cannot import TypeScript).
+const BILINGUAL = [/^\/discovery$/, /^\/services\/[a-z0-9_-]+$/, /^\/vehicles$/, /^\/guides$/, /^\/guides\/[a-z0-9-]+$/];
+const isBilingual = (p) => BILINGUAL.some((re) => re.test(p));
+
+/** One <url>, or two — English and /es — each naming the other with hreflang. */
+const url = (loc, opts = {}) => {
+  if (!isBilingual(loc)) return one(loc, opts);
+  const alt =
+    `    <xhtml:link rel="alternate" hreflang="en" href="${SITE}${loc}"/>\n` +
+    `    <xhtml:link rel="alternate" hreflang="es" href="${SITE}/es${loc}"/>\n` +
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${loc}"/>\n`;
+  return [one(loc, { ...opts, alt }), one(`/es${loc}`, { ...opts, alt })].join("\n");
+};
+
+/** Guide slugs and English titles, read from the source the app renders. */
+function readGuides() {
+  const src = readFileSyncSafe(resolve(HERE, "../src/lib/seo/guides.ts")) ?? "";
+  const out = [];
+  const re = /slug: "([a-z0-9-]+)"[\s\S]*?en: \{\s*title: "([^"]+)",\s*description: "([^"]+)"/g;
+  for (let m; (m = re.exec(src)); ) out.push({ slug: m[1], title: m[2], description: m[3] });
+  return out;
+}
 
 const main = async () => {
   const entries = [
     url("/discovery", { changefreq: "daily", priority: 1.0 }),
     url("/vehicles", { changefreq: "daily", priority: 0.9 }),
-    url("/search", { priority: 0.3 }),
+    // /search is left out: a results page is not a page to land on.
+    url("/guides", { changefreq: "weekly", priority: 0.7 }),
+    url("/collections", { changefreq: "weekly", priority: 0.6 }),
   ];
+  const guides = readGuides();
+  for (const g of guides) entries.push(url(`/guides/${g.slug}`, { changefreq: "monthly", priority: 0.7 }));
+
+  // Collections — hand-picked lists of plans, each with its own page.
+  const collections = await rows("home_collections?select=*&is_active=eq.true&order=sort_order");
+  for (const c of collections) entries.push(url(`/collections/${c.slug || c.id}`, { lastmod: c.updated_at, priority: 0.6 }));
 
   // Services a visitor can browse — the archetype is the listing.
-  const archetypes = await rows("service_archetypes?select=key,updated_at&is_active=eq.true");
+  const archetypes = await rows("service_archetypes?select=key,label,updated_at&is_active=eq.true");
   for (const a of archetypes) {
     if (a.key === "vehicles" || a.key === "rental") continue; // /vehicles, above
     entries.push(url(`/services/${a.key}`, { lastmod: a.updated_at, changefreq: "daily", priority: 0.9 }));
@@ -115,9 +148,44 @@ const main = async () => {
 
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</urlset>\n`;
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${entries.join("\n")}\n</urlset>\n`;
   writeFileSync(resolve(HERE, "../public/sitemap.xml"), xml);
-  console.log(`▶ sitemap: ${entries.length} urls`);
+  console.log(`▶ sitemap: ${(xml.match(/<url>/g) ?? []).length} urls`);
+
+  // llms.txt — the same catalogue as plain text for AI assistants (ChatGPT,
+  // Perplexity, Claude) that answer "where can I get X on Roatán".
+  const per = (period) => ({ week: "week", weekly: "week", month: "month", monthly: "month", quarterly: "quarter", year: "year", yearly: "year" })[period] ?? null;
+  const price = (cents, period) => (cents ? `: $${(cents / 100).toFixed(2).replace(/\.00$/, "")}${per(period) ? ` per ${per(period)}` : ""}` : "");
+  const lines = [
+    "# EverySub",
+    "",
+    "> Marketplace for subscriptions, bookings and rentals from local businesses on Roatán, Bay Islands, Honduras: meal plans, house cleaning, diving and club memberships, healthcare, wellness, coffee and car rental. Paid up front by Lightning, Bitcoin, card or PayPal. English at https://everysub.net/discovery, Spanish at https://everysub.net/es/discovery.",
+    "",
+    "## Services",
+    ...archetypes.filter((a) => a.key !== "vehicles" && a.key !== "rental").map((a) => `- [${a.label || a.key}](${SITE}/services/${a.key})`),
+    `- [Car rental](${SITE}/vehicles)`,
+    "",
+    "## Businesses",
+    ...providers.filter((p) => p.unit === "vehicles" || p.archetype_key)
+      .map((p) => `- [${p.name}](${SITE}/businesses/${p.slug || p.id})${p.location ? `: ${p.location}` : ""}`),
+    "",
+    "## Plans",
+    ...plans.filter((pl) => providerById.get(pl.provider_id)?.archetype_key)
+      .map((pl) => `- [${pl.name}](${SITE}/plans/${wordsOf(pl) ?? (pl.source_plan_id || pl.id)})${price(pl.price_cents, pl.period)} (${providerById.get(pl.provider_id)?.name ?? ""})`),
+    ...vehicles.map((v) => `- [${v.name}](${SITE}/cars/${wordsOf(v) ?? v.id})${price(v.daily_price_cents, null)}${v.daily_price_cents ? " per day" : ""}`),
+    "",
+    "## Guides",
+    ...guides.map((g) => `- [${g.title}](${SITE}/guides/${g.slug}): ${g.description}`),
+    "",
+    "## About",
+    `- [How it works](${SITE}/how-it-works)`,
+    `- [Pay with Bitcoin](${SITE}/pay-with-bitcoin)`,
+    `- [For businesses](${SITE}/for-business)`,
+    `- [About](${SITE}/about)`,
+    "",
+  ];
+  writeFileSync(resolve(HERE, "../public/llms.txt"), lines.join("\n"));
+  console.log(`▶ llms.txt: ${lines.length} lines`);
 };
 
 main().catch((err) => {
