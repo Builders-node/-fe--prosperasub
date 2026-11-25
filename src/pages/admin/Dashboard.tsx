@@ -47,6 +47,9 @@ import { fetchApplications } from "@/lib/admin/providerApplications";
 const serviceIndex = getServiceIndex;
 
 /** The service a sale counts under (Settings → Services), with its icon. */
+/** Rows the activity feed shows before "Show more". */
+const ACTIVITY_PREVIEW = 5;
+
 function serviceView(r: { service: string; provider_id?: string | null }, index: ServiceIndex) {
   const key = serviceOfSale(r, index);
   const icon = index.byKey.get(key)?.icon;
@@ -282,6 +285,8 @@ const AdminDashboard = () => {
     },
   });
 
+  const [showAllActivity, setShowAllActivity] = useState(false);
+
   const allRows = stats?.rows ?? [];
   const pf = periodFigures(allRows, period);
   const pfByService = (key: string) => periodFigures(allRows.filter((r) => r.service === key), period);
@@ -482,9 +487,27 @@ const AdminDashboard = () => {
 
       {/* Subscription-level, so a recurring purchase is one row and not five.
           An unpaid sale carries the accent on its amount — the same signal the
-          metric tile above uses, so the two read as one idea. */}
+          metric tile above uses, so the two read as one idea.
+
+          A feed, not a set of cards: it was eight 64px tiles stacked with gaps,
+          which pushed half a screen of the same shape below the fold. Now it is
+          one card of dense rows (the History list's pattern), the first few
+          shown and the rest a tap away — "View all" opens every sale. */}
       <section className="mt-8">
-        <YdSectionHeading title="Recent activity" count={recentActivity.length} />
+        <YdSectionHeading
+          title="Recent activity"
+          count={recentActivity.length}
+          action={
+            recentActivity.length > 0 ? (
+              <Link
+                to={adminRoutes.superAdminMarketplaceSubscriptions}
+                className="shrink-0 text-meta font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                View all
+              </Link>
+            ) : undefined
+          }
+        />
         {activityError ? (
           /* A quiet day and a failed request are not the same news. */
           <QueryError
@@ -500,36 +523,49 @@ const AdminDashboard = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {recentActivity.map((a: any) => {
-              const Icon = a.Icon;
-              return (
-                <Link
-                  key={a.id}
-                  to={a.href}
-                  className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-muted">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-title font-semibold text-foreground">{a.label}</p>
-                    <p className="mt-0.5 text-meta text-muted-foreground">
-                      {format(new Date(a.date), "MMM d, yyyy · h:mm a")}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "shrink-0 text-title font-semibold tabular-nums",
-                      a.tone === "pending" ? "text-primary" : "text-foreground",
-                    )}
-                  >
-                    {a.detail}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          <>
+            <ul className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card">
+              {(showAllActivity ? recentActivity : recentActivity.slice(0, ACTIVITY_PREVIEW)).map((a: any) => {
+                const Icon = a.Icon;
+                const d = new Date(a.date);
+                return (
+                  <li key={a.id}>
+                    <Link
+                      to={a.href}
+                      className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold leading-5 text-foreground">{a.label}</p>
+                        <p className="text-meta leading-4 text-muted-foreground">
+                          {format(d, d.getFullYear() === new Date().getFullYear() ? "MMM d · h:mm a" : "MMM d, yyyy · h:mm a")}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 text-sm font-semibold tabular-nums",
+                          a.tone === "pending" ? "text-primary" : "text-foreground",
+                        )}
+                      >
+                        {a.detail}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            {recentActivity.length > ACTIVITY_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllActivity((v) => !v)}
+                className="mt-2 w-full rounded-radius-md py-2 text-meta font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                {showAllActivity ? "Show less" : `Show ${recentActivity.length - ACTIVITY_PREVIEW} more`}
+              </button>
+            )}
+          </>
         )}
       </section>
     </SuperAdminLayout>
