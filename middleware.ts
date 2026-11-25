@@ -28,7 +28,7 @@
  * the English page.
  */
 import { faqJsonLd, serviceSeo } from "./src/lib/seo/serviceSeo";
-import { GUIDES, GUIDES_INDEX, guideBySlug } from "./src/lib/seo/guides";
+import { GUIDES, GUIDES_INDEX, guideBySlug, guideExtras } from "./src/lib/seo/guides";
 import { isBilingual, langPath, splitLang } from "./src/lib/seo/lang";
 
 export const config = {
@@ -414,10 +414,15 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
     const t = g[lang];
     const self = hrefIn(`/guides/${g.slug}`, lang);
     const crumbs = [home, index, { href: self, label: t.h1 }];
+    const ex = guideExtras(g.slug, lang);
     return {
       title: `${t.title} · EverySub`, description: t.description, image: `${SITE}/for-business/hero.jpg`, type: "article",
       h1: t.h1, text: [t.intro],
-      sections: t.sections,
+      sections: [
+        ...(ex ? [{ h: lang === "es" ? "En resumen" : "In short", p: ex.takeaways }] : []),
+        ...t.sections,
+      ],
+      faq: ex?.faq,
       lists: [
         { heading: idx.more, links: await plansOf(g.services) },
         { heading: idx.all, links: GUIDES.filter((x) => x.slug !== g.slug).map((x) => ({ href: hrefIn(`/guides/${x.slug}`, lang), label: x[lang].title })) },
@@ -427,7 +432,7 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
         "@context": "https://schema.org", "@type": "Article", headline: t.h1, description: t.description, inLanguage: lang,
         dateModified: g.updated, datePublished: g.updated, mainEntityOfPage: `${SITE}${self}`,
         image: `${SITE}/for-business/hero.jpg`, author: { "@type": "Organization", name: "EverySub", url: SITE }, publisher: ORG,
-      }, breadcrumbLd(crumbs)],
+      }, breadcrumbLd(crumbs), ...(ex ? [faqJsonLd(ex.faq)] : [])],
     };
   }
 
