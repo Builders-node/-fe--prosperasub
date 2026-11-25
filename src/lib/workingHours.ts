@@ -96,3 +96,63 @@ export const EMPTY_SCHEDULE = (): HoursSchedule => ({
   open: "08:00",
   close: "20:00",
 });
+
+/**
+ * Is the business open right now, and until when — or when does it open next.
+ *
+ * Read on the business's own clock (Honduras), not the visitor's: someone
+ * planning a trip from Europe still needs "Open until 8:00 PM" in local time.
+ * `now` is a wall-clock Date in that zone (see `nowHN`). Hours that run past
+ * midnight (22:00–02:00) count as open after midnight on the next day.
+ * Returns null when the hours are not structured (a legacy free-text value).
+ */
+export interface OpenStatus {
+  open: boolean;
+  /** When open: closing time, "20:00". */
+  until?: string;
+  /** When closed: the next opening time, or null if it never opens. */
+  opensAt?: string | null;
+  opensDay?: "today" | "tomorrow" | DayCode | null;
+}
+
+export function openStatus(raw: unknown, now: Date): OpenStatus | null {
+  const schedules = parseWorkingHours(raw).filter((s) => s.days?.length && s.open && s.close);
+  if (schedules.length === 0) return null;
+  const mins = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  // getDay(): 0 = Sunday. DAY_CODES starts on Monday.
+  const dayAt = (offset: number): DayCode => DAY_CODES[(now.getDay() + 6 + offset) % 7];
+  const today = dayAt(0);
+  const yesterday = dayAt(6);
+  const t = now.getHours() * 60 + now.getMinutes();
+
+  for (const s of schedules) {
+    const o = mins(s.open), c = mins(s.close);
+    const overnight = c <= o;
+    if (s.days.includes(today) && t >= o && (overnight || t < c)) return { open: true, until: s.close };
+    if (overnight && s.days.includes(yesterday) && t < c) return { open: true, until: s.close };
+  }
+  // Next opening: later today, then the following six days.
+  for (let offset = 0; offset < 7; offset++) {
+    const day = dayAt(offset);
+    const starts = schedules
+      .filter((s) => s.days.includes(day))
+      .map((s) => s.open)
+      .filter((o) => offset > 0 || mins(o) > t)
+      .sort((a, b) => mins(a) - mins(b));
+    if (starts.length) {
+      return { open: false, opensAt: starts[0], opensDay: offset === 0 ? "today" : offset === 1 ? "tomorrow" : day };
+    }
+  }
+  return { open: false, opensAt: null, opensDay: null };
+}
+
+/** "Open until 8:00 PM", "Closed · opens 8:00 AM", "Closed · opens Mon 8:00 AM". */
+export function openStatusLabel(s: OpenStatus): string {
+  if (s.open) return `Open until ${formatTime(s.until)}`;
+  if (!s.opensAt) return "Closed";
+  const when = s.opensDay === "today" ? "" : s.opensDay === "tomorrow" ? "tomorrow " : `${DAY_LABELS[s.opensDay]} `;
+  return `Closed · opens ${when}${formatTime(s.opensAt)}`;
+}
