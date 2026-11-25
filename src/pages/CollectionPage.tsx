@@ -87,7 +87,7 @@ export default function CollectionPage() {
           ) : (
             <CollectionCover coverUrl={c.coverUrl} plans={items} priority className="absolute inset-0" />
           )}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-black/70 via-black/30 to-transparent md:hidden" />
         </div>
       </div>
 
