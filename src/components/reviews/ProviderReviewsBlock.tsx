@@ -45,9 +45,6 @@ interface Props {
   /** Optional placeholder shown when the current user is authorized to leave
    *  a review but hasn't yet. Falls back to a service-flavoured default. */
   placeholder?: string;
-  /** Laptop: rating summary on the left, the reviews on the right. For a
-   *  card that spans the page; a narrow column keeps the stacked layout. */
-  wide?: boolean;
 }
 
 /**
@@ -58,7 +55,7 @@ interface Props {
  * Reads and writes go to `provider_reviews` (universal). Legacy `food_reviews`
  * table is untouched — food still uses its own component.
  */
-export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeholder, wide }: Props) {
+export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeholder }: Props) {
   const qc = useQueryClient();
   const { userData, isSuperAdmin, isAuthenticated } = useAuth();
   const uuid = useUserUuid();
@@ -313,7 +310,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-heading font-semibold text-foreground">Reviews</h2>
-      <div className={cn("flex flex-col gap-4", wide && "md:grid md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] md:items-start md:gap-8")}>
+      <div className="flex flex-col gap-4">
         {(summary || cta) && (
           <div className="flex flex-col gap-4">
             {summary}
