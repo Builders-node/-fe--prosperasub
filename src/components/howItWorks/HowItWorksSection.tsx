@@ -19,7 +19,7 @@ export function useHowItWorksRows(providerId: string | null | undefined) {
         .select("id,provider_id,plan_id,steps,updated_at")
         .eq("provider_id", providerId!);
       // Before the table exists (or on any read failure) the page simply shows
-      // the default — "How it works" is never worth an error on a plan page.
+      // the default — "How it works" is never worth an error after a purchase.
       if (error) return [];
       return ((data ?? []) as any[]).map((r) => ({ ...r, steps: cleanSteps(r.steps) }));
     },
@@ -27,19 +27,24 @@ export function useHowItWorksRows(providerId: string | null | undefined) {
 }
 
 /**
- * The public "How it works" — on a plan page (planId given: the plan's own
- * steps first) and on a business page. Falls back to the platform's steps.
+ * "How it works" after a purchase — the checkout's success screen and the
+ * order in My subscriptions. The plan's own steps first, then the business's,
+ * then the platform's.
  */
-export function HowItWorksSection({ providerId, planId, className }: {
+export function HowItWorksSection({ providerId, planId, className, bare }: {
   providerId: string | null | undefined;
   planId?: string | null;
   className?: string;
+  /** Inside a dialog that already says "How it works": the steps alone, one per row. */
+  bare?: boolean;
 }) {
   const { t } = useI18n();
   const q = useHowItWorksRows(providerId);
   if (!providerId || q.isLoading) return null;
   const picked = pickHowItWorks(q.data, planId);
-  return <HowItWorksSteps steps={picked?.steps ?? defaultHowItWorks(t)} title={t("howItWorks.title")} className={className} />;
+  const steps = picked?.steps ?? defaultHowItWorks(t);
+  if (bare) return <HowItWorksList steps={steps} compact className={className} />;
+  return <HowItWorksSteps steps={steps} title={t("howItWorks.title")} className={className} />;
 }
 
 /** The steps themselves — shared by the public pages and the editor's preview. */
@@ -53,7 +58,14 @@ export function HowItWorksSteps({ steps, title, className, compact }: {
   return (
     <section className={cn("space-y-3 rounded-radius-lg bg-card p-4 shadow-figma", className)} aria-label={title}>
       <h2 className="text-heading font-semibold text-foreground">{title}</h2>
-      <ol className={cn("grid gap-2", !compact && steps.length > 1 && "sm:grid-cols-2")}>
+      <HowItWorksList steps={steps} compact={compact} />
+    </section>
+  );
+}
+
+function HowItWorksList({ steps, compact, className }: { steps: HowItWorksStep[]; compact?: boolean; className?: string }) {
+  return (
+      <ol className={cn("grid gap-2", !compact && steps.length > 1 && "sm:grid-cols-2", className)}>
         {steps.map((s, i) => {
           const Icon = s.icon ? HOW_IT_WORKS_ICONS[s.icon]?.icon : undefined;
           return (
@@ -74,6 +86,5 @@ export function HowItWorksSteps({ steps, title, className, compact }: {
           );
         })}
       </ol>
-    </section>
   );
 }

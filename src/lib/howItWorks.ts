@@ -10,8 +10,10 @@ import type { TranslationKey } from "@/i18n";
  *
  * A business may write its own (table provider_how_it_works, written through
  * the API's /account/providers/:id/how-it-works): one set for the whole
- * business and, optionally, one per plan. A plan page shows the plan's own
- * steps, else the business's, else the platform default below.
+ * business and, optionally, one per plan. They are shown AFTER a purchase —
+ * on the checkout's success screen and behind "How it works" on the order in
+ * My subscriptions: the plan's own steps, else the business's, else the
+ * platform default below.
  *
  * The API keeps the same icon keys and limits (routes/how-it-works.ts) and
  * the database checks the shape again — change all three together.
@@ -62,7 +64,7 @@ export const HOW_IT_WORKS_ICONS: Record<string, { icon: LucideIcon; label: strin
 };
 
 /** The platform's steps, for a business that has not written its own. */
-const DEFAULT_ICONS = ["sliders", "card", "bell", "repeat"] as const;
+const DEFAULT_ICONS = ["check", "chat", "calendar", "qr"] as const;
 
 export function defaultHowItWorks(t: (key: TranslationKey) => string): HowItWorksStep[] {
   return DEFAULT_ICONS.map((icon, i) => ({

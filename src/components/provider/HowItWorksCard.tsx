@@ -20,8 +20,8 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Overview → "How it works": the steps customers see on the business's page
- * and on its plan pages. One set for the whole business; a plan that works
+ * Overview → "How it works": the steps a customer sees once they have bought —
+ * on the success screen and on the order in My subscriptions. One set for the whole business; a plan that works
  * differently can have its own. Until the business writes any, the pages show
  * the platform's default — said here, so nobody wonders where those came from.
  */
@@ -65,7 +65,7 @@ export function HowItWorksCard({ providerId }: { providerId: string }) {
   return (
     <WorkspaceSection
       title="How it works"
-      subtitle="The steps customers see on your page and on every plan page."
+      subtitle="What customers see right after they buy, and under How it works in their subscriptions."
       action={<Button size="sm" variant="secondary" onClick={() => edit(BUSINESS)}>Edit</Button>}
     >
       <div className="space-y-3">
@@ -257,7 +257,7 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
           >
             <SelectTrigger aria-label="Where these steps show"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={BUSINESS}>Whole business — your page and every plan</SelectItem>
+              <SelectItem value={BUSINESS}>Whole business — every plan</SelectItem>
               {plans.map((p) => {
                 const has = (rows.data ?? []).some((r) => r.plan_id === p.id);
                 return <SelectItem key={p.id} value={p.id}>{p.name}{has ? " · own steps" : ""}</SelectItem>;
@@ -357,7 +357,7 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
         </div>
       </DialogBlock>
 
-      {/* Live: exactly the block the plan page renders. */}
+      {/* Live: exactly the block a customer sees after buying. */}
       <div className="space-y-2 lg:sticky lg:top-0">
         <p className="px-1 text-meta font-semibold text-muted-foreground">Preview</p>
         {previewSteps.length

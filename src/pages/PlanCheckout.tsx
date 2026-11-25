@@ -16,6 +16,7 @@ import {
   type DeliveryQuote, type ServiceMode,
 } from "@/lib/delivery/zones";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
+import { HowItWorksSection } from "@/components/howItWorks/HowItWorksSection";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
@@ -782,6 +783,9 @@ const UniversalPlanCheckout = () => {
               ? { label: "My subscriptions", onClick: () => navigate("/my-subscriptions") }
               : { label: "Back", onClick: () => navigate(listingHref) }}
           />
+          {/* What happens now — in the business's own words (this plan's,
+              else the business's), or EverySub's until it writes some. */}
+          <HowItWorksSection providerId={plan.providerUniversalId} planId={plan.universalId} className="mt-4" />
         </div>
       </UserLayout>
     );

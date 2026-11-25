@@ -1398,6 +1398,7 @@ const MySubscriptions = () => {
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                         tip: { service: "plan", subscriptionRef: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, providerName: providerName, customerName: userData?.name ?? null },
                         review: { service: "plan", subscriptionId: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, customerName: userData?.name ?? null },
+                        howItWorks: (s.provider_id ?? s.providers?.id) ? { providerId: String(s.provider_id ?? s.providers?.id), planId: s.plan_id ? String(s.plan_id) : null } : undefined,
                         delivery: {
                           sourceKey: "plan",
                           subscriptionId: String(s.id),

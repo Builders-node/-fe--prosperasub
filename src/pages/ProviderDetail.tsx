@@ -1,4 +1,3 @@
-import { HowItWorksSection } from "@/components/howItWorks/HowItWorksSection";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useTrackFunnel } from "@/lib/funnel";
 import { DetailHeader } from "@/components/patterns/DetailHeader";
@@ -781,10 +780,6 @@ const ProviderDetail = () => {
             </div>
           )
         )}
-
-        {/* Under what it sells: how buying from this business goes — its own
-            steps, or the platform's until it writes some. */}
-        {tab === "plans" && <HowItWorksSection providerId={p.id} />}
 
         {tab === "reviews" && (
           // The block draws its own heading and rating — the same two things
