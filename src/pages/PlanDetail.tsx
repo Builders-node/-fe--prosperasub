@@ -1008,15 +1008,17 @@ const PlanDetail = () => {
           </section>
         )}
 
+        </div>
 
         {plan.providerId && reviewService && (
           // The block is a bare <section>, so the card padding belongs here —
-          // full-bleed left its heading against the screen edge.
-          <div className="rounded-radius-lg bg-card p-4 shadow-figma">
-            <ProviderReviewsBlock providerId={plan.providerId} service={reviewService} />
+          // full-bleed left its heading against the screen edge. On a laptop
+          // it spans both columns: squeezed into the right one it ran far past
+          // the photo and left an empty half-page beside it.
+          <div className="mt-1 rounded-radius-lg bg-card p-4 shadow-figma md:col-span-2 md:mt-0 md:p-6">
+            <ProviderReviewsBlock providerId={plan.providerId} service={reviewService} wide />
           </div>
         )}
-        </div>
       </main>
 
       {/* More from this business — every other product it sells, below the fold. */}
