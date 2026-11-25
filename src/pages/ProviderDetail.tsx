@@ -7,7 +7,13 @@ import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatWorkingHours } from "@/lib/workingHours";
+import { formatWorkingHours, openStatus, openStatusLabel } from "@/lib/workingHours";
+import { nowHN } from "@/lib/timezone";
+import { formatTime } from "@/lib/formatTime";
+import { priceUnit } from "@/lib/checkout/ctaLabel";
+import { periodNoun } from "@/lib/services/planPeriod";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PhotoSlider } from "@/components/patterns/PhotoSlider";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { archetypeFromSlug, businessHref, planHref, planSegment, serviceMetaFromSlug, serviceSlug, type Addressable } from "@/lib/services/serviceUrls";
@@ -15,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
   MapPin, Phone, Mail, Clock, Star,
-  Store,
+  Store, CalendarDays, ChevronRight,
 } from "lucide-react";
 import { ShareButton } from "@/components/patterns/ShareButton";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -349,11 +355,14 @@ const ProviderDetail = () => {
       // customer books the dive boat, not a calendar.
       const { data, error } = await supabaseDb
         .from("bookable_resources")
-        .select("name")
+        .select("id, name")
         .eq("provider_id", providerId!)
-        .eq("status", "active");
+        .eq("status", "active")
+        .order("sort_order", { ascending: true });
       if (error) throw error;
-      return ((data ?? []) as Array<{ name: string | null }>).map((r) => r.name?.trim()).filter(Boolean) as string[];
+      return ((data ?? []) as Array<{ id: string; name: string | null }>)
+        .map((r) => ({ id: r.id, name: r.name?.trim() ?? "" }))
+        .filter((r) => r.name);
     },
   });
 
@@ -567,28 +576,54 @@ const ProviderDetail = () => {
     { label: p.name },
   ];
 
+  /**
+   * The description, unless it only says the name again. "Beach Club —
+   * memberships and courts" under a "Beach Club" heading read the name twice;
+   * what follows the name is the tagline, so that is what is kept.
+   */
+  const tagline = (() => {
+    const d = p.description?.trim();
+    if (!d) return null;
+    const name = p.name.trim();
+    if (d.toLowerCase() === name.toLowerCase()) return null;
+    if (d.toLowerCase().startsWith(name.toLowerCase())) {
+      const rest = d.slice(name.length).replace(/^\s*[—–\-:|·,]\s*/, "").trim();
+      if (rest && rest !== d.slice(name.length).trim()) return rest.charAt(0).toUpperCase() + rest.slice(1);
+    }
+    return d;
+  })();
+
+  // The cheapest subscription, with its own unit — "from $75 / month". A
+  // one-time day pass is cheaper but is not what "from" means on a page of
+  // memberships, so it counts only when nothing recurs. The plans need not
+  // share a period, so the unit is that plan's own, never assumed.
+  const priced = (plansQ.data ?? [])
+    .filter((r) => (r.price_cents ?? 0) > 0)
+    .sort((a, b) => (a.price_cents ?? 0) - (b.price_cents ?? 0));
+  const cheapestPlan = isVehicles ? null
+    : priced.find((r) => !!r.period && !!periodNoun(r.period)) ?? priced[0] ?? null;
+  const headPrice = isVehicles ? fromPrice : (cheapestPlan?.price_cents ?? 0);
+  const fromLabel = headPrice > 0
+    ? `from ${formatPrice(headPrice)}${isVehicles
+        ? " / day"
+        : cheapestPlan ? ` ${priceUnit({ period: cheapestPlan.period ?? null, perPerson: (cheapestPlan as { pricing_mode?: string }).pricing_mode === "per_person" })}`.trimEnd() : ""}`
+    : null;
+  const rating = ratingSummaryQ.data;
+  const status = openStatus(p.working_hours, nowHN());
+  const mapHref = p.location?.trim()
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.name}, ${p.location.trim()}`)}`
+    : null;
+  const calendars = bookableQ.data ?? [];
+
   return (
     <BrowseLayout className="md:pb-0">
       {preview && <div className="app-container pt-3"><DraftPreviewBanner /></div>}
 
-      {/*
-        The banner IS the header.
-        280px of photograph with its bottom corners rounded to 24, a scrim that
-        fades from half-black at the top to nothing, and the chrome floating on
-        it: back on the left, the bell on the right, the service named in the
-        middle in white. The opaque bar this replaces sat above the picture and
-        repeated the provider's name, which the card underneath already says in
-        24px — so the page opened with the same words twice and 56px less
-        photograph.
-      */}
-      {/* Only a real photograph earns 280px. Without one the page opens on the
-          ordinary bar — 280px of grey with a faint glyph is not a hero. */}
       {/* The same header as the plan and car pages — one component, so the
-          three detail pages cannot drift apart again (this page had its own,
-          the only one of its kind). On a phone it floats on the banner and
-          turns solid once the photo has scrolled under it. A laptop has no bar:
-          the breadcrumb is the way back, and favourite and share sit beside
-          the business's name in the card. */}
+          three detail pages cannot drift apart again. On a phone it floats on
+          the banner and turns solid once the photo has scrolled under it. A
+          laptop has no bar: the breadcrumb is the way back, and favourite and
+          share sit beside the business's name. */}
       <DetailHeader
         title={p.name}
         centreLabel={serviceLabel}
@@ -606,47 +641,114 @@ const ProviderDetail = () => {
         }
       />
 
-      {/* Edge to edge on a phone; on a laptop the photograph sits in the page's
-          column with every corner rounded — it used to run the full window
-          while the cards under it stopped at 1280. */}
+      {/* Laptop: Home › service › business, above the photograph — under it,
+          the trail sat between the picture and the name it leads to. */}
+      <div className="hidden md:app-container md:block md:pt-space-4">
+        <Breadcrumbs items={crumbs} />
+      </div>
+
+      {/* A cover, not a poster: 200px on a phone, 260 on a laptop. At 380 the
+          photograph pushed the business's name and its Book button below the
+          first screen. */}
       {hasBanner && (
-        <div className="md:app-container md:pt-space-4">
-          <div data-detail-photo className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset md:rounded-radius-lg">
+        <div className="md:app-container md:pt-space-3">
+          <div data-detail-photo className="relative h-[200px] w-full overflow-hidden rounded-b-radius-lg bg-inset md:h-[260px] md:rounded-radius-lg">
             <Photo src={p.banner_url} icon={Store} loading="eager" className="absolute inset-0" />
-            {/* The scrim is what makes white chrome legible on a photograph nobody
-                vetted — a bright sky would otherwise swallow the back button. */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
+            {/* The scrim keeps the phone's white chrome legible on any photo. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
           </div>
         </div>
       )}
 
-      {/* Home › service › this business, as a quiet line of text above the
-          content. A service named exactly like the business ("Beach Club ›
-          Beach Club") is skipped rather than said twice. */}
-      <div className="hidden md:app-container md:block md:pt-space-6">
-        <Breadcrumbs items={crumbs} />
-      </div>
-      <main className="app-container space-y-1 pb-8 pt-1 md:pb-8 md:pt-space-4">
+      <main className="app-container pb-8 md:pb-8">
         {/* ─── Who this is ─────────────────────────────────────────────────
-            Card radius 24 at 16 of padding, per the design; the trail, the
-            name, and the three lines that describe the business. */}
-        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          {/* Phone: the trail opens the card. A laptop has it above the page. */}
-          <Breadcrumbs items={crumbs} className="mb-3 md:hidden" />
+            Logo on the cover's edge; name; what people compare first (rating,
+            the price it starts at); where it is and whether it is open now;
+            and one way to book. */}
+        <section className="relative px-1 pb-4 tracking-[-0.02em] md:px-2">
+          <Photo
+            src={p.avatar_url}
+            alt=""
+            label={initialsOf(p.name)}
+            className="relative -mt-10 h-20 w-20 shrink-0 rounded-full border-4 border-background object-cover md:-mt-12 md:h-24 md:w-24"
+          />
 
-          <div className="space-y-2">
-            {/* The business's face beside its name — the logo was uploaded,
-                shown in the admin's card and on its product pages, and missing
-                only here, on its own page. Initials when there is none. */}
-            <div className="flex items-center gap-3">
-              <Photo
-                src={p.avatar_url}
-                alt=""
-                label={initialsOf(p.name)}
-                className="h-14 w-14 shrink-0 rounded-full object-cover"
-              />
-              <h1 className="min-w-0 flex-1 text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
-              <div className="-mr-2 hidden shrink-0 items-center md:flex">
+          <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0 space-y-2">
+              <h1 className="text-[26px] font-semibold leading-tight text-foreground md:text-[32px]">{p.name}</h1>
+
+              {/* Rating · price · service — one line a customer scans. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] leading-[22px] text-muted-foreground">
+                {rating && rating.count > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setTab("reviews")}
+                      className="inline-flex items-center gap-1 font-semibold text-foreground hover:underline"
+                      aria-label={`Rated ${rating.avg.toFixed(1)} from ${rating.count} reviews`}
+                    >
+                      <Star className="h-4 w-4 fill-primary text-primary" />
+                      {rating.avg.toFixed(1)}
+                      <span className="font-normal text-muted-foreground">({rating.count})</span>
+                    </button>
+                    <Dot />
+                  </>
+                )}
+                {fromLabel && (
+                  <>
+                    <span className="font-semibold text-foreground">{fromLabel}</span>
+                    <Dot />
+                  </>
+                )}
+                <span>{serviceLabel}</span>
+              </div>
+
+              {tagline && (
+                <p className="max-w-[640px] text-[15px] leading-[22px] text-muted-foreground">
+                  <LinkifiedText text={tagline} />
+                </p>
+              )}
+
+              {(p.location?.trim() || status || hours) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[15px] leading-[22px]">
+                  {p.location?.trim() && (
+                    <a
+                      href={mapHref!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-foreground hover:underline"
+                    >
+                      <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {p.location.trim()}
+                    </a>
+                  )}
+                  {(status || hours) && (
+                    <span className="inline-flex items-center gap-1.5" title={hours || undefined}>
+                      <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {status ? (
+                        <>
+                          <span className={cn("font-semibold", status.open ? "text-success" : "text-destructive")}>
+                            {status.open ? "Open" : "Closed"}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {status.open
+                              ? `until ${formatTime(status.until)}`
+                              : openStatusLabel(status).replace(/^Closed( · )?/, "")}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">{hours}</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Favourite and share beside the one action; on a phone they
+                live in the bar over the photo. */}
+            <div className="flex w-full shrink-0 items-center gap-2 md:w-auto">
+              <div className="hidden items-center md:flex">
                 <FavoriteButton kind="provider" id={p.id} name={p.name} className="text-foreground hover:bg-muted" />
                 <ShareButton
                   title={p.name}
@@ -654,47 +756,50 @@ const ProviderDetail = () => {
                   className="text-foreground hover:bg-muted"
                 />
               </div>
+              {calendars.length > 0 && (
+                <BookButton
+                  calendars={calendars}
+                  onPick={(id) => navigate(`/providers/${providerId}/book${id ? `?calendar=${id}` : ""}`)}
+                />
+              )}
             </div>
-            {p.description && (
-              <p className="text-[16px] leading-[22px] text-muted-foreground">
-                <LinkifiedText text={p.description} />
-              </p>
-            )}
-            {p.location?.trim() && <p className="text-[16px] leading-[22px] text-muted-foreground">{p.location}</p>}
-            {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
           </div>
 
-          {(bookableQ.data?.length ?? 0) > 0 && (
-            <button
-              type="button"
-              onClick={() => navigate(`/providers/${providerId}/book`)}
-              className="mt-3 flex w-full items-center justify-between rounded-radius-md bg-inset px-4 py-3 text-left transition-colors hover:bg-muted"
-            >
-              <span className="text-[16px] font-semibold leading-[22px] text-foreground">Book a time</span>
-              <span className="text-[14px] leading-[18px] text-muted-foreground">
-                {bookableQ.data!.length === 1 ? bookableQ.data![0] : `${bookableQ.data![0]} +${bookableQ.data!.length - 1} more`}
-              </span>
-            </button>
-          )}
-
-          {/* One segmented control instead of three stacked sections: the page
-              had plans, reviews and pictures all scrolling past each other. */}
-          <div className="mt-3 flex rounded-radius-md bg-inset p-0.5">
-            {TABS.map((t) => ({ ...t, label: t.key === "plans" ? meta.offeringsHeading : t.label })).map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
-                  tab === t.key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {/* Phone: the trail, quietly, under the business. A laptop has it
+              above the cover. */}
+          <Breadcrumbs items={crumbs} className="mt-4 md:hidden" />
         </section>
 
+        {/* Tabs: a compact row that stays under the header while the plans
+            scroll, instead of a full-width segmented control heavier than
+            what it switches between. */}
+        <div className="sticky top-14 z-30 -mx-4 mb-4 border-b border-border bg-background px-4 md:top-[var(--desktop-header-h,72px)] md:mx-0 md:px-0">
+          <div role="tablist" className="flex gap-6">
+            {TABS.map((t) => ({ ...t, label: t.key === "plans" ? meta.offeringsHeading : t.label })).map((t) => {
+              const count = t.key === "plans" ? offeringsCount : t.key === "reviews" ? (rating?.count ?? 0) : gallery.length;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    "-mb-px flex h-12 items-center gap-1.5 border-b-2 text-[15px] font-semibold transition-colors",
+                    tab === t.key
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                  {count > 0 && <span className="text-[13px] font-medium text-muted-foreground">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-4">
         {tab === "plans" && isVehicles && (
           vehiclesQ.isLoading ? (
             <div className="space-y-1">
@@ -752,9 +857,29 @@ const ProviderDetail = () => {
             <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
           ) : (
             // Cards, like every other shelf of plans on the site — a photo
-            // you can see, the price under it. The long rows showed a 104px
-            // thumbnail at the end of a 1280px stripe.
-            <div className="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
+            // you can see, the price under it. Three across on a laptop; a
+            // business with one offer shows it as one wide card rather than a
+            // lone tile with the rest of the row empty.
+            (plansQ.data ?? []).length === 1 ? (() => {
+              const plan = plansQ.data![0];
+              const own = Array.isArray((plan as any).gallery_urls) ? ((plan as any).gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u) : [];
+              return (
+                <WideOfferCard
+                  href={planHref(serviceSegment ?? "", planSegment(plan as Addressable)) + (preview ? "?preview=1" : "")}
+                  photos={own.length ? own : gallery.slice(0, 1)}
+                  title={plan.name}
+                  description={plan.description}
+                  chips={labelsOf((plan as any).tags, 2)}
+                  corner={<FavoriteButton kind="plan" id={plan.id} name={plan.name} variant="overlay" />}
+                  price={
+                    typeof plan.price_cents === "number" && plan.price_cents > 0
+                      ? <PriceLine cents={plan.price_cents} period={plan.period ?? null} perPerson={(plan as any).pricing_mode === "per_person"} />
+                      : <p className="text-[14px] text-muted-foreground">Price on request</p>
+                  }
+                />
+              );
+            })() : (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 md:gap-x-4">
               {(plansQ.data ?? []).map((plan) => {
                 const own = Array.isArray((plan as any).gallery_urls) ? ((plan as any).gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u) : [];
                 const linkId = planSegment(plan as Addressable);
@@ -778,6 +903,7 @@ const ProviderDetail = () => {
                 );
               })}
             </div>
+            )
           )
         )}
 
@@ -817,23 +943,108 @@ const ProviderDetail = () => {
             <h2 className="text-[20px] font-semibold text-foreground">Contact</h2>
             <div className="mt-3 space-y-2">
               {p.contact_phone && (
-                <p className="flex items-center gap-2 text-[16px] leading-[22px] text-muted-foreground">
+                <a href={`tel:${p.contact_phone.replace(/[^+\d]/g, "")}`} className="flex w-fit items-center gap-2 text-[16px] leading-[22px] text-muted-foreground hover:text-foreground">
                   <Phone className="h-4 w-4 shrink-0" /> {p.contact_phone}
-                </p>
+                </a>
               )}
               {p.contact_email && (
-                <p className="flex items-center gap-2 text-[16px] leading-[22px] text-muted-foreground">
+                <a href={`mailto:${p.contact_email}`} className="flex w-fit items-center gap-2 text-[16px] leading-[22px] text-muted-foreground hover:text-foreground">
                   <Mail className="h-4 w-4 shrink-0" /> {p.contact_email}
-                </p>
+                </a>
               )}
             </div>
           </section>
         )}
+        </div>
       </main>
 
     </BrowseLayout>
   );
 };
+
+/** "$75", "$75.50" — a header price drops the cents when there are none. */
+function formatPrice(cents: number): string {
+  return cents % 100 === 0 ? `$${(cents / 100).toLocaleString("en-US")}` : formatUSD(cents);
+}
+
+function Dot() {
+  return <span aria-hidden className="text-muted-foreground/60">·</span>;
+}
+
+/**
+ * The one way in to booking. One calendar: straight to it. Several: a short
+ * list to pick the court from — the button used to trail "Tennis Court 2 +1
+ * more", which named one court and hid the rest.
+ */
+function BookButton({ calendars, onPick }: { calendars: Array<{ id: string; name: string }>; onPick: (id: string | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const button = (
+    <Button
+      className="w-full shrink-0 md:w-auto md:min-w-[200px]"
+      onClick={calendars.length === 1 ? () => onPick(calendars[0].id) : undefined}
+    >
+      <CalendarDays /> Book a time
+    </Button>
+  );
+  if (calendars.length === 1) return button;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{button}</PopoverTrigger>
+      <PopoverContent align="end" sideOffset={8} className="w-auto min-w-[var(--radix-popover-trigger-width)] max-w-[min(360px,calc(100vw-32px))] p-2">
+        <p className="px-3 pb-1 pt-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">What to book</p>
+        <ul>
+          {calendars.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onPick(c.id); }}
+                className="flex w-full items-center justify-between gap-3 rounded-radius-md px-3 py-3 text-left text-[15px] font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                <span className="min-w-0">{c.name}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** A business's only offer: photo beside the words, instead of one tile and an empty row. */
+function WideOfferCard({ href, photos, title, description, chips, corner, price }: {
+  href: string; photos: string[]; title: string; description?: string | null;
+  chips?: string[]; corner?: React.ReactNode; price: React.ReactNode;
+}) {
+  return (
+    <Link
+      to={href}
+      className="group flex flex-col overflow-hidden rounded-radius-lg bg-card transition-transform active:scale-[0.99] md:flex-row"
+    >
+      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-muted md:aspect-auto md:h-[320px] md:w-[46%]">
+        <PhotoSlider photos={photos} className="h-full w-full bg-muted transition-transform duration-300 group-hover:scale-[1.03]" />
+        {corner && <div className="absolute right-3 top-3">{corner}</div>}
+      </div>
+      <div className="flex flex-1 flex-col gap-3 p-5 md:p-8">
+        {chips && chips.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {chips.map((c) => (
+              <span key={c} className="rounded-full bg-primary px-2.5 py-0.5 text-meta font-bold text-primary-foreground">{c}</span>
+            ))}
+          </div>
+        )}
+        <h3 className="text-[22px] font-semibold leading-tight text-foreground md:text-[26px]">{title}</h3>
+        {description && <p className="line-clamp-4 text-[15px] leading-[22px] text-muted-foreground">{description}</p>}
+        <div className="mt-auto flex items-end justify-between gap-3 pt-2">
+          {price}
+          <span className="inline-flex h-10 items-center gap-1 rounded-full bg-inset px-4 text-[15px] font-semibold text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            View plan <ChevronRight className="h-4 w-4" />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 /** The plan's first photograph, if it has one. */
 function planPhoto(plan: UniversalPlan & { gallery_urls?: unknown }): string | null {
