@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bonusEarnCents, bonusSpendCents, displayDiscount, prepayPctFor, type ActiveDiscount } from "./discounts";
+import { bonusEarnCents, bonusSpendCents, categoryDealBadge, displayDiscount, prepayPctFor, type ActiveDiscount } from "./discounts";
 
 const base: ActiveDiscount = {
   id: "d1", provider_id: "p1", kind: "sale", title: null, value_type: "percent", percent_off: 20,
@@ -66,5 +66,22 @@ describe("bonus", () => {
   it("earns nothing while cashback is off, and rounds down", () => {
     expect(bonusEarnCents(10000, 0)).toBe(0);
     expect(bonusEarnCents(999, 3)).toBe(29);
+  });
+});
+
+describe("categoryDealBadge", () => {
+  it("is null with nothing on in the category", () => {
+    expect(categoryDealBadge([base], ["p2"])).toBeNull();
+    expect(categoryDealBadge([{ ...base, ends_at: "2000-01-01T00:00:00Z" }], ["p1"])).toBeNull();
+  });
+  it("names the deepest sale, 'up to' when it is not the whole category's price", () => {
+    expect(categoryDealBadge([base], ["p1"])).toBe("−20%");
+    expect(categoryDealBadge([base, { ...base, id: "d2", provider_id: "p2", percent_off: 35 }], ["p1", "p2"])).toBe("Up to −35%");
+    expect(categoryDealBadge([{ ...base, target_ids: ["plan1"] }], ["p1"])).toBe("Up to −20%");
+  });
+  it("falls back to pay-ahead, then new-customer deals", () => {
+    const prepay = { ...base, kind: "prepay" as const, tiers: [{ periods: 3, percent_off: 10 }, { periods: 6, percent_off: 15 }] };
+    expect(categoryDealBadge([prepay], ["p1"])).toBe("Save up to 15%");
+    expect(categoryDealBadge([{ ...base, kind: "intro" }], ["p1"])).toBe("New-customer deal");
   });
 });

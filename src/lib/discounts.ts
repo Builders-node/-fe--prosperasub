@@ -197,3 +197,28 @@ export function bonusEarnCents(paidGoodsCents: number, cashbackPct: number): num
   if (cashbackPct <= 0) return 0;
   return Math.floor((Math.max(0, paidGoodsCents) * cashbackPct) / 100);
 }
+
+/**
+ * The one badge a whole category earns from its businesses' discounts, for
+ * the home page's category cards: the deepest sale ("Up to −20%"), else a
+ * pay-ahead saving, else a new-customer deal. Null when nothing is on.
+ */
+export function categoryDealBadge(list: ActiveDiscount[] | undefined, providerIds: string[], now = Date.now()): string | null {
+  if (!list?.length || !providerIds.length) return null;
+  const ids = new Set(providerIds);
+  const mine = list.filter((d) => ids.has(d.provider_id) && isOn(d, now));
+  if (!mine.length) return null;
+  const sales = mine.filter((d) => d.kind === "sale");
+  if (sales.length) {
+    const pct = Math.max(0, ...sales.map((d) => (d.value_type === "percent" ? d.percent_off ?? 0 : 0)));
+    if (pct > 0) return sales.length > 1 || mine.some((d) => d.target_ids?.length) ? `Up to −${pct}%` : `−${pct}%`;
+    return "Sale";
+  }
+  const prepay = mine.filter((d) => d.kind === "prepay");
+  if (prepay.length) {
+    const pct = Math.max(0, ...prepay.map(prepayMax));
+    if (pct > 0) return `Save up to ${pct}%`;
+  }
+  if (mine.some((d) => d.kind === "intro")) return "New-customer deal";
+  return null;
+}

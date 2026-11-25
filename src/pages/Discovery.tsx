@@ -198,20 +198,41 @@ const Discovery = () => {
               appear once there are two families, and arriving late pushed
               the carousel and everything under it down. */}
           {archetypesLoading && <Skeleton className="h-[42px] md:max-w-sm" />}
-          {showFamilies && (
-            <div className="flex rounded-radius-md bg-inset p-0.5 md:max-w-sm">
-              {families.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFamily(f)}
-                  className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
-                    family === f ? "bg-segment text-foreground" : "text-foreground/70 hover:text-foreground"
-                  }`}
+          {/* On a desktop My Business is a small link at the end of the tabs
+              row: as a full-width row of its own it was a wide empty strip
+              under the categories. A phone keeps the row below. */}
+          {(showFamilies || managesBusiness) && (
+            <div className={cn("flex items-center gap-3", !showFamilies && "hidden md:flex")}>
+              <div className="min-w-0 flex-1">
+              {showFamilies && (
+                <div className="flex rounded-radius-md bg-inset p-0.5 md:max-w-sm">
+                  {families.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFamily(f)}
+                      className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
+                        family === f ? "bg-segment text-foreground" : "text-foreground/70 hover:text-foreground"
+                      }`}
+                    >
+                      {FAMILY_LABELS[f] ?? f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              </div>
+              {managesBusiness && (
+                <Link
+                  to="/my-business"
+                  className="hidden shrink-0 items-center gap-2 rounded-full bg-inset py-2 pl-2 pr-4 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
                 >
-                  {FAMILY_LABELS[f] ?? f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-card">
+                    <BusinessCenterIcon className="h-4 w-4 text-foreground" />
+                  </span>
+                  {t("discovery.myBusiness")}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              )}
             </div>
           )}
           <CategoryCarousel family={showFamilies ? family : undefined} />
@@ -220,7 +241,9 @@ const Discovery = () => {
               business you already run. Signing up to be a provider lives in
               the account menu — it is a once-ever action, not a shortcut. */}
           {managesBusiness && (
-            <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
+            <div className="md:hidden">
+              <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
+            </div>
           )}
         </div>
       </section>

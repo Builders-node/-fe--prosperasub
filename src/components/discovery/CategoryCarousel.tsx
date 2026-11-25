@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
+import { CATEGORY_INK, categoryTone } from "@/components/discovery/categoryTones";
+import { categoryDealBadge, useActiveDiscounts } from "@/lib/discounts";
 
 /**
  * The wide banner above the services grid: one slide per category, each a
@@ -17,6 +19,10 @@ import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
  * category on the front page, priced, and links each one straight to its
  * listing already narrowed to it.
  *
+ * On a desktop it is a bento block (DesktopBento): one big card, the others
+ * beside it, every category in its own colour (categoryTones) and badged
+ * when there is a reason to tap — a live deal, or "New".
+ *
  * RULE: these cards are always illustrated, never a photo. Not an admin's
  * picture, not a provider's, not as a fallback. One photo card in a row of
  * drawings (Coffee showed a roastery shot beside the drawn Club, Cleaning and
@@ -25,36 +31,126 @@ import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
  */
 
 const ROTATE_MS = 3000;
+/** A category added this recently wears a "New" badge. */
+const NEW_FOR_MS = 30 * 24 * 60 * 60 * 1000;
 
-function Slide({ item }: { item: CategoryHighlight }) {
-  // 140px tall, 16px radius, always the orange promo card with a drawing on
-  // the right. The service sits above the category in 12px regular and the
-  // category itself is 16px semibold: the small line is context, the big one
-  // is the thing. item.imageUrl is deliberately NOT used here (see the note
-  // at the top of the file); the catalog sidebar still shows it.
+/** What a card says on top of its name: a live deal first, else "New". */
+interface CardBadge { text: string; deal: boolean }
+
+function useBadges(items: CategoryHighlight[]): Map<string, CardBadge> {
+  const { data: discounts } = useActiveDiscounts();
+  return useMemo(() => {
+    const now = Date.now();
+    const m = new Map<string, CardBadge>();
+    for (const h of items) {
+      const deal = categoryDealBadge(discounts, h.providerIds, now);
+      if (deal) { m.set(h.key, { text: deal, deal: true }); continue; }
+      const added = h.createdAt ? Date.parse(h.createdAt) : NaN;
+      if (Number.isFinite(added) && now - added < NEW_FOR_MS) m.set(h.key, { text: "New", deal: false });
+    }
+    return m;
+  }, [items, discounts]);
+}
+
+function Badge({ badge }: { badge?: CardBadge }) {
+  if (!badge) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit max-w-full truncate rounded-full px-2 py-0.5 text-[11px] font-bold uppercase leading-4 tracking-wide",
+        badge.deal ? "bg-[#e5482d] text-white" : "bg-[#1f1a14] text-white",
+      )}
+    >
+      {badge.text}
+    </span>
+  );
+}
+
+function Price({ item, big = false }: { item: CategoryHighlight; big?: boolean }) {
+  if (item.fromCents === null) return null;
+  return (
+    <p className={cn("leading-tight", big ? "text-[15px]" : "text-meta")} style={{ color: `${CATEGORY_INK}b3` }}>
+      from{" "}
+      <span className={cn("font-bold tabular-nums", big ? "text-[20px]" : "text-[15px]")} style={{ color: CATEGORY_INK }}>
+        {formatUSD(item.fromCents)}
+      </span>
+      {item.unit ? ` ${item.unit}` : ""}
+    </p>
+  );
+}
+
+/**
+ * One category card. The words get the left of the card and the drawing the
+ * right, as two columns — never stacked on each other. Laid over the drawing,
+ * "Apartment Cleaning" ran under the spray bottle and "/ month" under the
+ * coffee beans. item.imageUrl is deliberately NOT used here (see the note at
+ * the top of the file); the catalog sidebar still shows it.
+ */
+function Slide({ item, badge, className }: { item: CategoryHighlight; badge?: CardBadge; className?: string }) {
+  const tone = categoryTone(item.key);
   return (
     <Link
       to={item.href}
       aria-label={item.label}
-      className="group relative flex h-[140px] w-full shrink-0 flex-col justify-end overflow-hidden rounded-radius-md bg-primary p-4"
+      className={cn(
+        "group relative flex h-[140px] w-full shrink-0 overflow-hidden rounded-radius-md transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-figma",
+        className,
+      )}
+      style={{ backgroundColor: tone.bg }}
     >
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-end gap-0.5 py-4 pl-4 pr-1">
+        <span className="mb-auto"><Badge badge={badge} /></span>
+        {item.archetype && (
+          <p className="truncate text-meta" style={{ color: `${CATEGORY_INK}b3` }}>{item.archetype.label}</p>
+        )}
+        <p className="line-clamp-2 text-title font-semibold leading-tight" style={{ color: CATEGORY_INK }}>{item.label}</p>
+        <Price item={item} />
+      </div>
       <CategoryBannerArt
         categoryKey={item.key}
         icon={item.archetype?.Icon}
-        className="absolute inset-y-0 right-0 h-full w-[180px] origin-bottom-right transition-transform duration-300 group-hover:scale-105"
+        glow={tone.glow}
+        className="h-full w-[44%] max-w-[180px] shrink-0 origin-bottom-right transition-transform duration-300 group-hover:scale-105"
       />
+    </Link>
+  );
+}
 
-      <div className="relative flex flex-col gap-0.5">
+/**
+ * The big card of the desktop block: the one category with a reason to look
+ * today (a deal, else something new), drawn twice the size, with a button.
+ */
+function FeatureCard({ item, badge }: { item: CategoryHighlight; badge?: CardBadge }) {
+  const tone = categoryTone(item.key);
+  return (
+    <Link
+      to={item.href}
+      aria-label={item.label}
+      className="group relative flex h-full min-h-0 overflow-hidden rounded-radius-lg transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-figma"
+      style={{ backgroundColor: tone.bg }}
+    >
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1 p-6 pr-2">
+        <Badge badge={badge} />
         {item.archetype && (
-          <p className="text-meta text-primary-foreground/70">{item.archetype.label}</p>
+          <p className="mt-auto truncate text-[15px]" style={{ color: `${CATEGORY_INK}b3` }}>{item.archetype.label}</p>
         )}
-        <p className="text-title font-semibold text-primary-foreground">{item.label}</p>
-        {item.fromCents !== null && (
-          <p className="text-meta text-primary-foreground/70">
-            from {formatUSD(item.fromCents)}{item.unit ? ` ${item.unit}` : ""}
-          </p>
-        )}
+        <p className={cn("line-clamp-2 text-[28px] font-bold leading-[1.1] tracking-tight", !item.archetype && "mt-auto")} style={{ color: CATEGORY_INK }}>
+          {item.label}
+        </p>
+        <Price item={item} big />
+        <span
+          className="mt-3 inline-flex w-fit items-center gap-1 rounded-full px-4 py-2 text-[14px] font-semibold text-white transition-colors"
+          style={{ backgroundColor: CATEGORY_INK }}
+        >
+          Explore <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </span>
       </div>
+      <CategoryBannerArt
+        categoryKey={item.key}
+        icon={item.archetype?.Icon}
+        glow={tone.glow}
+        className="h-full w-[46%] max-w-[300px] shrink-0 origin-bottom-right transition-transform duration-300 group-hover:scale-105"
+      />
     </Link>
   );
 }
@@ -78,6 +174,7 @@ export function CategoryCarousel({ family }: {
   const [paused, setPaused] = useState(false);
 
   const count = highlights.length;
+  const badges = useBadges(highlights);
   const go = useCallback((dir: 1 | -1) => {
     setIndex((i) => (count ? (i + dir + count) % count : 0));
   }, [count]);
@@ -118,13 +215,13 @@ export function CategoryCarousel({ family }: {
     <>
       {/*
         A carousel earns its place on a phone, where one card is all that
-        fits. On a desktop it was one rotating card in a page of empty space —
-        hiding the other categories behind a timer while showing nothing else.
-        Same slides in ONE row (two rows of banners took the whole first
-        screen): four across, the rest a scroll or an arrow away. The
-        carousel below keeps the phones.
+        fits. On a desktop it was one rotating card in a page of empty space,
+        then four identical orange cards in a row that read as one strip. Now
+        one big card for the category with a reason to look today, and the
+        rest smaller beside it, each in its own colour. The carousel below
+        keeps the phones.
       */}
-      {count > 1 && <DesktopRow items={highlights} />}
+      {count > 1 && <DesktopBento items={highlights} badges={badges} />}
     <section
       aria-roledescription="carousel"
       aria-label="Browse by category"
@@ -149,7 +246,7 @@ export function CategoryCarousel({ family }: {
         >
           {highlights.map((h) => (
             <div key={h.key} className="w-[calc(100%-16px)] shrink-0 pr-2">
-              <Slide item={h} />
+              <Slide item={h} badge={badges.get(h.key)} />
             </div>
           ))}
         </div>
@@ -160,8 +257,22 @@ export function CategoryCarousel({ family }: {
   );
 }
 
-/** Desktop: one row of slides, four across (three on a tablet), scrolled by arrows. */
-function DesktopRow({ items }: { items: CategoryHighlight[] }) {
+/**
+ * Desktop: a bento block two cards tall. The feature card takes the left; the
+ * others fill a two-row grid on the right, two across on a laptop, scrolled
+ * by an arrow when there are more than fit.
+ *
+ * The feature is the first category with a live deal, else the first new
+ * one, else simply the first — so it changes when there is news and stays
+ * put when there isn't.
+ */
+function DesktopBento({ items, badges }: { items: CategoryHighlight[]; badges: Map<string, CardBadge> }) {
+  const feature =
+    items.find((h) => badges.get(h.key)?.deal) ??
+    items.find((h) => badges.has(h.key)) ??
+    items[0];
+  const rest = items.filter((h) => h !== feature);
+
   const ref = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: true });
   const measure = useCallback(() => {
@@ -176,24 +287,35 @@ function DesktopRow({ items }: { items: CategoryHighlight[] }) {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [measure, items.length]);
-  const page = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth, behavior: "smooth" });
+  }, [measure, rest.length]);
+  const page = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * (ref.current.clientWidth + 8), behavior: "smooth" });
 
   return (
-    <section aria-label="Browse by category" className="relative hidden md:block">
-      <div
-        ref={ref}
-        onScroll={measure}
-        className="flex snap-x snap-mandatory gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {items.map((h) => (
-          <div key={h.key} className="w-[calc((100%-16px)/3)] shrink-0 snap-start lg:w-[calc((100%-24px)/4)]">
-            <Slide item={h} />
-          </div>
-        ))}
+    <section
+      aria-label="Browse by category"
+      className="hidden h-[288px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 md:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
+    >
+      <FeatureCard item={feature} badge={badges.get(feature.key)} />
+      <div className="relative min-w-0">
+        <div
+          ref={ref}
+          onScroll={measure}
+          className={cn(
+            "grid h-full snap-x snap-mandatory grid-flow-col grid-rows-2 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "auto-cols-[100%] lg:auto-cols-[calc((100%-8px)/2)]",
+            // One card left over fills the column rather than leaving a hole.
+            rest.length === 1 && "grid-rows-1",
+          )}
+        >
+          {rest.map((h) => (
+            <div key={h.key} className="min-h-0 snap-start">
+              <Slide item={h} badge={badges.get(h.key)} className="h-full" />
+            </div>
+          ))}
+        </div>
+        {!edges.start && <RowArrow dir={-1} onClick={() => page(-1)} />}
+        {!edges.end && <RowArrow dir={1} onClick={() => page(1)} />}
       </div>
-      {!edges.start && <RowArrow dir={-1} onClick={() => page(-1)} />}
-      {!edges.end && <RowArrow dir={1} onClick={() => page(1)} />}
     </section>
   );
 }
