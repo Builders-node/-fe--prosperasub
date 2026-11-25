@@ -1,4 +1,6 @@
 import { normalizeUnit } from "@/lib/checkout/ctaLabel";
+import { DealNote, DealPill, DealPrice } from "@/components/discounts/DealBits";
+import type { DisplayDiscount } from "@/lib/discounts";
 import type { LucideIcon } from "lucide-react";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Plus, Star } from "lucide-react";
@@ -64,6 +66,8 @@ export interface PlanCardProps {
   className?: string;
   /** A heart on the photo — save this to favourites without opening it. */
   favorite?: { kind: "plan" | "vehicle"; id: string };
+  /** A discount the business runs on this offer (lib/discounts): a pill on the photo, the price struck. */
+  deal?: DisplayDiscount | null;
 }
 
 /** ★ 4.8 (12) — absent entirely when nobody has rated, never "0.0" or "No reviews". */
@@ -93,6 +97,7 @@ export function PlanCard({
   onOpen,
   className,
   favorite,
+  deal,
 }: PlanCardProps) {
   const hasPrice = typeof price.cents === "number" && price.cents > 0;
   const open = onOpen ?? (cta.disabled ? undefined : cta.onClick);
@@ -127,6 +132,7 @@ export function PlanCard({
         {favorite && (
           <FavoriteButton kind={favorite.kind} id={favorite.id} name={title} variant="overlay" className="absolute right-2 top-2" />
         )}
+        <DealPill deal={deal} className="absolute left-2 top-2" />
         {(labels.length > 0 || (featured && featuredLabel)) && (
           <div className="pointer-events-none absolute bottom-2 left-2 flex max-w-[calc(100%-4rem)] flex-col items-start gap-1">
             {labels.map((l) => (
@@ -147,7 +153,17 @@ export function PlanCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-1">
-        {hasPrice ? (
+        {hasPrice && deal ? (
+          <p className="leading-tight">
+            <DealPrice
+              deal={deal}
+              cents={price.cents!}
+              from={price.from}
+              unit={price.unit ? (price.unit.trim().startsWith("/") ? normalizeUnit(price.unit) : price.unit) : null}
+            />
+            {deal.note && <><br /><DealNote deal={deal} /></>}
+          </p>
+        ) : hasPrice ? (
           <p className="text-[20px] font-bold leading-tight tracking-tight tabular-nums text-foreground">
             {price.from && <span className="text-meta font-medium tracking-normal text-muted-foreground">From </span>}
             {formatUSD(price.cents!)}

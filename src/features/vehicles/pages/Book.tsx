@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { quoteLabel, type DiscountQuote } from "@/lib/discounts";
+import { useQuery } from "@tanstack/react-query";
 import { Photo } from "@/components/patterns/Photo";
 import { useLocation, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useAuthModal } from "@/contexts/AuthModalContext";
@@ -24,7 +26,8 @@ import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import { phoneError } from "@/components/patterns/CustomerPhone";
 import { useAddons } from "../hooks/useAddons";
-import { accountApi } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
+import { useUserUuid } from "@/hooks/useUserUuid";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, extraCost } from "../types/carRental";
@@ -110,7 +113,24 @@ export default function Book() {
   const addonsCents = insuranceCents + extrasCents + deliveryFee;
 
   const rentalTotal = pricing?.totalCents ?? 0;
-  const baseTotal = rentalTotal + addonsCents;
+  // The rental company's own discount on the car (not the add-ons) — an
+  // estimate from the database; the booking is priced by the server again.
+  const userUuid = useUserUuid();
+  const offerQ = useQuery({
+    queryKey: ["vehicle-offer", v?.id, userUuid, rentalTotal],
+    enabled: !!v?.id && rentalTotal > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb.rpc("discount_quote_for_vehicle", {
+        p_vehicle_id: v!.id, p_user_id: userUuid ?? null, p_amount_cents: rentalTotal,
+      });
+      if (error) return null;
+      return data as DiscountQuote | null;
+    },
+  });
+  const offer = offerQ.data?.ok ? offerQ.data : null;
+  const offerCents = offer ? Math.min(Number(offer.discount_cents) || 0, rentalTotal) : 0;
+  const baseTotal = rentalTotal + addonsCents - offerCents;
   const effectiveTotal = addSurchargeCents(baseTotal, method);
 
   const toggleExtra = (eid: string) =>
@@ -457,6 +477,7 @@ export default function Book() {
             <div className="space-y-1.5 border-t border-border/60 pt-3 text-body">
               <Line label={`Car · ${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`} value={formatUSD(pricing.subtotalCents)} />
               {pricing.discountCents > 0 && <Line label="Multi-day discount" value={`−${formatUSD(pricing.discountCents)}`} accent />}
+              {offerCents > 0 && offer && <Line label={quoteLabel(offer)} value={`−${formatUSD(offerCents)}`} accent />}
               {insuranceCents > 0 && <Line label={insurance?.name ?? "Insurance"} value={formatUSD(insuranceCents)} />}
               {chosenExtras.map((e) => <Line key={e.id} label={e.name} value={formatUSD(extraCost(e, days))} />)}
               {deliveryFee > 0 && <Line label={`Delivery · ${zone?.name}`} value={formatUSD(deliveryFee)} />}

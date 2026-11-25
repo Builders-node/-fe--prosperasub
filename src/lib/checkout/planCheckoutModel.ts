@@ -44,6 +44,8 @@ export interface CheckoutPlan {
   universalId: string;
   /** The id a subscription will carry: the legacy plan id, or the universal one. */
   subjectPlanId: string;
+  /** The offer this variant belongs to — a discount on the offer covers its variants. */
+  parentPlanId?: string | null;
   providerUniversalId: string;
   /** Legacy provider id, for the tables that key off it. */
   providerLegacyId: string | null;
@@ -158,6 +160,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     providerActive: ["active", "approved"].includes(String(row.providers?.status ?? "active")),
     universalId: String(row.id),
     subjectPlanId: String(row.source_plan_id ?? row.id),
+    parentPlanId: row.parent_plan_id ? String(row.parent_plan_id) : null,
     providerUniversalId: String(row.provider_id),
     providerLegacyId: row.providers?.source_provider_id ? String(row.providers.source_provider_id) : null,
     name: String(row.name ?? "Plan"),

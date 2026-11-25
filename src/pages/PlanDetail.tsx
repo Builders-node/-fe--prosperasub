@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { DealPanel } from "@/components/discounts/DealPanel";
 import { useTrackFunnel } from "@/lib/funnel";
 import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
@@ -945,6 +946,14 @@ const PlanDetail = () => {
                 </button>
               )}
             </div>
+          )}
+
+          {/* The business's own discounts on this offer (lib/discounts). */}
+          {!notOnSale && !!priceCents && (
+            <DealPanel
+              subject={{ providerId: plan.providerId, id: chosen?.id ?? plan.id, parentId: chosen ? plan.id : null, priceCents }}
+              unit={priceUnit || null}
+            />
           )}
 
           {/* The fee each way to pay adds, here rather than on the last step. */}

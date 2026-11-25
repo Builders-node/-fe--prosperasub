@@ -1,3 +1,4 @@
+import { useDisplayDiscount } from "@/lib/discounts";
 import { SUBSCRIBE, priceUnit } from "@/lib/checkout/ctaLabel";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
 import { includedLabel } from "@/lib/services/planPeriod";
@@ -21,6 +22,9 @@ export interface UniversalPlan {
   included_unit?: string | null;
   /** The plan's own photographs — the offer editor saves them here. */
   gallery_urls?: unknown;
+  /** For matching the business's discounts (lib/discounts). */
+  provider_id?: string | null;
+  parent_plan_id?: string | null;
 }
 
 /** The card's photo rule: the plan's own pictures first, the provider's as a
@@ -60,6 +64,9 @@ export function UniversalPlanCard({
 }) {
   const included = includedLabel(plan.included_quantity, plan.included_unit, plan.period);
   const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
+  const deal = useDisplayDiscount({
+    providerId: plan.provider_id, id: plan.id, parentId: plan.parent_plan_id, priceCents: plan.price_cents,
+  });
 
   return (
     <PlanCard
@@ -87,6 +94,7 @@ export function UniversalPlanCard({
         disabledLabel: "Not bookable yet",
       }}
       favorite={{ kind: "plan", id: plan.id }}
+      deal={deal}
     />
   );
 }

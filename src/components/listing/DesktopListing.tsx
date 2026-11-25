@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, Star } from "lucide-react";
+import { ChevronDown, Percent, Star } from "lucide-react";
+import { DealNote, DealPrice } from "@/components/discounts/DealBits";
+import { displayDiscount, useActiveDiscounts, useDisplayDiscount } from "@/lib/discounts";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
@@ -96,13 +98,19 @@ export function useDesktopFilters() {
   const min = num("min");
   const max = num("max");
   const biz = (params.get("biz") ?? "").split(",").filter(Boolean);
+  // ?deals=1 — only offers with a discount on right now (lib/discounts).
+  const deals = params.get("deals") === "1";
+  const { data: discounts } = useActiveDiscounts();
   const set = (patch: Record<string, string | null>) => setParams((prev) => {
     const out = new URLSearchParams(prev);
     for (const [k, v] of Object.entries(patch)) { if (v) out.set(k, v); else out.delete(k); }
     return out;
   }, { replace: true });
   return {
-    min, max, biz,
+    min, max, biz, deals,
+    toggleDeals: () => set({ deals: deals ? null : "1" }),
+    /** Whether any offer on the page has a discount — the filter is hidden when none does. */
+    hasDeals: (rows: ListingPlan[]) => rows.some((r) => !!displayDiscount(discounts, { providerId: r.providerId, id: r.id, priceCents: r.priceCents })),
     setMin: (v: string) => set({ min: v.trim() || null }),
     setMax: (v: string) => set({ max: v.trim() || null }),
     toggleBiz: (id: string) => {
@@ -110,10 +118,11 @@ export function useDesktopFilters() {
       set({ biz: next.join(",") || null });
     },
     // seats / gear are the vehicles listing's own (features/vehicles Fleet).
-    reset: () => set({ min: null, max: null, biz: null, category: null, tags: null, seats: null, gear: null }),
-    active: min !== null || max !== null || biz.length > 0 || !!params.get("tags") || !!params.get("seats") || !!params.get("gear"),
+    reset: () => set({ min: null, max: null, biz: null, category: null, tags: null, seats: null, gear: null, deals: null }),
+    active: deals || min !== null || max !== null || biz.length > 0 || !!params.get("tags") || !!params.get("seats") || !!params.get("gear"),
     apply: <T extends ListingPlan>(rows: T[]) => rows.filter((r) => {
       if (biz.length && !biz.includes(r.providerId)) return false;
+      if (deals && !displayDiscount(discounts, { providerId: r.providerId, id: r.id, priceCents: r.priceCents })) return false;
       const dollars = r.priceCents === null ? null : r.priceCents / 100;
       if (min !== null && (dollars === null || dollars < min)) return false;
       if (max !== null && (dollars === null || dollars > max)) return false;
@@ -193,6 +202,23 @@ export function DesktopListing({
             />
           </div>
         </FilterGroup>
+
+        {(filters.deals || filters.hasDeals(plans)) && (
+          <FilterGroup title="Deals">
+            <button
+              type="button"
+              aria-pressed={filters.deals}
+              onClick={filters.toggleDeals}
+              className={cn(
+                "flex h-10 items-center gap-2 rounded-full px-4 text-body font-semibold transition-colors",
+                filters.deals ? "bg-destructive text-destructive-foreground" : "bg-muted text-foreground hover:bg-muted/70",
+              )}
+            >
+              <Percent className="h-4 w-4" />
+              With a discount
+            </button>
+          </FilterGroup>
+        )}
 
         {extraFilters}
 
@@ -302,6 +328,7 @@ function PriceField({ label, value, placeholder, onCommit }: {
 
 function ListingCard({ plan }: { plan: ListingPlan }) {
   const ref = useRef<HTMLAnchorElement>(null);
+  const deal = useDisplayDiscount({ providerId: plan.providerId, id: plan.id, priceCents: plan.priceCents });
   const promo = plan.promotionId;
   // A paid placement is counted as seen when half of it is on screen.
   useEffect(() => {
@@ -321,18 +348,24 @@ function ListingCard({ plan }: { plan: ListingPlan }) {
       onClick={promo ? () => trackPromotion(promo, "click") : undefined}
       photos={plan.photos}
       badge={promo ? "Featured" : undefined}
+      deal={deal}
       corner={<FavoriteButton kind={plan.favoriteKind ?? "plan"} id={plan.id} name={plan.name} variant="overlay" />}
       title={plan.name}
       subtitle={plan.providerName}
       chips={plan.tags}
       footer={
         <div className="space-y-0.5">
-          {plan.unit && typeof plan.priceCents === "number" && plan.priceCents > 0 ? (
+          {plan.unit && typeof plan.priceCents === "number" && plan.priceCents > 0 && deal ? (
+            <p className="leading-tight">
+              <DealPrice deal={deal} cents={plan.priceCents} unit={`/ ${plan.unit}`} />
+              {deal.note && <><br /><DealNote deal={deal} /></>}
+            </p>
+          ) : plan.unit && typeof plan.priceCents === "number" && plan.priceCents > 0 ? (
             <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
               {formatUSD(plan.priceCents)}<span className="text-meta font-medium tracking-normal text-muted-foreground"> / {plan.unit}</span>
             </p>
           ) : (
-            <PriceLine cents={plan.priceCents} period={plan.period} perPerson={plan.perPerson} />
+            <PriceLine cents={plan.priceCents} period={plan.period} perPerson={plan.perPerson} deal={deal} />
           )}
           {plan.rating && plan.rating.count > 0 && (
             <p className="flex items-center gap-1 text-[13px] text-muted-foreground">
