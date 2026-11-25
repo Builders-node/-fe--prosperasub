@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { RouteEffects } from "@/components/seo/RouteEffects";
+import { ScrollManager } from "@/components/app/ScrollManager";
 import { ConsentBanner } from "@/components/seo/ConsentBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -236,6 +237,8 @@ const App = () => {
                 <ReferralCapture />
                 {/* noindex on private routes + GA4 page views (after consent). */}
                 <RouteEffects />
+                {/* New pages open at the top; Back/Forward returns to the old place. */}
+                <ScrollManager />
                 {/* Moves an open tab onto a newer build at the next navigation. */}
                 <VersionWatcher />
                 <ConsentBanner />
