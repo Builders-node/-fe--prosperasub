@@ -14,7 +14,7 @@ export function DealPill({ deal, className }: { deal: DisplayDiscount | null | u
   return (
     <span
       className={cn(
-        "pointer-events-none max-w-[calc(100%-3.5rem)] truncate rounded-full px-2.5 py-0.5 text-meta font-bold shadow-sm",
+        "pointer-events-none max-w-[calc(100%-3.5rem)] truncate rounded-full px-2.5 py-0.5 text-meta font-bold",
         deal.kind === "sale" ? "bg-destructive text-destructive-foreground" : "bg-foreground text-background",
         className,
       )}
@@ -41,7 +41,7 @@ export function DealPrice({
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-1.5", className)}>
       <span className={cn(
         "font-bold tracking-tight tabular-nums",
-        size === "page" ? "text-[28px] leading-none" : "text-[20px] leading-tight",
+        size === "page" ? "text-3xl leading-none" : "text-heading leading-tight",
         was ? "text-destructive" : "text-foreground",
       )}>
         {from && <span className="text-meta font-medium tracking-normal text-muted-foreground">From </span>}

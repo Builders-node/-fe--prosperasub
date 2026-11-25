@@ -1205,7 +1205,7 @@ const UniversalPlanCheckout = () => {
           )}
           {/* Discounts do not stack — say which one won, so a code that "did nothing" is explained. */}
           {useOffer && offer && (
-            <p className="mt-1 text-[13px] text-positive">
+            <p className="mt-1 text-meta text-positive">
               {quoteLabel(offer)} — {formatUSD(discountCents)} off
               {promo ? `. That's more than ${promo.code} gives, so the code isn't used.` : " already applied."}
             </p>

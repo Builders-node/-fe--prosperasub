@@ -588,7 +588,7 @@ function Preview({ sample, deal, kind, offCents, keep, commissionPct }: {
       </div>
       <div className="rounded-radius-md bg-inset p-3">
         <p className="text-meta font-semibold text-muted-foreground">You get, per {kind === "prepay" ? `${sample.unit} at the deepest step` : sample.unit || "order"}</p>
-        <p className="mt-2 text-[20px] font-bold tabular-nums text-foreground">{formatUSD(keep(after))}</p>
+        <p className="mt-2 text-heading font-bold tabular-nums text-foreground">{formatUSD(keep(after))}</p>
         <p className="text-meta text-muted-foreground">
           instead of {formatUSD(keep(sample.cents))} · after Prospera's {commissionPct}% fee
         </p>

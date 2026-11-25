@@ -210,7 +210,7 @@ export function DesktopListing({
               aria-pressed={filters.deals}
               onClick={filters.toggleDeals}
               className={cn(
-                "flex h-10 items-center gap-2 rounded-full px-4 text-[14px] font-semibold transition-colors",
+                "flex h-10 items-center gap-2 rounded-full px-4 text-body font-semibold transition-colors",
                 filters.deals ? "bg-destructive text-destructive-foreground" : "bg-muted text-foreground hover:bg-muted/70",
               )}
             >
