@@ -1009,6 +1009,7 @@ const PlanDetail = () => {
         )}
 
 
+
         {plan.providerId && reviewService && (
           // The block is a bare <section>, so the card padding belongs here —
           // full-bleed left its heading against the screen edge.

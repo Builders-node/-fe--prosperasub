@@ -105,6 +105,8 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/account\/providers\/[^/]+\/till-pin$/,
   /^\/account\/providers\/[^/]+\/redemptions(\/[^/]+\/void)?$/,
   /^\/account\/providers\/[^/]+\/reviews\/[^/]+\/reply$/,
+  // "How it works" steps a business writes for its pages (Edge routes/how-it-works.ts).
+  /^\/account\/providers\/[^/]+\/how-it-works$/,
   // Owner promo codes and team invites (Edge routes/provider-growth.ts).
   /^\/account\/providers\/[^/]+\/promo-codes(\/[^/]+)?$/,
   /^\/account\/providers\/[^/]+\/team-invites(\/[^/]+)?$/,
