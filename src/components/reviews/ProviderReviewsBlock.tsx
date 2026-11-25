@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { formatDistanceToNowStrict } from "date-fns";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +9,11 @@ import { useUserUuid } from "@/hooks/useUserUuid";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/food/StarRating";
-import { CommentIcon, InfoIcon, StarIcon } from "@/components/icons/FigmaIcons";
+import { CommentIcon } from "@/components/icons/FigmaIcons";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export type ProviderReviewService = "cleaning" | "beach" | "food" | "plan" | "cars";
@@ -57,6 +62,9 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
 
   const [rating, setRating] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  // The composer is closed until asked for: a review already left reads as a
+  // review, not as a form with its own answer pasted back into it.
+  const [composing, setComposing] = useState(false);
   const [comment, setComment] = useState("");
 
   const { data: reviews = [], isLoading } = useQuery({
@@ -128,6 +136,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
     },
     onSuccess: () => {
       toast.success(myReview ? "Review updated" : "Thanks for your review!");
+      setComposing(false);
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -140,6 +149,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
     },
     onSuccess: () => {
       toast.success("Review removed");
+      setComposing(false);
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -151,139 +161,255 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
     : "Share how it went…";
 
   const canPost = isAuthenticated && isCustomer;
-  const shown = expanded ? reviews : reviews.slice(0, 3);
+  const me = uuid ?? userData?.id;
+
+  // Everyone else's reviews. Mine is drawn once, at the top, not twice.
+  // Written reviews lead; a bare star rating says less, so it follows.
+  const others = useMemo(
+    () =>
+      reviews
+        .filter((r) => r.id !== myReview?.id)
+        .sort((a, b) => Number(!!b.comment?.trim()) - Number(!!a.comment?.trim())),
+    [reviews, myReview?.id],
+  );
+  const shown = expanded ? others : others.slice(0, 3);
+
+  const counts = [5, 4, 3, 2, 1].map((n) => ({
+    n,
+    count: reviews.filter((r) => Math.round(r.rating) === n).length,
+  }));
+
+  const cancelEdit = () => {
+    setComposing(false);
+    setRating(myReview?.rating ?? 0);
+    setComment(myReview?.comment ?? "");
+  };
+
+  const composer = (
+    <div className="rounded-radius-md bg-inset px-4 py-3">
+      <p className="text-title font-semibold leading-[22px] text-foreground">
+        {myReview ? "Edit your review" : "Your rating"}
+      </p>
+      <div className="mt-2">
+        <StarRating value={rating} onChange={setRating} size={28} />
+      </div>
+      <Textarea
+        className="mt-3"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        rows={3}
+        maxLength={500}
+        autoFocus
+        placeholder={placeholder ?? defaultPlaceholder}
+      />
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          onClick={() => submitMutation.mutate()}
+          disabled={submitMutation.isPending || rating < 1}
+        >
+          {submitMutation.isPending && <Spinner size="sm" className="mr-2" />}
+          {myReview ? "Save" : "Post review"}
+        </Button>
+        <Button variant="ghost" onClick={cancelEdit}>Cancel</Button>
+      </div>
+    </div>
+  );
+
+  const summary = reviews.length > 0 && (
+    <div className="flex items-center gap-4">
+      <div className="flex shrink-0 flex-col items-start gap-1">
+        <span className="text-[32px] font-semibold leading-none tracking-[-0.64px] text-foreground tabular-nums">
+          {avg.toFixed(1)}
+        </span>
+        <StarRating value={avg} size={14} />
+        <span className="text-meta leading-4 text-muted-foreground">
+          {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+        </span>
+      </div>
+      {/* Where the average comes from: a 4.5 from two reviews and from two
+          hundred are different promises. */}
+      <ul className="flex min-w-0 flex-1 flex-col gap-1" aria-label="Rating breakdown">
+        {counts.map(({ n, count }) => (
+          <li key={n} className="flex items-center gap-2 text-meta leading-4 text-muted-foreground">
+            <span className="w-2 shrink-0 text-right tabular-nums">{n}</span>
+            <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-inset">
+              <span
+                className="block h-full rounded-full bg-primary"
+                style={{ width: `${(count / reviews.length) * 100}%` }}
+              />
+            </span>
+            <span className="w-4 shrink-0 tabular-nums">{count}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  // The way in: one button for a client who has not reviewed yet, one quiet
+  // line for everyone else — not a standing box explaining a form that isn't there.
+  const cta = !isLoading && !myReview && (
+    canPost ? (
+      !composing && (
+        <Button variant="outline" className="w-full" onClick={() => setComposing(true)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Write a review
+        </Button>
+      )
+    ) : (
+      <p className="text-meta leading-4 text-muted-foreground">Only clients can leave a review.</p>
+    )
+  );
+
+  const list = isLoading ? (
+    <div className="h-20 animate-pulse rounded-radius-md bg-inset" />
+  ) : reviews.length === 0 ? (
+    !composing && (
+      <div className="flex flex-col items-center gap-3 rounded-radius-md p-4 text-center">
+        <CommentIcon className="h-8 w-8 text-primary" />
+        <div className="space-y-1">
+          <p className="text-title font-semibold leading-[22px] text-foreground">No reviews yet</p>
+          <p className="text-title leading-[22px] text-muted-foreground">
+            Be the first to share your experience
+          </p>
+        </div>
+      </div>
+    )
+  ) : (
+    <div className="flex flex-col gap-1">
+      {myReview && (
+        composing ? composer : (
+          <ReviewCard
+            review={myReview}
+            mine
+            onEdit={() => setComposing(true)}
+            onDelete={() => deleteMutation.mutate(myReview.id)}
+          />
+        )
+      )}
+      {shown.map((r) => (
+        <ReviewCard
+          key={r.id}
+          review={r}
+          onDelete={canModerate || (!!me && r.user_id === me) ? () => deleteMutation.mutate(r.id) : undefined}
+        />
+      ))}
+      {/* Three is what the design shows; the rest are one tap away rather
+          than a page of scrolling on a plan you have not bought yet. */}
+      {others.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full rounded-radius-md px-4 py-2 text-center text-title leading-[22px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {expanded ? "Show fewer" : `Show all ${others.length} reviews`}
+        </button>
+      )}
+    </div>
+  );
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h2 className="min-w-0 flex-1 text-heading font-semibold text-foreground">Reviews</h2>
-        {reviews.length > 0 && (
-          <span className="flex shrink-0 items-center gap-1">
-            <StarIcon className="h-[18px] w-[18px] text-primary" />
-            <span className="text-[14px] leading-[18px] tracking-[-0.28px] text-muted-foreground">
-              {avg.toFixed(1)}/5 ({reviews.length})
-            </span>
-          </span>
+    <section className="flex flex-col gap-4">
+      <h2 className="text-heading font-semibold text-foreground">Reviews</h2>
+      <div className="flex flex-col gap-4">
+        {(summary || cta) && (
+          <div className="flex flex-col gap-4">
+            {summary}
+            {cta}
+          </div>
         )}
+        <div className="flex flex-col gap-1">
+          {composing && !myReview && composer}
+          {list}
+        </div>
       </div>
+    </section>
+  );
+}
 
-      {/* The design keeps this note standing rather than hiding it: it explains
-          why there is no box to type in, which silence does not. */}
-      {!canPost && !isLoading && (
-        <div className="flex items-start gap-2 rounded-radius-md bg-inset px-4 py-3">
-          <InfoIcon className="h-[22px] w-[22px] shrink-0 text-primary" />
-          <p className="flex-1 text-title leading-[22px] text-muted-foreground">
-            Only clients can leave a review
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "C";
+}
+
+function ReviewCard({
+  review: r,
+  mine,
+  onEdit,
+  onDelete,
+}: {
+  review: ProviderReviewRow;
+  mine?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  const name = r.customer_name && !r.customer_name.includes("@") ? r.customer_name : "Customer";
+  const when = r.updated_at || r.created_at;
+  const text = r.comment?.trim();
+  return (
+    <div className="flex gap-3 rounded-radius-md bg-inset px-4 py-3">
+      <span
+        aria-hidden
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
+          mine ? "bg-primary text-primary-foreground" : "bg-primary/15 text-primary",
+        )}
+      >
+        {initials(name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 truncate text-title font-semibold leading-[22px] text-foreground">
+            {mine ? "Your review" : name}
           </p>
-        </div>
-      )}
-
-      {canPost && (
-        <div className="rounded-radius-md bg-inset px-4 py-3">
-          <p className="text-title font-semibold leading-[22px] text-foreground">
-            {myReview ? "Your review" : "Leave a review"}
-          </p>
-          <div className="mt-2">
-            <StarRating value={rating} onChange={setRating} size={28} />
-          </div>
-          <Textarea
-            className="mt-3"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={3}
-            maxLength={500}
-            placeholder={placeholder ?? defaultPlaceholder}
-          />
-          <div className="mt-3 flex items-center gap-2">
-            <Button
-             
-              onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending || rating < 1}
-            >
-              {submitMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              {myReview ? "Update review" : "Post review"}
-            </Button>
-            {myReview && (
-              <Button
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                onClick={() => deleteMutation.mutate(myReview.id)}
-                disabled={deleteMutation.isPending}
-              >
-                Delete
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="h-20 animate-pulse rounded-radius-md bg-inset" />
-      ) : reviews.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-radius-md p-4 text-center">
-          <CommentIcon className="h-8 w-8 text-primary" />
-          <div className="space-y-1">
-            <p className="text-title font-semibold leading-[22px] text-foreground">No reviews</p>
-            <p className="text-title leading-[22px] text-muted-foreground">
-              Be the first to share your experience
-            </p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-col gap-1">
-            {shown.map((r) => (
-              <div key={r.id} className="rounded-radius-md bg-inset px-4 py-3">
-                <div className="flex items-start gap-1">
-                  <p className="min-w-0 flex-1 truncate text-title font-semibold leading-[22px] text-foreground">
-                    {r.customer_name && !r.customer_name.includes("@") ? r.customer_name : "Customer"}
-                  </p>
-                  <span className="flex shrink-0 items-center gap-1">
-                    <StarIcon className="h-[18px] w-[18px] text-primary" />
-                    <span className="text-[14px] leading-[18px] tracking-[-0.28px] text-muted-foreground">
-                      {r.rating}/5
-                    </span>
-                  </span>
-                  {(canModerate || ((uuid || userData?.id) && r.user_id === (uuid ?? userData?.id))) && (
-                    <button
-                      type="button"
-                      onClick={() => deleteMutation.mutate(r.id)}
-                      className="ml-1 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                      aria-label="Delete review"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                {r.comment && (
-                  <p className="mt-1 text-title leading-[22px] text-muted-foreground">
-                    {r.comment}
-                  </p>
-                )}
-                {/* The business's answer, under the review it answers. */}
-                {r.reply && (
-                  <div className="mt-2 rounded-radius-md bg-inset p-3">
-                    <p className="text-meta font-semibold text-foreground">Reply from the business</p>
-                    <p className="mt-0.5 text-body text-muted-foreground">{r.reply}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Three is what the design shows; the rest are one tap away rather
-              than a page of scrolling on a plan you have not bought yet. */}
-          {reviews.length > 3 && (
+          {mine && onEdit && (
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="w-full rounded-radius-md px-4 py-2 text-center text-title leading-[22px] text-muted-foreground transition-colors hover:text-foreground"
+              onClick={onEdit}
+              className="shrink-0 text-meta font-semibold text-primary hover:underline"
             >
-              {expanded ? "Show fewer reviews" : `Show all reviews (${reviews.length})`}
+              Edit
             </button>
           )}
-        </>
-      )}
-    </section>
+          <span className="flex-1" />
+          {onDelete && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Review actions"
+                  className="-my-1 -mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onDelete}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete review
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2">
+          <StarRating value={r.rating} size={13} />
+          {when && (
+            <span className="text-meta leading-4 text-muted-foreground">
+              {formatDistanceToNowStrict(new Date(when), { addSuffix: true })}
+            </span>
+          )}
+        </div>
+        {text && (
+          <p className="mt-1.5 text-title leading-[22px] text-muted-foreground">{text}</p>
+        )}
+        {/* The business's answer, under the review it answers. */}
+        {r.reply && (
+          <div className="mt-2 border-l-2 border-primary/60 pl-3">
+            <p className="text-meta font-semibold text-foreground">Reply from the business</p>
+            <p className="mt-0.5 text-body text-muted-foreground">{r.reply}</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
