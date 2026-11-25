@@ -1,4 +1,7 @@
 import { useMemo, useRef, useState } from "react";
+import { DealPrice } from "@/components/discounts/DealBits";
+import { DealPanel } from "@/components/discounts/DealPanel";
+import { useDisplayDiscount } from "@/lib/discounts";
 import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
@@ -33,6 +36,8 @@ export default function VehicleDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: v, isLoading } = useVehicle(id);
+  // A discount the rental company runs on this car (lib/discounts) — before any early return.
+  const deal = useDisplayDiscount({ providerId: v?.provider_id, id: v?.id, priceCents: v?.daily_price_cents });
   const goBack = useGoBack(carPath());
   const [range, setRange] = useState<DateRange | undefined>();
   const datesRef = useRef<HTMLDivElement>(null);
@@ -247,11 +252,16 @@ export default function VehicleDetail() {
 
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
           <h2 className="text-heading font-semibold text-foreground">Choose your dates</h2>
+          <DealPanel subject={{ providerId: v.provider_id, id: v.id, priceCents: v.daily_price_cents }} unit="/ day" />
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
-              {formatUSD(v.daily_price_cents)}
-              <span className="text-meta font-normal text-muted-foreground"> / day</span>
-            </span>
+            {deal ? (
+              <DealPrice deal={deal} cents={v.daily_price_cents} unit="/ day" size="page" />
+            ) : (
+              <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+                {formatUSD(v.daily_price_cents)}
+                <span className="text-meta font-normal text-muted-foreground"> / day</span>
+              </span>
+            )}
             {(v.weekly_price_cents > 0 || v.monthly_price_cents > 0) && (
               <span className="text-meta text-muted-foreground">
                 {[

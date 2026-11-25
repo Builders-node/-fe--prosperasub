@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { quoteLabel, prepayPctFor, useActiveDiscounts, type DiscountQuote } from "@/lib/discounts";
 import { useSeo } from "@/hooks/useSeo";
 import { useTrackFunnel } from "@/lib/funnel";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
@@ -362,9 +363,47 @@ const UniversalPlanCheckout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkPromo, renewSubId, plan, totalCents]);
 
+  /**
+   * The business's own discount (a sale, a new-customer price, a pay-ahead
+   * step) — asked of the database for THIS order: this plan, this many
+   * periods, this person. The figure is a claim the order trigger re-prices.
+   * Not on a renewal (it extends the row at list price) or a multi-portion
+   * order (one row, one reduction).
+   */
+  const offerQ = useQuery({
+    queryKey: ["checkout-offer", plan?.universalId, userUuid, periods, totalCents],
+    enabled: !!plan && !renewSubId && !multi && totalCents > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb.rpc("discount_quote_for_plan", {
+        p_plan_id: String(plan!.universalId ?? plan!.subjectPlanId),
+        p_user_id: userUuid ?? null,
+        p_periods: periods,
+        p_amount_cents: totalCents,
+      });
+      if (error) return null;
+      return data as DiscountQuote | null;
+    },
+  });
+  const offer = offerQ.data?.ok && offerQ.data.discount_id ? offerQ.data : null;
+  // Pay-ahead steps, written on the term chips so a longer term shows what it saves.
+  const { data: liveDiscounts } = useActiveDiscounts();
+  const prepayBadge = (n: number) => {
+    if (!plan) return null;
+    const pct = prepayPctFor(liveDiscounts, {
+      providerId: plan.providerUniversalId, id: plan.universalId, parentId: plan.parentPlanId, priceCents: plan.unitCents,
+    }, n);
+    return pct > 0 ? `−${pct}%` : null;
+  };
+
   // A code and a bonus are written onto ONE row, and the database recomputes
   // each on the row it sits on — so they apply to single orders only.
-  const discountCents = multi ? 0 : Math.min(promo?.discountCents ?? 0, totalCents);
+  // Discounts never stack: the customer gets the larger of the code and the
+  // business's own discount, and the row carries only that one.
+  const promoCents = multi ? 0 : Math.min(promo?.discountCents ?? 0, totalCents);
+  const offerCents = multi || renewSubId ? 0 : Math.min(Number(offer?.discount_cents) || 0, totalCents);
+  const useOffer = offerCents > 0 && offerCents >= promoCents;
+  const discountCents = useOffer ? offerCents : promoCents;
 
   /**
    * Bonus balance, spent on this order.
@@ -397,7 +436,9 @@ const UniversalPlanCheckout = () => {
   const [autoRenew, setAutoRenew] = useState(true);
   // Everything that allows auto-renew except the term's length…
   const autoRenewPossible =
-    !!plan && !plan.oneTime && !renewSubId && discountCents === 0 && bonusCents === 0 && !multi
+    // The business's own discount is fine: PayPal bills the first term at the
+    // discounted price (a one-cycle trial) and then the list price.
+    !!plan && !plan.oneTime && !renewSubId && (discountCents === 0 || useOffer) && bonusCents === 0 && !multi
     // PayPal would repeat the price without the delivery — not until renewals deliver too.
     && deliveryFeeCents === 0;
   // …and the term too: PayPal repeats at most 52 weeks / 12 months / 1 year.
@@ -406,6 +447,13 @@ const UniversalPlanCheckout = () => {
   /** "month", "4 weeks", "3 months" — the term PayPal will repeat. */
   const renewTerm = plan ? (periods > 1 ? termLabelFor(plan.period, periods) : periodNoun(plan.period) || "period") : "period";
   const feePct = surchargePercent(paymentMethod);
+  /** What each LATER term costs — the list price — when the first one is discounted. */
+  const renewEffectiveCents = useOffer
+    ? addSurchargeCents(totalCents + vatCentsFor(totalCents, vatPct) + deliveryFeeCents, paymentMethod)
+    : effectiveTotalCents;
+  const renewSentence = useOffer && renewEffectiveCents !== effectiveTotalCents
+    ? `${formatUSD(effectiveTotalCents)} now, then ${formatUSD(renewEffectiveCents)} every ${renewTerm}`
+    : `${formatUSD(effectiveTotalCents)} every ${renewTerm}`;
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
   // A renewal does not get to choose when it starts: it starts the day the
   // current period ends, or today if that has already passed.
@@ -475,8 +523,10 @@ const UniversalPlanCheckout = () => {
     address: address.trim(),
     area: area.trim(),
     selections,
-    promoCode: promo?.code ?? null,
-    promoDiscountCents: discountCents,
+    promoCode: useOffer ? null : promo?.code ?? null,
+    promoDiscountCents: useOffer ? 0 : discountCents,
+    offerDiscountId: useOffer ? offer?.discount_id ?? null : null,
+    offerDiscountCents: useOffer ? discountCents : 0,
     creditAppliedCents: bonusCents,
     vatCents: multi ? (i === 0 ? vatCents - Math.round(vatCents / portions) * (portions - 1) : Math.round(vatCents / portions)) : vatCents,
   });
@@ -803,7 +853,7 @@ const UniversalPlanCheckout = () => {
             totalCents={effectiveTotalCents}
             extra={[
               ...(discountCents > 0
-                ? [{ label: `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
+                ? [{ label: useOffer && offer ? quoteLabel(offer) : `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
                 : []),
               ...(bonusCents > 0
                 ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
@@ -935,6 +985,7 @@ const UniversalPlanCheckout = () => {
                   onPeriods={setPeriods}
                   periodNoun={periodNoun(plan.period)}
                   priceForTerm={(n) => totalFor(plan, n, people) * portions}
+                  badgeForTerm={multi ? undefined : prepayBadge}
                   quantity={shape?.quantity?.noun === "person"
                     ? { value: people, onChange: setPeople, noun: "person", max: shape.quantity.max }
                     : shape?.quantity?.noun === "portion"
@@ -1147,9 +1198,16 @@ const UniversalPlanCheckout = () => {
             )}
           </div>
           {promoError && <p className="mt-1 text-[13px] text-destructive">{promoError}</p>}
-          {promo && (
+          {promo && !useOffer && (
             <p className="mt-1 text-[13px] text-positive">
               {promo.code} applied — {formatUSD(discountCents)} off
+            </p>
+          )}
+          {/* Discounts do not stack — say which one won, so a code that "did nothing" is explained. */}
+          {useOffer && offer && (
+            <p className="mt-1 text-meta text-positive">
+              {quoteLabel(offer)} — {formatUSD(discountCents)} off
+              {promo ? `. That's more than ${promo.code} gives, so the code isn't used.` : " already applied."}
             </p>
           )}
         </section>
@@ -1201,7 +1259,7 @@ const UniversalPlanCheckout = () => {
                         Renew automatically every {renewTerm}
                       </span>
                       <span className="block text-muted-foreground">
-                        PayPal charges {formatUSD(effectiveTotalCents)} every {renewTerm} until you cancel —
+                        PayPal charges {renewSentence} until you cancel —
                         any time, from My subscriptions or your PayPal account.
                       </span>
                     </span>
@@ -1275,7 +1333,7 @@ const UniversalPlanCheckout = () => {
               <div className="mt-3 flex items-start gap-2 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
                 <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span>
-                  With PayPal this renews automatically: {formatUSD(effectiveTotalCents)} every {renewTerm} until you cancel.
+                  With PayPal this renews automatically: {renewSentence} until you cancel.
                   You can switch it off on the next step, or cancel any time in My subscriptions.
                 </span>
               </div>

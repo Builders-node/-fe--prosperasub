@@ -117,6 +117,10 @@ const EDGE_ROUTES: RegExp[] = [
   // Fleet operations: bookings taken by hand, edits, handover/return, blocks.
   /^\/admin\/rentals\/(bookings|blocks)(\/[^/]+)?$/,
   /^\/account\/rental-fleet$/,
+  // A business's own discounts and platform campaigns (Edge routes/discounts.ts).
+  /^\/account\/providers\/[^/]+\/discounts(\/[^/]+|\/campaigns\/[^/]+\/join)?$/,
+  /^\/admin\/discounts(\/[^/]+)?$/,
+  /^\/admin\/discount-campaigns(\/[^/]+)?$/,
   // Paid placements (Edge routes/promotions.ts).
   /^\/promotions\/(active|events)$/,
   /^\/account\/providers\/[^/]+\/promotions(\/(boost|featured))?$/,

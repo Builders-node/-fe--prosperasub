@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useDisplayDiscount } from "@/lib/discounts";
 import { useAddresses } from "@/lib/services/useAddresses";
 import { promotionHref, trackPromotion, useActivePromotions, type ActivePromotion, type PromoPlacement } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ function PromoCard({ p, plan, href }: { p: ActivePromotion; plan: HomePlan | nul
   }, [p.id]);
 
   const photos = plan ? planPhotos(plan) : [p.provider.bannerUrl].filter((u): u is string => !!u);
+  const deal = useDisplayDiscount({ providerId: p.provider.id, id: plan?.id ?? p.plan?.id, priceCents: p.plan?.priceCents });
   return (
     <OfferCard
       ref={ref}
@@ -71,10 +73,11 @@ function PromoCard({ p, plan, href }: { p: ActivePromotion; plan: HomePlan | nul
       badge="Sponsored"
       corner={p.plan ? <FavoriteButton kind="plan" id={p.plan.id} name={p.plan.name} variant="overlay" /> : undefined}
       photos={photos}
+      deal={p.plan ? deal : null}
       title={p.plan?.name ?? p.provider.name}
       subtitle={p.plan ? p.provider.name : p.provider.description}
       footer={p.plan
-        ? <PriceLine cents={p.plan.priceCents} period={p.plan.period} perPerson={plan?.pricing_mode === "per_person"} />
+        ? <PriceLine cents={p.plan.priceCents} period={p.plan.period} perPerson={plan?.pricing_mode === "per_person"} deal={deal} />
         : null}
       className={RAIL_TILE}
     />

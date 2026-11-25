@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/patterns/Skeleton";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import { useTagDictionary } from "@/lib/tags";
+import { DealNote, DealPill, DealPrice } from "@/components/discounts/DealBits";
+import { useDisplayDiscount, type DisplayDiscount } from "@/lib/discounts";
 
 /**
  * The plans the home page shows, fetched ONCE and shared by every shelf on it
@@ -116,9 +118,18 @@ export function planPhotos(plan: HomePlan | null | undefined, provider?: { galle
 }
 
 /** "$75.00 / person / month", "$130.00 one-time" — the price line every plan card ends on. */
-export function PriceLine({ cents, period, perPerson = false }: { cents: number | null; period: string | null; perPerson?: boolean }) {
+export function PriceLine({ cents, period, perPerson = false, deal }: { cents: number | null; period: string | null; perPerson?: boolean; deal?: DisplayDiscount | null }) {
   if (typeof cents !== "number" || cents <= 0) return null;
   const unit = priceUnit({ period, perPerson });
+  if (deal) {
+    // A discount the business runs: the new price, the old one struck, and how long.
+    return (
+      <p className="leading-tight">
+        <DealPrice deal={deal} cents={cents} unit={unit || null} />
+        {deal.note && <><br /><DealNote deal={deal} /></>}
+      </p>
+    );
+  }
   return (
     <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
       {formatUSD(cents)}
@@ -141,13 +152,15 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
   subtitle?: string | null;
   footer?: ReactNode;
   badge?: string;
+  /** A business's own discount: the pill on the photo's top-left. */
+  deal?: DisplayDiscount | null;
   /** Over the photo's top-right corner — the heart, on a listing. */
   corner?: ReactNode;
   /** A plan's tags (labels), at most two — under the business name. */
   chips?: string[];
   className?: string;
   onClick?: () => void;
-}>(function OfferCard({ href, photos, title, subtitle, footer, badge, corner, chips, className, onClick }, ref) {
+}>(function OfferCard({ href, photos, title, subtitle, footer, badge, deal, corner, chips, className, onClick }, ref) {
   return (
     <Link
       ref={ref}
@@ -163,6 +176,7 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
       <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-radius-lg bg-muted">
         <PhotoSlider photos={photos} className="h-full w-full bg-muted transition-transform duration-300 group-hover:scale-[1.03]" />
         {corner && <div className="absolute right-2 top-2">{corner}</div>}
+        <DealPill deal={deal} className="absolute left-2 top-2" />
         {(badge || (chips && chips.length > 0)) && (
           <div className="pointer-events-none absolute bottom-2 left-2 flex max-w-[calc(100%-4rem)] flex-col items-start gap-1">
             {chips?.slice(0, 2).map((c) => (
@@ -197,6 +211,7 @@ export function PlanTile({ plan, className }: { plan: HomePlan; className?: stri
   // Same link the provider's own list uses: the original id where the row
   // mirrors a legacy plan, so there is one address per product.
   const href = planHref(provider.archetype_key!, planSegment(plan));
+  const deal = useDisplayDiscount({ providerId: provider.id, id: plan.id, priceCents: plan.price_cents });
   return (
     <OfferCard
       href={href}
@@ -204,7 +219,8 @@ export function PlanTile({ plan, className }: { plan: HomePlan; className?: stri
       title={plan.name}
       subtitle={provider.name}
       chips={labelsOf(plan.tags, 2)}
-      footer={<PriceLine cents={plan.price_cents} period={plan.period} perPerson={plan.pricing_mode === "per_person"} />}
+      deal={deal}
+      footer={<PriceLine cents={plan.price_cents} period={plan.period} perPerson={plan.pricing_mode === "per_person"} deal={deal} />}
       // The heart on every card with a photo, as on the listings.
       corner={<FavoriteButton kind="plan" id={plan.id} name={plan.name} variant="overlay" />}
       className={className}

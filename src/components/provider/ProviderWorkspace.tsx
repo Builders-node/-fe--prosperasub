@@ -1,7 +1,7 @@
 import { HowItWorksCard } from "@/components/provider/HowItWorksCard";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
-import { CalendarClock, CarFront, Edit, ExternalLink, Megaphone, Package, Store, Truck, Users, Wallet } from "lucide-react";
+import { BadgePercent, CalendarClock, CarFront, Edit, ExternalLink, Megaphone, Package, Store, Truck, Users, Wallet } from "lucide-react";
 import { ProviderDeliveryTab } from "@/components/provider/ProviderDeliveryTab";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
@@ -24,6 +24,7 @@ import { ProviderFunnelCard } from "@/components/provider/ProviderFunnelCard";
 import { GoLivePanel } from "@/components/provider/GoLivePanel";
 import { ProviderPromoCodes } from "@/components/provider/ProviderPromoCodes";
 import { ProviderPromotions } from "@/components/provider/ProviderPromotions";
+import { ProviderDiscounts } from "@/components/provider/ProviderDiscounts";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
@@ -330,18 +331,29 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
 
   /**
    * Promote — what a business can buy to be seen: a boost (pay per order it
-   * brings), a featured week (paid from the balance), and its own promo codes.
-   * The whole team sees the numbers; spending is the owner's.
+   * brings) and a featured week (paid from the balance). The whole team sees
+   * the numbers; spending is the owner's.
    */
   const promoteTab: PortalTab<unknown> = {
     value: "promote",
     label: "Promote",
     icon: Megaphone,
+    render: () => <ProviderPromotions providerId={provider.id} />,
+  };
+
+  /**
+   * Discounts — everything that lowers a price, in one place: automatic
+   * discounts (sale, new customers, pay ahead), Prospera-wide sales to join,
+   * and promo codes. Owner-only: both APIs answer 403 to anyone else.
+   */
+  const discountsTab: PortalTab<unknown> = {
+    value: "discounts",
+    label: "Discounts",
+    icon: BadgePercent,
     render: () => (
-      <div className="space-y-1">
-        <ProviderPromotions providerId={provider.id} />
-        {/* Owner-only; the API answers 403 to anyone else and it hides. */}
-        {isOwner && <ProviderPromoCodes providerId={provider.id} />}
+      <div className="space-y-4">
+        <ProviderDiscounts providerId={provider.id} />
+        <ProviderPromoCodes providerId={provider.id} />
       </div>
     ),
   };
@@ -384,6 +396,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   const tabs: PortalTab<unknown>[] = custom.coreTabs ? [
     overviewTab,
     ...custom.coreTabs(workspaceCtx),
+    ...(isOwner ? [discountsTab] : []),
     promoteTab,
     moneyTab,
     teamTab,
@@ -411,6 +424,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       icon: Truck,
       render: () => <ProviderDeliveryTab providerId={provider.id} />,
     },
+    ...(isOwner ? [discountsTab] : []),
     promoteTab,
     moneyTab,
     teamTab,
