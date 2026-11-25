@@ -76,7 +76,7 @@ export function NotesField({
   return (
     <>
       <div className={cn("space-y-1.5", className)}>
-        <span className="block text-label text-foreground">{label}</span>
+        {label && <span className="block text-label text-foreground">{label}</span>}
         <button
           type="button"
           onClick={() => setOpen(true)}

@@ -30,6 +30,8 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { useBonusBalance } from "@/hooks/useBonusBalance";
+import { useBonusRules } from "@/hooks/useBonusRules";
+import { bonusEarnCents, bonusSpendCents } from "@/lib/discounts";
 import { Switch } from "@/components/ui/switch";
 import { NotesField } from "@/components/patterns/NotesField";
 import { phoneError } from "@/components/patterns/CustomerPhone";
@@ -416,7 +418,12 @@ const UniversalPlanCheckout = () => {
   const { balanceCents } = useBonusBalance();
   const [useBonus, setUseBonus] = useState(false);
   const afterPromoCents = Math.max(0, totalCents - discountCents);
-  const bonusCents = useBonus && !multi ? Math.min(balanceCents, afterPromoCents) : 0;
+  const bonusRules = useBonusRules();
+  // Capped as the database caps it — asking for more refuses the whole order.
+  const bonusUsableCents = multi ? 0 : bonusSpendCents(balanceCents, totalCents, afterPromoCents, bonusRules.maxSharePct);
+  const bonusCents = useBonus ? bonusUsableCents : 0;
+  // What this order gives back once paid: on the goods actually paid for.
+  const bonusEarnedCents = multi ? 0 : bonusEarnCents(afterPromoCents - bonusCents, bonusRules.cashbackPct);
 
   // VAT, the business's own rate, on the goods after the promo (lib/checkout/vat).
   const vatPct = plan?.vatPct ?? 0;
@@ -1159,9 +1166,25 @@ const UniversalPlanCheckout = () => {
                 {phoneErr && <p className="pb-2 text-xs text-destructive">{phoneErr}</p>}
               </FieldRow>
 
-              <NotesField value={notes} onChange={setNotes} />
             </FieldRows>
           </PersonalDataCard>
+        )}
+
+        {/* A comment for the business — gate code, a dog in the yard, "no harsh
+            chemicals". Its own card rather than a row inside Personal data:
+            that card is collapsed by default, so the comment was where nobody
+            looked. The business sees it on the subscriber. */}
+        {!showPayment && (
+          <CheckoutCard title={`Comment for ${plan.providerName ?? "the business"}`}>
+            <NotesField
+              value={notes}
+              onChange={setNotes}
+              label=""
+              placeholder="Gate code, a dog in the yard, preferences…"
+              title={`Comment for ${plan.providerName ?? "the business"}`}
+              description="They'll see it with your order. Optional."
+            />
+          </CheckoutCard>
         )}
 
         {/* 4 — what it adds up to. The processing fee is a line of its own:
@@ -1216,7 +1239,7 @@ const UniversalPlanCheckout = () => {
             teaches the customer nothing and takes up the same space. */}
         {/* Hidden once the invoice exists: its amount is fixed, and a total
             that moved under it would no longer be what the QR charges. */}
-        {balanceCents > 0 && afterPromoCents > 0 && !showPayment && (
+        {bonusUsableCents > 0 && !showPayment && (
           <section className="flex items-center gap-3 rounded-radius-md bg-card p-4">
             <Gift className="h-5 w-5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
@@ -1225,13 +1248,25 @@ const UniversalPlanCheckout = () => {
               </p>
               <p className="text-[13px] text-muted-foreground">
                 {formatUSD(balanceCents)} available
-                {useBonus && bonusCents < balanceCents
-                  ? ` — ${formatUSD(bonusCents)} covers this order`
+                {bonusUsableCents < balanceCents
+                  ? ` — up to ${formatUSD(bonusUsableCents)} on this order`
                   : ""}
               </p>
             </div>
             <Switch checked={useBonus} onCheckedChange={setUseBonus} />
           </section>
+        )}
+
+        {/* What this order gives back. Said before paying, because a reward
+            you only learn about afterwards does not bring anyone back. */}
+        {bonusEarnedCents > 0 && !showPayment && (
+          <p className="flex items-center gap-2 px-1 text-meta text-muted-foreground">
+            <Gift className="h-4 w-4 shrink-0 text-primary" />
+            <span>
+              You'll get <span className="font-semibold text-foreground">{formatUSD(bonusEarnedCents)}</span> back
+              as bonus once this is paid — spend it on your next order or renewal.
+            </span>
+          </p>
         )}
 
         <div className="md:hidden">{resume}</div>

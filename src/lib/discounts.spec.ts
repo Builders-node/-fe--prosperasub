@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayDiscount, prepayPctFor, type ActiveDiscount } from "./discounts";
+import { bonusEarnCents, bonusSpendCents, displayDiscount, prepayPctFor, type ActiveDiscount } from "./discounts";
 
 const base: ActiveDiscount = {
   id: "d1", provider_id: "p1", kind: "sale", title: null, value_type: "percent", percent_off: 20,
@@ -48,5 +48,23 @@ describe("prepayPctFor", () => {
     expect(prepayPctFor([prepay], subject, 1)).toBe(0);
     expect(prepayPctFor([prepay], subject, 4)).toBe(5);
     expect(prepayPctFor([prepay], subject, 12)).toBe(10);
+  });
+});
+
+describe("bonus", () => {
+  it("spends no more than the share cap of the full price", () => {
+    // $100 order, 30% cap, $50 balance → $30
+    expect(bonusSpendCents(5000, 10000, 10000, 30)).toBe(3000);
+  });
+  it("spends no more than what is left after the discount", () => {
+    expect(bonusSpendCents(5000, 10000, 2000, 100)).toBe(2000);
+  });
+  it("spends no more than the balance, and rounds the cap down", () => {
+    expect(bonusSpendCents(500, 10000, 10000, 30)).toBe(500);
+    expect(bonusSpendCents(9999, 999, 999, 30)).toBe(299);
+  });
+  it("earns nothing while cashback is off, and rounds down", () => {
+    expect(bonusEarnCents(10000, 0)).toBe(0);
+    expect(bonusEarnCents(999, 3)).toBe(29);
   });
 });
