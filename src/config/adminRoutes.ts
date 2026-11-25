@@ -20,6 +20,7 @@ export const adminRoutes = {
   superAdminAnnouncements: "/admin/announcements",
   superAdminPromoCodes: "/admin/promo-codes",
   superAdminPromotions: "/admin/promotions",
+  superAdminDiscounts: "/admin/discounts",
   superAdminCollections: "/admin/collections",
   superAdminDelivery: "/admin/delivery",
   superAdminMarketplaceSubscriptions: "/admin/marketplace/subscriptions",

@@ -121,6 +121,7 @@ const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const RoleManagement = lazy(() => import("./pages/admin/RoleManagement"));
 const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 const AdminPromotions = lazy(() => import("./pages/admin/Promotions"));
+const AdminDiscounts = lazy(() => import("./pages/admin/Discounts"));
 const AdminCollections = lazy(() => import("./pages/admin/Collections"));
 const AdminDelivery = lazy(() => import("./pages/admin/Delivery"));
 const Courier = lazy(() => import("./pages/Courier"));
@@ -445,6 +446,9 @@ const App = () => {
               } />
               <Route path="/admin/promotions" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminPromotions /></ProtectedRoute>
+              } />
+              <Route path="/admin/discounts" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminDiscounts /></ProtectedRoute>
               } />
               <Route path="/admin/tags" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdminTags /></ProtectedRoute>

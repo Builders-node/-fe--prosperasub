@@ -1,3 +1,5 @@
+import { DealNote, DealPrice } from "@/components/discounts/DealBits";
+import { useDisplayDiscount } from "@/lib/discounts";
 import { OfferCard } from "@/components/discovery/homePlans";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { formatUSD } from "@/lib/pricing";
@@ -26,6 +28,7 @@ export function VehicleCard({ v, showProvider = false }: {
     v.transmission === "automatic" ? "Auto" : "Manual",
     FUEL_LABEL[v.fuel_type],
   ].filter(Boolean).join(" · ");
+  const deal = useDisplayDiscount({ providerId: v.provider_id, id: v.id, priceCents: v.daily_price_cents });
   return (
     <OfferCard
       href={vehiclePath(v)}
@@ -34,7 +37,13 @@ export function VehicleCard({ v, showProvider = false }: {
       subtitle={showProvider && v.provider?.name ? v.provider.name : specs}
       chips={[...(v.air_conditioning ? ["A/C"] : [])]}
       corner={<FavoriteButton kind="vehicle" id={v.id} name={v.name} variant="overlay" />}
-      footer={typeof v.daily_price_cents === "number" && v.daily_price_cents > 0 ? (
+      deal={deal}
+      footer={typeof v.daily_price_cents === "number" && v.daily_price_cents > 0 && deal ? (
+        <p className="leading-tight">
+          <DealPrice deal={deal} cents={v.daily_price_cents} unit="/ day" />
+          {deal.note && <><br /><DealNote deal={deal} /></>}
+        </p>
+      ) : typeof v.daily_price_cents === "number" && v.daily_price_cents > 0 ? (
         <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
           {formatUSD(v.daily_price_cents)}
           <span className="text-meta font-medium tracking-normal text-muted-foreground"> / day</span>

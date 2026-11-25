@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * one tap and its price is never a surprise. Quantity is one stepper, worded in
  * the service's own noun — portions, people.
  */
-export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceForTerm, quantity, className }: {
+export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceForTerm, badgeForTerm, quantity, className }: {
   termOptions: number[];
   periods: number;
   onPeriods: (n: number) => void;
@@ -23,6 +23,8 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
   periodNoun: string;
   /** Total for a term, quantity included — written on each chip. */
   priceForTerm: (n: number) => number;
+  /** A short tag on a chip — the business's pay-ahead discount, "−10%". */
+  badgeForTerm?: (n: number) => string | null;
   quantity?: { value: number; onChange: (n: number) => void; noun: string; max?: number } | null;
   className?: string;
 }) {
@@ -54,6 +56,11 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
                   <span className={cn("text-meta tabular-nums", on ? "text-background/70" : "text-muted-foreground")}>
                     {formatUSD(priceForTerm(n))}
                   </span>
+                  {badgeForTerm?.(n) && (
+                    <span className={cn("text-meta font-semibold", on ? "text-background" : "text-positive")}>
+                      {badgeForTerm(n)}
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -55,6 +55,13 @@ export interface CheckoutAnswers {
   promoCode?: string | null;
   promoDiscountCents?: number;
   /**
+   * The business's own automatic discount (sale, new-customer, pay-ahead) and
+   * what it takes off. Same contract as the promo: a claim the `discount_guard`
+   * trigger re-prices. Never together with a promo code — the better one wins.
+   */
+  offerDiscountId?: string | null;
+  offerDiscountCents?: number;
+  /**
    * Bonus balance spent on this order.
    *
    * A claim, not an instruction: `bonus_spend_on_order` re-reads the balance
@@ -87,13 +94,17 @@ export function buildSubscriptionWrite(
   extra: Record<string, unknown> = {},
 ): SubscriptionWrite {
   const end = format(endDateOf(plan, a.startDate, a.periods), "yyyy-MM-dd");
-  const discount = Math.max(0, Math.min(a.promoDiscountCents ?? 0, a.totalCents));
+  const offerCents = a.offerDiscountId ? Math.max(0, Math.min(a.offerDiscountCents ?? 0, a.totalCents)) : 0;
+  const discount = offerCents > 0 ? 0 : Math.max(0, Math.min(a.promoDiscountCents ?? 0, a.totalCents));
   // The fee is charged on what actually moves, so it is measured against the
   // discounted figure rather than the list price.
-  const surcharge = Math.max(0, a.chargedCents - (a.totalCents - discount) - Math.max(0, a.vatCents ?? 0));
-  const promo = a.promoCode
-    ? { promo_code: a.promoCode.toUpperCase(), promo_discount_cents: discount }
-    : {};
+  const surcharge = Math.max(0, a.chargedCents - (a.totalCents - discount - offerCents) - Math.max(0, a.vatCents ?? 0));
+  const promo = {
+    ...(a.promoCode && offerCents === 0
+      ? { promo_code: a.promoCode.toUpperCase(), promo_discount_cents: discount }
+      : {}),
+    ...(offerCents > 0 ? { offer_discount_id: a.offerDiscountId, offer_discount_cents: offerCents } : {}),
+  };
   const credit = a.creditAppliedCents && a.creditAppliedCents > 0
     ? { credit_applied_cents: Math.round(a.creditAppliedCents) }
     : {};
