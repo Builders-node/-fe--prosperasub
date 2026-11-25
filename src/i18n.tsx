@@ -1,3 +1,4 @@
+import { inSpanishUrl } from "@/lib/seo/lang";
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
 export type LanguageCode = "en" | "es";
@@ -388,6 +389,9 @@ const I18nContext = createContext<I18nContextValue | undefined>(undefined);
  */
 function getInitialLanguage(): LanguageCode {
   if (typeof window === "undefined") return "en";
+  // An /es address is Spanish, whatever was chosen before: the URL is what a
+  // search engine and a shared link promise.
+  if (inSpanishUrl()) return "es";
   const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
   if (stored === "es" || stored === "en") return stored;
   const preferred = [navigator.language, ...(navigator.languages ?? [])];

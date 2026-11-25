@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { inSpanishUrl } from "@/lib/seo/lang";
 import { useNavigate } from "react-router-dom";
 import { Car, Building2 } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
@@ -22,7 +23,8 @@ import { useSeo } from "@/hooks/useSeo";
 import { faqJsonLd, serviceSeo } from "@/lib/seo/serviceSeo";
 import { ServiceFaq } from "@/components/listing/ServiceFaq";
 
-const SEO_COPY = serviceSeo("vehicles")!;
+const SEO_LANG = inSpanishUrl() ? "es" : "en";
+const SEO_COPY = serviceSeo("vehicles", SEO_LANG)!;
 import { cn } from "@/lib/utils";
 
 /**
@@ -156,7 +158,7 @@ export default function Fleet() {
     // took its tab bar from the section shell: the same screen, assembled by
     // hand, and therefore free to drift.
     <BrowseLayout
-      beforeFooter={<AppContainer className="pb-space-6"><ServiceFaq faq={SEO_COPY.faq} /></AppContainer>}
+      beforeFooter={<AppContainer className="pb-space-6"><ServiceFaq faq={SEO_COPY.faq} title={SEO_LANG === "es" ? "Preguntas frecuentes" : undefined} /></AppContainer>}
       header={<ListingHeader
         title="Vehicles"
         onBack={goBack}

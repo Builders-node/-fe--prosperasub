@@ -1,3 +1,4 @@
+import { langPath, splitLang } from "@/lib/seo/lang";
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Moon, Sun, type LucideIcon, Languages } from "lucide-react";
@@ -154,7 +155,13 @@ function AppDropdownLanguageItem() {
     <DropdownMenuItem
       onSelect={(e) => {
         e.preventDefault(); // stay open, like the theme toggle
-        setLanguage(isSpanish ? "en" : "es");
+        const next = isSpanish ? "en" : "es";
+        setLanguage(next);
+        // Spanish has its own addresses: move to the same page in the other
+        // language, so the URL, the words and what a search engine sees agree.
+        try { window.localStorage.setItem("prospera_language", next); } catch { /* private mode */ }
+        const { path } = splitLang(window.location.pathname);
+        window.location.assign(`${langPath(path, next)}${window.location.search}${window.location.hash}`);
       }}
       className="group flex min-h-12 w-full cursor-pointer items-center gap-space-4 rounded-radius-lg px-space-4 py-space-3 text-left outline-none transition-colors hover:bg-muted/70 focus:bg-muted/70 data-[highlighted]:bg-muted/70"
     >

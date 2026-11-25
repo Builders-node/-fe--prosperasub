@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { isBilingual, langPath, splitLang } from "@/lib/seo/lang";
 
 /**
  * What a page says it is.
@@ -56,7 +57,12 @@ function setLink(rel: string, href: string | null) {
 }
 
 export function useSeo({ title, description, path, image, type = "website", jsonLd }: SeoInput) {
-  const url = path ? (path.startsWith("http") ? path : `${SITE}${path}`) : null;
+  // A page written in both languages is canonical in the language of its
+  // address and names the other with hreflang; anything else under /es is
+  // the English page, so its canonical says so.
+  const lang = typeof window === "undefined" ? "en" : splitLang(window.location.pathname).lang;
+  const bilingual = !!path && !path.startsWith("http") && isBilingual(path);
+  const url = path ? (path.startsWith("http") ? path : `${SITE}${bilingual ? langPath(path, lang) : path}`) : null;
   const fullTitle = title ? `${title} · ${BRAND}` : null;
 
   useEffect(() => {
@@ -85,6 +91,18 @@ export function useSeo({ title, description, path, image, type = "website", json
       setMeta('meta[name="twitter:image"]', "name", "twitter:image", image);
     }
     setMeta('meta[property="og:type"]', "property", "og:type", type);
+    setMeta('meta[property="og:locale"]', "property", "og:locale", lang === "es" ? "es_HN" : "en_US");
+    const alternates = bilingual
+      ? ([["en", langPath(path!, "en")], ["es", langPath(path!, "es")], ["x-default", langPath(path!, "en")]] as const).map(([hl, href]) => {
+          const el = document.createElement("link");
+          el.rel = "alternate";
+          el.hreflang = hl;
+          el.href = `${SITE}${href}`;
+          el.dataset.seo = "alternate";
+          document.head.appendChild(el);
+          return el;
+        })
+      : [];
 
     let script: HTMLScriptElement | null = null;
     if (jsonLd) {
@@ -101,9 +119,10 @@ export function useSeo({ title, description, path, image, type = "website", json
         setMeta('meta[name="description"]', "name", "description", previousDescription);
       }
       setLink("canonical", null);
+      alternates.forEach((el) => el.remove());
       script?.remove();
     };
-  }, [fullTitle, description, url, image, type, JSON.stringify(jsonLd ?? null)]);
+  }, [fullTitle, description, url, image, type, lang, bilingual, path, JSON.stringify(jsonLd ?? null)]);
 }
 
 /** Schema.org for one thing that can be bought, priced in whole dollars. */

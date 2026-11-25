@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { inSpanishUrl } from "@/lib/seo/lang";
 import { useSeo } from "@/hooks/useSeo";
 import { Link } from "react-router-dom";
 import { Users, ChevronRight, ChefHat, QrCode, Store } from "lucide-react";
@@ -53,8 +54,10 @@ const FAMILY_LABELS: Record<string, string> = {
 
 const Discovery = () => {
   useSeo({
-    title: "Subscriptions and services in Roatán",
-    description: "Meal plans, home cleaning, memberships, car rentals and more from local businesses on Roatán — subscribe in a minute, pay with Bitcoin, card or PayPal.",
+    title: inSpanishUrl() ? "Suscripciones y servicios en Roatán" : "Subscriptions and services in Roatán",
+    description: inSpanishUrl()
+      ? "Planes de comida, limpieza, membresías, renta de carros y más de negocios locales en Roatán — suscríbete en un minuto y paga con Bitcoin, tarjeta o PayPal."
+      : "Meal plans, home cleaning, memberships, car rentals and more from local businesses on Roatán — subscribe in a minute, pay with Bitcoin, card or PayPal.",
     path: "/discovery",
     jsonLd: {
       "@context": "https://schema.org",

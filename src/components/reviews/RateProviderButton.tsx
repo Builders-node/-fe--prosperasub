@@ -174,9 +174,20 @@ export function RateProviderButton({
         { onConflict: "provider_id,user_id" },
       );
       if (error) throw error;
+      // A happy customer is offered the business's own Google review page:
+      // the business's Google rating is what people see first in Maps and
+      // search. select=* so this reads nothing before the column exists.
+      if (rating < 4) return null;
+      const { data: prov } = await supabaseDb.from("providers").select("*").eq("id", providerId).maybeSingle();
+      const url = (prov as { google_review_url?: string | null } | null)?.google_review_url ?? null;
+      return url && /^https:\/\//.test(url) ? url : null;
     },
-    onSuccess: () => {
-      toast.success(myReview ? "Review updated" : "Thanks for your review!");
+    onSuccess: (googleUrl) => {
+      toast.success(myReview ? "Review updated" : "Thanks for your review!", googleUrl ? {
+        description: "Would you share it on Google too? It helps a local business more than anything.",
+        duration: 15000,
+        action: { label: "Review on Google", onClick: () => window.open(googleUrl, "_blank", "noopener,noreferrer") },
+      } : undefined);
       qc.invalidateQueries({ queryKey: ["my-provider-review-inline", service, itemId] });
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
       qc.invalidateQueries({ queryKey: ["provider-rating-summary", providerId] });

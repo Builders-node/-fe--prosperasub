@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { inSpanishUrl } from "@/lib/seo/lang";
 import { useSeo } from "@/hooks/useSeo";
 import { faqJsonLd, serviceSeo } from "@/lib/seo/serviceSeo";
 import { ServiceFaq } from "@/components/listing/ServiceFaq";
@@ -77,7 +78,8 @@ const ServicePage = () => {
   // Hooks before any early return (Rules of Hooks, see CLAUDE.md).
   // The words people search for, and the answers drawn at the foot of the
   // page — see lib/seo/serviceSeo. A service with no copy there keeps its label.
-  const seoCopy = serviceSeo(archetype?.key);
+  const seoLang = inSpanishUrl() ? "es" : "en";
+  const seoCopy = serviceSeo(archetype?.key, seoLang);
   useSeo({
     title: archetype ? (seoCopy?.title ?? `${archetype.label} in Roatán`) : null,
     description: archetype
@@ -338,7 +340,7 @@ const ServicePage = () => {
 
   return (
     <BrowseLayout beforeFooter={seoCopy ? (
-      <div className="app-container pb-space-6"><ServiceFaq faq={seoCopy.faq} /></div>
+      <div className="app-container pb-space-6"><ServiceFaq faq={seoCopy.faq} title={seoLang === "es" ? "Preguntas frecuentes" : undefined} /></div>
     ) : undefined}>
       {/* The archetype's own label — the same word the tile used and the same
           one the admin typed. */}
