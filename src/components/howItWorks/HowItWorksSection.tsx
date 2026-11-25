@@ -61,7 +61,7 @@ export function HowItWorksSteps({ steps, title, className, compact }: {
               <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                 {Icon ? <Icon className="h-5 w-5" aria-hidden /> : <span className="text-body font-semibold tabular-nums">{i + 1}</span>}
                 {Icon && (
-                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">
+                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-meta font-semibold leading-none text-primary-foreground tabular-nums">
                     {i + 1}
                   </span>
                 )}

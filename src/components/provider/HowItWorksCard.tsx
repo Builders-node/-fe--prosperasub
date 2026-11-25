@@ -371,7 +371,7 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
 
 function Counter({ value, max, className }: { value: number; max: number; className?: string }) {
   return (
-    <span className={cn("pointer-events-none text-[11px] tabular-nums", value > max ? "font-semibold text-destructive" : "text-muted-foreground/70", className)}>
+    <span className={cn("pointer-events-none text-meta tabular-nums", value > max ? "font-semibold text-destructive" : "text-muted-foreground/70", className)}>
       {value}/{max}
     </span>
   );
