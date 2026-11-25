@@ -228,7 +228,7 @@ export default function MarketplaceHub() {
                   data-drag-key={a.key}
                   className={cn(
                     "flex items-start gap-2 py-3 pr-1.5 transition-colors sm:items-center sm:gap-3",
-                    dragging && "relative z-10 rounded-radius-md bg-inset ring-1 ring-primary/40",
+                    dragging && "relative z-10 rounded-radius-md bg-inset outline outline-1 -outline-offset-1 outline-primary/40",
                   )}
                 >
                   <DragHandle label={a.label} {...drag.handleProps(a.key)} className="mt-2.5 sm:mt-0" />
@@ -369,7 +369,7 @@ function ChipRow({ chips, onReorder, onCommit, onOpen, onAdd, addLabel }: {
           className={cn(
             "inline-flex h-7 max-w-[180px] select-none items-center truncate rounded-full bg-inset px-2.5 text-meta text-foreground transition-colors hover:bg-muted",
             !c.is_active && "text-muted-foreground line-through decoration-muted-foreground/50",
-            drag.draggingKey === c.key && "ring-1 ring-primary",
+            drag.draggingKey === c.key && "outline outline-1 -outline-offset-1 outline-primary",
           )}
           title={c.is_active ? `Edit ${c.label}. Drag to reorder.` : `${c.label} (hidden)`}
         >

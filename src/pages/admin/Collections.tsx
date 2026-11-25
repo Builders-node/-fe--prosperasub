@@ -184,7 +184,7 @@ function ShelfRow({
   });
 
   return (
-    <section data-drag-key={shelf.id} className={cn("overflow-hidden rounded-radius-lg bg-card transition-shadow", open && "ring-1 ring-border", dragging && "relative z-10 ring-1 ring-primary/40 shadow-figma")}>
+    <section data-drag-key={shelf.id} className={cn("overflow-hidden rounded-radius-lg bg-card transition-shadow", open && "ring-1 ring-border", dragging && "relative z-10 outline outline-1 -outline-offset-1 outline-primary/40 shadow-figma")}>
       {confirmDialog}
       {/* The row: grip, cover, name, what is on it, on/off. */}
       <div className="flex items-center gap-2 p-3 pl-1.5 sm:gap-3">
@@ -361,7 +361,7 @@ function Offers({ shelf, plans, index, onChanged }: {
               <div key={id} data-drag-key={id} className={cn(
                 "flex items-center gap-2 rounded-radius-sm py-1.5 pl-0.5 pr-2",
                 i === 7 && ids.length > 8 && "border-b border-dashed border-border pb-2",
-                drag.draggingKey === id && "relative z-10 bg-inset ring-1 ring-primary/40",
+                drag.draggingKey === id && "relative z-10 bg-inset outline outline-1 -outline-offset-1 outline-primary/40",
               )}>
                 <DragHandle label={p?.name ?? "offer"} {...drag.handleProps(id)} />
                 <span className="w-5 shrink-0 text-meta tabular-nums text-muted-foreground">{i + 1}</span>
