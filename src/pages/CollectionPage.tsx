@@ -96,17 +96,17 @@ export default function CollectionPage() {
           {c ? (
             <>
               <div className="flex items-end justify-between gap-3">
-                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-foreground md:text-[36px]">{c.title}</h1>
+                <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground md:text-4xl">{c.title}</h1>
                 <div className="hidden md:block">
                   <ShareButton title={c.title} text={c.subtitle ?? undefined} />
                 </div>
               </div>
-              <p className="text-[15px] font-semibold leading-[22px] text-foreground">
+              <p className="text-title font-semibold text-foreground">
                 {loading ? " " : offersLabel(items.length)}
                 {c.subtitle && <span className="font-normal text-muted-foreground"> · {c.subtitle}</span>}
               </p>
               {c.description && (
-                <p className="max-w-[720px] whitespace-pre-line text-[15px] leading-[23px] text-muted-foreground">{c.description}</p>
+                <p className="max-w-[720px] whitespace-pre-line text-title leading-relaxed text-muted-foreground">{c.description}</p>
               )}
             </>
           ) : (

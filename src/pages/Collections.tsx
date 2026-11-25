@@ -33,8 +33,8 @@ export default function Collections() {
       <main className="app-container space-y-space-4 pb-10 pt-space-4">
         <Breadcrumbs className="hidden md:block" items={[{ label: "Home", href: "/discovery" }, { label: "Collections" }]} />
         <header className="px-1">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-foreground md:text-[36px]">Collections</h1>
-          <p className="mt-1 text-[15px] leading-[22px] text-muted-foreground">Hand-picked by the EverySub team.</p>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground md:text-4xl">Collections</h1>
+          <p className="mt-1 text-title text-muted-foreground">Hand-picked by the EverySub team.</p>
         </header>
         {loading ? (
           <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 xl:grid-cols-4">
