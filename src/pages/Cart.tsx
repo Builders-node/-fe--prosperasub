@@ -59,6 +59,7 @@ import { orderShape, type OrderShape } from "@/lib/checkout/orderShape";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { publicSiteUrl } from "@/integrations/supabase/config";
 import { vatCentsFor, vatLabel } from "@/lib/checkout/vat";
+import { tr, trx, countNoun } from "@/lib/tr";
 
 /** A line reads as its service at a glance, not as food-with-a-different-name. */
 const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
@@ -87,7 +88,7 @@ function endDateFor(startISO: string, weeks: number): string {
 }
 
 export default function Cart() {
-  useSeo({ title: "Cart" });
+  useSeo({ title: tr("Cart") });
   const navigate = useNavigate();
   const { items, totalCents, count, setQty, setPeriods, removeItem, clear, restore } = useCart();
   /**
@@ -97,7 +98,7 @@ export default function Cart() {
   const clearWithUndo = () => {
     const saved = items;
     clear();
-    toast("Cart cleared", { action: { label: "Undo", onClick: () => restore(saved) } });
+    toast(tr("Cart cleared"), { action: { label: tr("Undo"), onClick: () => restore(saved) } });
   };
 
   /**
@@ -310,13 +311,13 @@ export default function Cart() {
       if (plans.has(item.planId)) continue;
       const resolved = await resolveCheckoutPlan(item.planId);
       if (!resolved || resolved.status !== "active" || !resolved.providerActive) {
-        throw new Error(`"${item.planName}" is no longer on sale — remove it from the cart to continue.`);
+        throw new Error(tr("\"{planName}\" is no longer on sale — remove it from the cart to continue.", { planName: item.planName }));
       }
       // The cart has no address step: a delivery-only offer is bought from its
       // own page, where the pin and the zone's price are chosen. ("Pickup or
       // delivery" offers go through the cart as pickup.)
       if (resolved.delivery.mode === "delivery") {
-        throw new Error(`"${item.planName}" is delivered — buy it from its own page so we know where to bring it.`);
+        throw new Error(tr("\"{planName}\" is delivered — buy it from its own page so we know where to bring it.", { planName: item.planName }));
       }
       plans.set(item.planId, resolved);
     }
@@ -437,7 +438,7 @@ export default function Cart() {
       setStep("success");
     } catch (e: any) {
       createdRef.current = false;
-      toast.error(e?.message || "Could not create your orders");
+      toast.error(e?.message || tr("Could not create your orders"));
     }
   };
 
@@ -457,7 +458,7 @@ export default function Cart() {
     const services = [...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))];
     const lines = items.map((i) => `${i.planName}${i.qty > 1 ? ` ×${i.qty}` : ""}`);
     const durations = [...new Set(items.map((i) =>
-      `${i.periods} ${CART_SERVICES[i.service]?.periodNoun ?? "period"}${i.periods > 1 ? "s" : ""}`))];
+      countNoun(i.periods, CART_SERVICES[i.service]?.periodNoun ?? "period")))];
     return {
       service_name: services.join(" + ") || "Cart",
       client_name: form.customer_name.trim(),
@@ -483,11 +484,11 @@ export default function Cart() {
       const stale = [...plansRef.current].some(([id, p]) => (vatRatesQ.data?.[id] ?? -1) !== (p.vatPct ?? 0));
       if (stale) {
         await vatRatesQ.refetch();
-        toast.error("Prices were just updated — check the total and try again.");
+        toast.error(tr("Prices were just updated — check the total and try again."));
         return;
       }
     } catch (e: any) {
-      toast.error(e?.message || "Something in your cart can't be bought right now.");
+      toast.error(e?.message || tr("Something in your cart can't be bought right now."));
       return;
     } finally {
       setIsGenerating(false);
@@ -496,7 +497,7 @@ export default function Cart() {
     // One batch per basket attempt: a retried invoice reuses the rows already
     // reserved instead of writing a second pending set.
     if (!pendingBatchRef.current) batchIdRef.current = newBatchId();
-    const description = `${[...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + ")} — ${count} item${count > 1 ? "s" : ""} — ${formatUSD(totalCents)}`;
+    const description = (count > 1 ? tr("{join} — {count} items — {totalCents}", { join: [...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + "), count, totalCents: formatUSD(totalCents) }) : tr("{join} — {count} item — {totalCents}", { join: [...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + "), count, totalCents: formatUSD(totalCents) }));
 
     if (paymentMethod === "paypal") {
       // A PayPal subscription is opened for a row that already exists, so the
@@ -508,15 +509,15 @@ export default function Cart() {
         } finally {
           setIsGenerating(false);
         }
-        if (!pendingBatchRef.current) { toast.error("Could not prepare your subscription — try again."); return; }
+        if (!pendingBatchRef.current) { toast.error(tr("Could not prepare your subscription — try again.")); return; }
       }
       setStep("pay");
       return;
     }
 
-    if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
+    if (!btcPrice) { toast.error(tr("BTC price not loaded yet.")); return; }
     const sats = convertToSats(totalUsd);
-    if (sats <= 0) { toast.error("Unable to calculate payment amount."); return; }
+    if (sats <= 0) { toast.error(tr("Unable to calculate payment amount.")); return; }
 
     setIsGenerating(true);
     setStep("pay");
@@ -547,10 +548,10 @@ export default function Cart() {
     <ResumeCard
                   goodsCents={totalCents}
                   feeCents={Math.max(0, effectiveTotalCents - payableCents)}
-                  feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
+                  feeLabel={feePct > 0 ? tr("Fee · {feePct}%", { feePct }) : tr("Fee")}
                   totalCents={effectiveTotalCents}
                   extra={[
-                    { label: "Items", value: String(count) },
+                    { label: tr("Items"), value: String(count) },
                     ...(vatTotalCents > 0
                       ? [{ label: vatRates.length === 1 ? vatLabel(vatRates[0]) : "VAT", value: formatUSD(vatTotalCents) }]
                       : []),
@@ -560,9 +561,7 @@ export default function Cart() {
   const payBlock = (
     <>
           {enabledMethods.length === 0 && (
-            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
-              Payments are temporarily unavailable. Try again in a few minutes.
-            </p>
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">{tr("Payments are temporarily unavailable. Try again in a few minutes.")}</p>
           )}
           <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
             onClick={startCheckout}
@@ -574,9 +573,9 @@ export default function Cart() {
               ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
             }>
             {isGenerating ? (
-              <><Spinner size="sm" className="mr-2" /> Starting…</>
+              <><Spinner size="sm" className="mr-2" />{" "}{tr("Starting…")}</>
             ) : !isAuthenticated ? (
-              "Log in to checkout"
+              tr("Log in to checkout")
             ) : (
               // Same words as every other pay button. The rail is picked right
               // above this; spelling it out here gave one action four names.
@@ -589,8 +588,8 @@ export default function Cart() {
               {missingUuid
                 // Rare, and worth saying out loud rather than a dead button:
                 // one of the lines needs the account fully set up.
-                ? "We're still setting up your account — reload in a moment"
-                : "Fill name, WhatsApp and delivery address to continue"}
+                ? tr("We're still setting up your account — reload in a moment")
+                : tr("Fill name, WhatsApp and delivery address to continue")}
             </p>
           )}
     </>
@@ -602,13 +601,13 @@ export default function Cart() {
     // instead of the two headers composed by hand over a guessed pb-28. Guests
     // may look at their basket; the pay step asks them to sign in.
     <UserLayout
-      title={atCheckout ? "Checkout" : "Cart"} showBackButton desktopBack={false} backTo="/discovery" allowGuest showBottomNav={false}
+      title={atCheckout ? tr("Checkout") : tr("Cart")} showBackButton desktopBack={false} backTo="/discovery" allowGuest showBottomNav={false}
       // The basket asks for its own address, so the header's location row was
       // a second, different address above it. Clear sits where the title bar
       // keeps a page's one action, instead of a pill as big as the heading.
       noLocation
       headerAction={showBasketOnly && items.length > 0 ? (
-        <button type="button" aria-label="Clear cart" className={HEADER_ACTION_CLASS}
+        <button type="button" aria-label={tr("Clear cart")} className={HEADER_ACTION_CLASS}
           onClick={clearWithUndo}>
           <Trash2 className="h-5 w-5" strokeWidth={1.75} />
         </button>
@@ -621,16 +620,14 @@ export default function Cart() {
         {step === "success" ? (
           <CheckoutSuccessPanel
             icon={ShoppingCart}
-            eyebrow="Payment received"
+            eyebrow={tr("Payment received")}
             amount={<>−{formatUSD(effectiveTotalCents)}</>}
             subtitle={
-              <>
-                {count} item{count > 1 ? "s" : ""} confirmed. Find {count > 1 ? "them" : "it"} in My subscriptions.
-              </>
+              <>{count > 1 ? tr("{count} items confirmed. Find them in My subscriptions.", { count }) : tr("{count} item confirmed. Find it in My subscriptions.", { count })}</>
             }
-            ctaLabel="Go to My subscriptions"
+            ctaLabel={tr("Go to My subscriptions")}
             onCta={() => navigate("/my-subscriptions")}
-            secondary={{ label: "Order more", onClick: () => navigate("/discovery") }}
+            secondary={{ label: tr("Order more"), onClick: () => navigate("/discovery") }}
           />
         ) : items.length === 0 ? (
           // The one empty-state component, and neutral words — the cart takes
@@ -639,13 +636,13 @@ export default function Cart() {
           <>
             <YdEmptyState
               icon={ShoppingCart}
-              title="Your cart is empty"
-              subtitle="Add plans from any service and pay for them together."
-              action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
+              title={tr("Your cart is empty")}
+              subtitle={tr("Add plans from any service and pay for them together.")}
+              action={<Button onClick={() => navigate("/discovery")}>{tr("Browse services")}</Button>}
             />
             {/* The moment someone doesn't know what to take: what others take. */}
             <UpsellSection
-              title="Popular on EverySub"
+              title={tr("Popular on EverySub")}
               placement="cart"
               limit={6}
               gridClassName="md:grid-cols-2 lg:grid-cols-3"
@@ -661,13 +658,12 @@ export default function Cart() {
               <>
                 {/* A laptop has no title bar; on a phone the header already says Cart. */}
                 <div className="hidden items-end justify-between gap-4 md:flex">
-                  <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">Your cart</h1>
+                  <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">{tr("Your cart")}</h1>
                   <Button
                     variant="secondary" size="sm" className="gap-1.5"
                     onClick={clearWithUndo}
                   >
-                    <Trash2 className="h-4 w-4" /> Clear cart
-                  </Button>
+                    <Trash2 className="h-4 w-4" />{" "}{tr("Clear cart")}</Button>
                 </div>
 
                 <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
@@ -701,7 +697,7 @@ export default function Cart() {
                                 <button
                                   type="button"
                                   onClick={() => removeItem(item.key)}
-                                  aria-label="Remove"
+                                  aria-label={tr("Remove")}
                                   className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-inset hover:text-foreground"
                                 >
                                   <X className="h-5 w-5" />
@@ -711,7 +707,7 @@ export default function Cart() {
                             <TermPills options={shape.termOptions} value={item.periods} noun={per} onChange={(n) => setPeriods(item.key, n)} />
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="text-meta text-muted-foreground">
-                                {per ? `${item.periods} ${per}${item.periods === 1 ? "" : "s"}` : "Total"}
+                                {per ? countNoun(item.periods, per) : tr("Total")}
                                 {item.qty > 1 && shape.quantity ? ` · ${item.qty} ${shape.quantity.noun === "person" ? "people" : `${shape.quantity.noun}s`}` : ""}
                               </span>
                               <span className="text-title font-semibold tabular-nums text-foreground">{formatUSD(cartLineTotal(item))}</span>
@@ -724,14 +720,14 @@ export default function Cart() {
 
                   {/* Here and not on the pay step: while the basket is still
                       being decided. Each pick lands in the list above. */}
-                  <UpsellSection title="You may also need" placement="cart" className="px-4 md:px-0" />
+                  <UpsellSection title={tr("You may also need")} placement="cart" className="px-4 md:px-0" />
                   </div>
 
                   {/* The total, held in view on a laptop. */}
                   <aside className="mt-1 space-y-4 rounded-radius-lg bg-card p-5 md:sticky md:top-24 md:mt-0">
                     <div>
-                      <h2 className="text-heading font-semibold text-foreground">Total</h2>
-                      <p className="text-body text-muted-foreground">{count} item{count === 1 ? "" : "s"} · paid together</p>
+                      <h2 className="text-heading font-semibold text-foreground">{tr("Total")}</h2>
+                      <p className="text-body text-muted-foreground">{count === 1 ? trx("{count} item", { count }) : trx("{count} items", { count })}{" "}{tr("· paid together")}</p>
                     </div>
                     <div className="space-y-2 border-t border-border/60 pt-4 text-body">
                       {items.map((item) => (
@@ -748,20 +744,20 @@ export default function Cart() {
                       )}
                       {maxFeePct > 0 && (
                         <div className="flex justify-between text-muted-foreground">
-                          <span>Payment fee</span>
-                          <span className="shrink-0">up to {maxFeePct}%, by method</span>
+                          <span>{tr("Payment fee")}</span>
+                          <span className="shrink-0">{trx("up to {maxFeePct}%, by method", { maxFeePct })}</span>
                         </div>
                       )}
                     </div>
                     <div className="flex items-baseline justify-between border-t border-border/60 pt-4">
                       {/* Not "To pay" while a fee can still be added on top: the
                           number would be a promise the next step breaks. */}
-                      <span className="text-title font-semibold text-foreground">{maxFeePct > 0 ? "Subtotal" : "To pay"}</span>
+                      <span className="text-title font-semibold text-foreground">{maxFeePct > 0 ? tr("Subtotal") : tr("To pay")}</span>
                       <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{formatUSD(payableCents)}</span>
                     </div>
                     <Button size="lg" className="hidden w-full font-semibold md:flex"
                       onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
-                      {isAuthenticated ? "Continue to checkout" : "Log in to checkout"}
+                      {isAuthenticated ? tr("Continue to checkout") : tr("Log in to checkout")}
                     </Button>
                   </aside>
                 </div>
@@ -777,7 +773,7 @@ export default function Cart() {
                   title={item.planName}
                   description={(() => {
                     const sh = shapeOf(item);
-                    const term = sh.periodNoun ? `${item.periods} ${sh.periodNoun}${item.periods === 1 ? "" : "s"}` : null;
+                    const term = sh.periodNoun ? countNoun(item.periods, sh.periodNoun) : null;
                     const qty = sh.quantity && item.qty > 1 ? `${item.qty} ${sh.quantity.noun === "person" ? "people" : "portions"}` : null;
                     return [item.providerName, term, qty].filter(Boolean).join(" · ");
                   })()}
@@ -801,18 +797,18 @@ export default function Cart() {
                   incomplete={missingDetails}
                 >
                   <FieldRows>
-                    <FieldRow label="Full name" required htmlFor="cart-name">
+                    <FieldRow label={tr("Full name")} required htmlFor="cart-name">
                       <input
                         id="cart-name"
                         value={form.customer_name}
                         onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
-                        placeholder="Your full name"
+                        placeholder={tr("Your full name")}
                         autoComplete="name"
                         className={fieldInputClass}
                       />
                     </FieldRow>
 
-                    <FieldRow label="WhatsApp" required htmlFor="cart-phone">
+                    <FieldRow label={tr("WhatsApp")} required htmlFor="cart-phone">
                       <input
                         id="cart-phone"
                         type="tel"
@@ -831,18 +827,18 @@ export default function Cart() {
                     </FieldRow>
 
                     {residences.length > 0 && (
-                      <FieldRow label="Residence">
+                      <FieldRow label={tr("Residence")}>
                         <Select value={form.residence || "_none"} onValueChange={(v) => setForm((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
-                          <SelectTrigger><SelectValue placeholder="Other / not listed" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder={tr("Other / not listed")} /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="_none">Other / not listed</SelectItem>
+                            <SelectItem value="_none">{tr("Other / not listed")}</SelectItem>
                             {residences.map((r) => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </FieldRow>
                     )}
 
-                    <FieldRow label="Delivery address" required htmlFor="cart-address">
+                    <FieldRow label={tr("Delivery address")} required htmlFor="cart-address">
                       <div className="space-y-1.5">
                         <LocationPicker
                           userId={userData?.id}
@@ -854,7 +850,7 @@ export default function Cart() {
                           value={form.delivery_address}
                           onChange={(e) => setForm((f) => ({ ...f, delivery_address: e.target.value }))}
                           rows={2}
-                          placeholder="Apartment / unit, building, street…"
+                          placeholder={tr("Apartment / unit, building, street…")}
                           className="min-h-[72px] resize-none"
                         />
                       </div>
@@ -863,10 +859,10 @@ export default function Cart() {
                     <NotesField
                       value={form.notes}
                       onChange={(next) => setForm((f) => ({ ...f, notes: next }))}
-                      label="Notes"
-                      title="Comment"
-                      description="Allergies, preferences, anything the kitchen should know."
-                      placeholder="What should we know?"
+                      label={tr("Notes")}
+                      title={tr("Comment")}
+                      description={tr("Allergies, preferences, anything the kitchen should know.")}
+                      placeholder={tr("What should we know?")}
                     />
                   </FieldRows>
                 </PersonalDataCard>
@@ -876,7 +872,7 @@ export default function Cart() {
                     can still change — an address can add a delivery fee. */}
                 <div className="md:hidden">{resume}</div>
 
-                <CheckoutCard title="Payment method">
+                <CheckoutCard title={tr("Payment method")}>
                   <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
 
                   {/* Said before the PayPal step, not on it: choosing PayPal
@@ -892,13 +888,8 @@ export default function Cart() {
                       />
                       <span>
                         <span className="flex items-center gap-1.5 font-medium text-foreground">
-                          <RefreshCw className="h-3.5 w-3.5 text-primary" />
-                          Renew automatically every {renewTerm}
-                        </span>
-                        <span className="block text-muted-foreground">
-                          With PayPal this renews by itself: {formatUSD(effectiveTotalCents)} every {renewTerm} until you cancel —
-                          any time, from My subscriptions or your PayPal account. Untick to pay once.
-                        </span>
+                          <RefreshCw className="h-3.5 w-3.5 text-primary" />{trx("Renew automatically every {renewTerm}", { renewTerm })}</span>
+                        <span className="block text-muted-foreground">{trx("With PayPal this renews by itself: {effectiveTotalCents} every {renewTerm} until you cancel — any time, from My subscriptions or your PayPal account. Untick to pay once.", { effectiveTotalCents: formatUSD(effectiveTotalCents), renewTerm })}</span>
                       </span>
                     </label>
                   )}
@@ -934,12 +925,12 @@ export default function Cart() {
                 isPaid={isPaid}
                 isExpired={inv.state.isExpired}
                 onRetry={() => { inv.reset(); void startCheckout(); }}
-                successLabel="Creating your orders…"
+                successLabel={tr("Creating your orders…")}
               />
             )}
 
             {step === "pay" && !isPaid && (
-              <Button variant="ghost" className="w-full" onClick={backToCart}>Change payment method</Button>
+              <Button variant="ghost" className="w-full" onClick={backToCart}>{tr("Change payment method")}</Button>
             )}
               </div>
 
@@ -959,14 +950,12 @@ export default function Cart() {
         <div className="md:hidden">
         <CheckoutStickyFooter>
           {showBasketOnly && enabledMethods.length === 0 && (
-            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
-              Payments are temporarily unavailable. Try again in a few minutes.
-            </p>
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">{tr("Payments are temporarily unavailable. Try again in a few minutes.")}</p>
           )}
           {showBasketOnly ? (
             <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
-              {isAuthenticated ? `Continue to checkout · ${formatUSD(payableCents)}` : "Log in to checkout"}
+              {isAuthenticated ? tr("Continue to checkout · {payableCents}", { payableCents: formatUSD(payableCents) }) : tr("Log in to checkout")}
             </Button>
           ) : payBlock}
         </CheckoutStickyFooter>

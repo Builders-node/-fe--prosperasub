@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
@@ -41,7 +42,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   const json = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = Array.isArray(json?.message) ? json.message.join(", ") : json?.message;
-    throw new Error(msg || `Request failed (${res.status})`);
+    throw new Error(msg || tr("Request failed ({status})", { status: res.status }));
   }
   return json as T;
 }
@@ -54,7 +55,7 @@ export function useCryptoGatewayConfig(enabled = true) {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const res = await fetch(`${API_URL}/payments/crypto/config`);
-      if (!res.ok) throw new Error("Could not load crypto options.");
+      if (!res.ok) throw new Error(tr("Could not load crypto options."));
       return (await res.json()) as { enabled: boolean; provider: string | null; currencies: string[] };
     },
   });
@@ -126,7 +127,7 @@ export function useCryptoGatewayPayment({ onPaid, onInvoiceReady, pollMs = 6000,
       onInvoiceReady?.(view.payment_id);
       poll(view.payment_id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create the crypto payment.");
+      toast.error(e instanceof Error ? e.message : tr("Could not create the crypto payment."));
     } finally {
       setIsGenerating(false);
     }

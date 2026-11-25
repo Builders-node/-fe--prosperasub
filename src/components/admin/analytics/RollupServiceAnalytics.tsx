@@ -8,6 +8,7 @@ import {
 } from "@/lib/analytics/platformRollup";
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { nowHN } from "@/lib/timezone";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * Analytics for a service that has no bespoke analytics page — Vehicles and
@@ -36,19 +37,19 @@ export function RollupServiceAnalytics({ serviceKey }: { serviceKey: RollupServi
 
   return (
     <AnalyticsView
-      monthLabel={format(nowHN(), "MMMM")}
+      monthLabel={format(nowHN(), "MMMM", { locale: dfLocale })}
       months={data.months}
       series={[{ key: svc.key, label: svc.label, values: svc.monthly, barClass: "bg-primary" }]}
       figures={svc}
       period={periodFigures(allRows, period)}
       plans={{
         rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))).slice(0, 8),
-        emptyMessage: "Nothing has earned anything yet.",
+        emptyMessage: tr("Nothing has earned anything yet."),
       }}
       group={{
-        title: "Revenue by business",
+        title: tr("Revenue by business"),
         rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
-        emptyMessage: "No business has earned anything yet.",
+        emptyMessage: tr("No business has earned anything yet."),
       }}
     />
   );

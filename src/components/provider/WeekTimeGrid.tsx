@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
+import { dfLocale } from "@/lib/tr";
 import { cn } from "@/lib/utils";
 import type { UnifiedBookingRow } from "@/hooks/useUnifiedBookings";
 
@@ -142,7 +143,7 @@ export function WeekTimeGrid({
             const today = isSameDay(day, now);
             return (
               <div key={day.toISOString()} className="flex-1 px-2 py-2 text-center tracking-[-0.02em]">
-                <p className="text-[12px] uppercase leading-[16px] text-muted-foreground">{format(day, "EEE")}</p>
+                <p className="text-[12px] uppercase leading-[16px] text-muted-foreground">{format(day, "EEE", { locale: dfLocale })}</p>
                 <p className={cn(
                   "text-[16px] font-semibold leading-[22px] tabular-nums",
                   today ? "text-primary" : "text-foreground",

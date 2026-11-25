@@ -13,6 +13,7 @@ import { todayHN } from "@/lib/timezone";
 import { itemLabel, useProviderItems } from "@/lib/services/providerItems";
 import { cn } from "@/lib/utils";
 import { RedemptionsCard } from "@/components/provider/RedemptionsCard";
+import { tr } from "@/lib/tr";
 
 /**
  * The provider's day — one screen, whatever they sell.
@@ -51,11 +52,11 @@ interface Occurrence {
 }
 
 const STATUS_META: Record<string, { label: string; tint: string }> = {
-  scheduled: { label: "Scheduled", tint: "bg-muted text-muted-foreground" },
-  done:      { label: "Done",      tint: "bg-positive/15 text-positive" },
-  failed:    { label: "Failed",    tint: "bg-destructive/15 text-destructive" },
-  cancelled: { label: "Cancelled", tint: "bg-muted text-muted-foreground" },
-  rescheduled: { label: "Moved",   tint: "bg-attention/15 text-attention" },
+  scheduled: { label: tr("Scheduled"), tint: "bg-muted text-muted-foreground" },
+  done:      { label: tr("Done"),      tint: "bg-positive/15 text-positive" },
+  failed:    { label: tr("Failed"),    tint: "bg-destructive/15 text-destructive" },
+  cancelled: { label: tr("Cancelled"), tint: "bg-muted text-muted-foreground" },
+  rescheduled: { label: tr("Moved"),   tint: "bg-attention/15 text-attention" },
 };
 
 
@@ -108,7 +109,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
       if (error) throw new Error(String(error));
     },
     onSuccess: () => { invalidate(); setFailing(null); setReason(""); },
-    onError: (e: any) => toast.error(e?.message || "Couldn't update it"),
+    onError: (e: any) => toast.error(e?.message || tr("Couldn't update it")),
   });
 
   /**
@@ -124,8 +125,8 @@ export function OperationsTab({ providerId }: { providerId: string }) {
       const { error } = await accountApi(`/account/occurrences/${id}`, { method: "DELETE" });
       if (error) throw new Error(String(error));
     },
-    onSuccess: () => { toast.success("Removed"); invalidate(); setRemoving(null); },
-    onError: (e: Error) => toast.error(e.message || "Could not remove it"),
+    onSuccess: () => { toast.success(tr("Removed")); invalidate(); setRemoving(null); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not remove it")),
   });
 
   const reschedule = useMutation({
@@ -136,8 +137,8 @@ export function OperationsTab({ providerId }: { providerId: string }) {
       });
       if (error) throw new Error(String(error));
     },
-    onSuccess: () => { toast.success("Moved"); invalidate(); setMoving(null); setMoveTo(""); },
-    onError: (e: any) => toast.error(e?.message || "Couldn't move it"),
+    onSuccess: () => { toast.success(tr("Moved")); invalidate(); setMoving(null); setMoveTo(""); },
+    onError: (e: any) => toast.error(e?.message || tr("Couldn't move it")),
   });
 
   const generate = useMutation({
@@ -149,10 +150,10 @@ export function OperationsTab({ providerId }: { providerId: string }) {
       return data as { created: number };
     },
     onSuccess: (d) => {
-      toast.success(d?.created ? `Scheduled ${d.created} more` : "Everything ahead is already scheduled");
+      toast.success(d?.created ? tr("Scheduled {created} more", { created: d.created }) : tr("Everything ahead is already scheduled"));
       invalidate();
     },
-    onError: (e: any) => toast.error(e?.message || "Couldn't schedule ahead"),
+    onError: (e: any) => toast.error(e?.message || tr("Couldn't schedule ahead")),
   });
 
   const counts = useMemo(() => {
@@ -180,28 +181,26 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           page its text ran to the screen edge and the date field floated. */}
       <WorkspaceCard className="space-y-4">
         <div>
-          <h2 className="text-heading font-semibold text-foreground">Today's work</h2>
-          <p className="mt-1 text-body text-muted-foreground">
-            Every visit, delivery and booking for this day — mark it or move it.
-          </p>
+          <h2 className="text-heading font-semibold text-foreground">{tr("Today's work")}</h2>
+          <p className="mt-1 text-body text-muted-foreground">{tr("Every visit, delivery and booking for this day — mark it or move it.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input
             inputSize="sm"
             type="date"
-            aria-label="Day"
+            aria-label={tr("Day")}
             value={day}
             onChange={(e) => setDay(e.target.value)}
             className="w-[170px]"
           />
           {day !== todayHN() && (
             <Button variant="ghost" size="sm" className="text-muted-foreground"
-              onClick={() => setDay(todayHN())}>Today</Button>
+              onClick={() => setDay(todayHN())}>{tr("Today")}</Button>
           )}
           <Button variant="outline" size="sm" className="gap-1.5"
             disabled={generate.isPending} onClick={() => generate.mutate()}>
             <CalendarClock className="h-4 w-4" />
-            {generate.isPending ? "Scheduling…" : "Schedule ahead"}
+            {generate.isPending ? tr("Scheduling…") : tr("Schedule ahead")}
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -211,7 +210,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                 "rounded-full px-3.5 py-1.5 text-body font-semibold transition-colors",
                 statusFilter === key ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
               )}>
-              {key === "all" ? "All" : STATUS_META[key]?.label ?? key}
+              {key === "all" ? tr("All") : STATUS_META[key]?.label ?? key}
               {counts[key] ? <span className="ml-1.5 opacity-60">{counts[key]}</span> : null}
             </button>
           ))}
@@ -227,20 +226,15 @@ export function OperationsTab({ providerId }: { providerId: string }) {
            indistinguishable from a quiet day — a provider would go looking for
            work the screen had simply failed to fetch. */
         <div className="space-y-3 rounded-radius-lg bg-destructive/10 p-6 text-center">
-          <p className="text-sm font-semibold text-destructive">Couldn't load this day</p>
+          <p className="text-sm font-semibold text-destructive">{tr("Couldn't load this day")}</p>
           <p className="text-xs text-muted-foreground">
-            {(error as Error)?.message || "The day's work could not be read."}
+            {(error as Error)?.message || tr("The day's work could not be read.")}
           </p>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Try again
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>{tr("Try again")}</Button>
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-radius-lg bg-card p-8 text-center">
-          <p className="text-[16px] leading-[22px] text-muted-foreground">
-            Nothing on this day. If work should be here, use <b>Schedule ahead</b> — deliveries are
-            planned in advance rather than appearing when they are marked.
-          </p>
+          <p className="text-[16px] leading-[22px] text-muted-foreground">{tr("Nothing on this day. If work should be here, use")}{" "}<b>{tr("Schedule ahead")}</b>{" "}{tr("— deliveries are planned in advance rather than appearing when they are marked.")}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -285,14 +279,12 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                       <Button size="sm" className="gap-1.5"
                         disabled={setStatus.isPending}
                         onClick={() => setStatus.mutate({ id: r.id, status: "done" })}>
-                        <CheckCircle2 className="h-4 w-4" /> Done
-                      </Button>
+                        <CheckCircle2 className="h-4 w-4" />{" "}{tr("Done")}</Button>
                     )}
                     {r.status !== "failed" && r.status !== "cancelled" && (
                       <Button size="sm" variant="outline" className="gap-1.5"
                         onClick={() => { setFailing(r); setReason(""); }}>
-                        <XCircle className="h-4 w-4" /> Failed
-                      </Button>
+                        <XCircle className="h-4 w-4" />{" "}{tr("Failed")}</Button>
                     )}
                     {r.status !== "scheduled" && (
                       <Button size="sm" variant="ghost" className="text-muted-foreground"
@@ -304,13 +296,11 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                         that slot, which is the booking screen's job. */}
                     {!r.slot_id && (
                       <Button size="sm" variant="ghost" className="text-muted-foreground"
-                        onClick={() => { setMoving(r); setMoveTo(r.starts_at.slice(0, 10)); }}>
-                        Move
-                      </Button>
+                        onClick={() => { setMoving(r); setMoveTo(r.starts_at.slice(0, 10)); }}>{tr("Move")}</Button>
                     )}
                     <Button size="sm" variant="ghost"
                       className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      aria-label="Remove"
+                      aria-label={tr("Remove")}
                       onClick={() => setRemoving(r)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -322,40 +312,35 @@ export function OperationsTab({ providerId }: { providerId: string }) {
         </ul>
       )}
 
-      <ResponsiveDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title="Remove this?">
+      <ResponsiveDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={tr("Remove this?")}>
         <div className="space-y-3 pb-2">
           <p className="text-[16px] leading-[22px] text-muted-foreground">
             {removing?.customer_name || removing?.item_key
-              ? <>It disappears from the day and whatever it was holding — a court, a slot — is freed.</>
-              : <>It disappears from the day.</>}
+              ? <>{tr("It disappears from the day and whatever it was holding — a court, a slot — is freed.")}</>
+              : <>{tr("It disappears from the day.")}</>}
           </p>
-          <p className="text-xs text-muted-foreground">
-            For something that was supposed to happen and didn't, use Failed instead — that stays on
-            the record with its reason.
-          </p>
+          <p className="text-xs text-muted-foreground">{tr("For something that was supposed to happen and didn't, use Failed instead — that stays on the record with its reason.")}</p>
           <Button variant="destructive" className="w-full"
             disabled={remove.isPending}
             onClick={() => removing && remove.mutate(removing.id)}>
-            {remove.isPending ? "Removing…" : "Remove"}
+            {remove.isPending ? tr("Removing…") : tr("Remove")}
           </Button>
         </div>
       </ResponsiveDialog>
 
-      <ResponsiveDialog open={!!failing} onOpenChange={(o) => !o && setFailing(null)} title="What went wrong?">
+      <ResponsiveDialog open={!!failing} onOpenChange={(o) => !o && setFailing(null)} title={tr("What went wrong?")}>
         <div className="space-y-3 pb-2">
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
-            placeholder="Nobody home · address wrong · kitchen delay" />
-          <p className="text-xs text-muted-foreground">
-            The reason is kept on the day's record, so a pattern is visible later.
-          </p>
+            placeholder={tr("Nobody home · address wrong · kitchen delay")} />
+          <p className="text-xs text-muted-foreground">{tr("The reason is kept on the day's record, so a pattern is visible later.")}</p>
           <Button className="w-full" disabled={setStatus.isPending}
             onClick={() => failing && setStatus.mutate({ id: failing.id, status: "failed", why: reason.trim() || undefined })}>
-            {setStatus.isPending ? "Saving…" : "Mark failed"}
+            {setStatus.isPending ? tr("Saving…") : tr("Mark failed")}
           </Button>
         </div>
       </ResponsiveDialog>
 
-      <ResponsiveDialog open={!!moving} onOpenChange={(o) => !o && setMoving(null)} title="Move it to">
+      <ResponsiveDialog open={!!moving} onOpenChange={(o) => !o && setMoving(null)} title={tr("Move it to")}>
         <div className="space-y-3 pb-2">
           <Input type="date" value={moveTo} onChange={(e) => setMoveTo(e.target.value)} />
           <Button className="w-full" disabled={reschedule.isPending || !moveTo}
@@ -364,7 +349,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
               // Keep the time of day it already had; only the date moves.
               startsAt: new Date(`${moveTo}T${moving.starts_at.slice(11, 19)}Z`).toISOString(),
             })}>
-            {reschedule.isPending ? "Moving…" : "Move"}
+            {reschedule.isPending ? tr("Moving…") : tr("Move")}
           </Button>
         </div>
       </ResponsiveDialog>

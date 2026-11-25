@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatDateHN, formatTimestampHN } from "@/lib/timezone";
 import { apiUrlFor } from "@/integrations/supabase/config";
 import { TillCollectCard } from "@/components/till/TillCollectCard";
+import { tr, trx } from "@/lib/tr";
 
 
 /**
@@ -53,10 +54,10 @@ const SERVICE_ICON: Record<Subscription["service"], typeof Sparkles> = {
 };
 
 const SERVICE_LABEL: Record<Subscription["service"], string> = {
-  cleaning: "Cleaning",
-  food: "Food",
-  beach_club: "Beach Club",
-  plan: "Subscription",
+  cleaning: tr("Cleaning"),
+  food: tr("Food"),
+  beach_club: tr("Beach Club"),
+  plan: tr("Subscription"),
 };
 
 export default function VerifyAccess() {
@@ -162,7 +163,7 @@ function HeaderCard({ name, avatar, count }: { name: string; avatar: string | nu
       <div className="w-full text-center">
         <p className="text-heading font-semibold leading-none text-foreground">{name}</p>
         <p className="mt-1 text-meta text-muted-foreground">
-          {count} {count === 1 ? "Subscription" : "Subscriptions"}
+          {count} {count === 1 ? tr("Subscription") : tr("Subscriptions")}
         </p>
       </div>
     </div>
@@ -183,7 +184,7 @@ function BookedCard({ bookings }: { bookings: UpcomingBooking[] }) {
 
   return (
     <div className="flex flex-col gap-3 rounded-radius-lg bg-card p-4 shadow-figma">
-      <p className="text-heading font-semibold text-foreground">Booked</p>
+      <p className="text-heading font-semibold text-foreground">{tr("Booked")}</p>
       <div className="flex flex-col gap-2">
         {bookings.map((b) => (
           <div key={b.id} className="flex items-center gap-3">
@@ -231,7 +232,7 @@ function AccessCard({
 
   return (
     <div className="flex flex-col gap-3 rounded-radius-lg bg-card p-4 shadow-figma">
-      <p className="text-heading font-semibold text-foreground">Active Access</p>
+      <p className="text-heading font-semibold text-foreground">{tr("Active Access")}</p>
 
       {rows.length === 0 ? (
         <p className="rounded-radius-md bg-muted px-4 py-6 text-center text-sm text-muted-foreground">{emptyLabel}</p>
@@ -246,7 +247,7 @@ function AccessCard({
                   <p className="truncate text-title font-semibold text-foreground">{s.name}</p>
                   <div className="flex flex-col gap-1 text-meta text-muted-foreground">
                     <p className="truncate">{s.provider_name ? `${s.provider_name} · ${category}` : category}</p>
-                    {s.expires_at && <p className="truncate">Until {formatDateHN(s.expires_at)}</p>}
+                    {s.expires_at && <p className="truncate">{trx("Until {expires_at}", { expires_at: formatDateHN(s.expires_at) })}</p>}
                   </div>
                 </div>
               </div>
@@ -256,9 +257,7 @@ function AccessCard({
       )}
 
       {pendingCount > 0 && (
-        <p className="text-center text-xs text-muted-foreground">
-          + {pendingCount} pending — payment not yet confirmed
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{trx("+ {pendingCount} pending — payment not yet confirmed", { pendingCount })}</p>
       )}
     </div>
   );

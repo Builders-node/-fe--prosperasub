@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { tr } from "@/lib/tr";
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
@@ -58,7 +59,7 @@ function loadPayPalSdk(clientId: string): Promise<void> {
     const s = document.createElement("script");
     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture`;
     s.onload = () => resolve();
-    s.onerror = () => { sdkPromise = null; reject(new Error("Failed to load PayPal SDK")); };
+    s.onerror = () => { sdkPromise = null; reject(new Error(tr("Failed to load PayPal SDK"))); };
     document.head.appendChild(s);
   });
   return sdkPromise;
@@ -111,7 +112,7 @@ export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: P
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ amount_cents: totalRef.current, ...(metaRef.current ?? {}) }),
               }).then((r) => r.json());
-              if (!d.id) throw new Error(d.message || "Could not create PayPal order");
+              if (!d.id) throw new Error(d.message || tr("Could not create PayPal order"));
               onOrderCreatedRef.current?.(d.id);
               return d.id;
             },
@@ -128,18 +129,18 @@ export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: P
                     body: JSON.stringify({ order_id: data.orderID }),
                   }).then((r) => r.json());
                   if (d.paid) { onPaidRef.current(d.capture_id || data.orderID); return; }
-                  lastErr = new Error(d.message || "PayPal payment was not completed");
+                  lastErr = new Error(d.message || tr("PayPal payment was not completed"));
                 } catch (e) {
                   lastErr = e;
                 }
                 await new Promise((r) => setTimeout(r, 1500));
               }
-              throw lastErr ?? new Error("PayPal payment was not completed");
+              throw lastErr ?? new Error(tr("PayPal payment was not completed"));
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onError: (err: any) => {
               console.error("PayPal error:", err);
-              setFailure("PayPal didn't finish the payment. If money left your account we'll match it to your order automatically — otherwise try again or choose another method.");
+              setFailure(tr("PayPal didn't finish the payment. If money left your account we'll match it to your order automatically — otherwise try again or choose another method."));
             },
             onCancel: () => setFailure(null),
           })
@@ -154,8 +155,8 @@ export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: P
     return () => { cancelled = true; };
   }, []);
 
-  if (status === "unconfigured") return <Notice>PayPal is not configured yet. Please use another method.</Notice>;
-  if (status === "error") return <Notice>PayPal is unavailable right now. Please use another method.</Notice>;
+  if (status === "unconfigured") return <Notice>{tr("PayPal is not configured yet. Please use another method.")}</Notice>;
+  if (status === "error") return <Notice>{tr("PayPal is unavailable right now. Please use another method.")}</Notice>;
 
   return (
     <div>

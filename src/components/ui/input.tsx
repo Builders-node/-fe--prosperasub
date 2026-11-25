@@ -3,6 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * One field look for the whole app (DESIGN.md §6, Fields).
@@ -138,7 +139,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className="rounded-radius-full p-space-1 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
         onClick={() => setShowPassword((value) => !value)}
         disabled={disabled}
-        aria-label={showPassword ? "Hide password" : "Show password"}
+        aria-label={showPassword ? tr("Hide password") : tr("Show password")}
       >
         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
       </button>

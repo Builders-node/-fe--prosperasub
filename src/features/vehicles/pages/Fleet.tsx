@@ -26,6 +26,7 @@ import { ServiceFaq } from "@/components/listing/ServiceFaq";
 const SEO_LANG = inSpanishUrl() ? "es" : "en";
 const SEO_COPY = serviceSeo("vehicles", SEO_LANG)!;
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The fleet, built out of the same pieces as every other listing.
@@ -158,13 +159,13 @@ export default function Fleet() {
     // took its tab bar from the section shell: the same screen, assembled by
     // hand, and therefore free to drift.
     <BrowseLayout
-      beforeFooter={<AppContainer className="pb-space-6"><ServiceFaq faq={SEO_COPY.faq} title={SEO_LANG === "es" ? "Preguntas frecuentes" : undefined} /></AppContainer>}
+      beforeFooter={<AppContainer className="pb-space-6"><ServiceFaq faq={SEO_COPY.faq} title={SEO_LANG === "es" ? tr("Preguntas frecuentes") : undefined} /></AppContainer>}
       header={<ListingHeader
-        title="Vehicles"
+        title={tr("Vehicles")}
         onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
-        placeholder="Search vehicles"
+        placeholder={tr("Search vehicles")}
         sort={search.sort}
         onSortChange={search.setSort}
         sorts={search.availableSorts}
@@ -174,7 +175,7 @@ export default function Fleet() {
         desktopBar={false}
       />}>
       <DesktopListing
-        title="Vehicles"
+        title={tr("Vehicles")}
         categories={(categoriesQ.data ?? []).map((c) => ({ key: c.key, label: c.label }))}
         category={activeCategory}
         onCategory={setActiveCategory}
@@ -189,9 +190,9 @@ export default function Fleet() {
         extraFilters={
           <>
             {seatOptions.length > 1 && (
-              <FilterGroup title="Seats">
+              <FilterGroup title={tr("Seats")}>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(!minSeats)} onClick={() => setParam("seats", null)}>Any</button>
+                  <button type="button" className={chip(!minSeats)} onClick={() => setParam("seats", null)}>{tr("Any")}</button>
                   {seatOptions.map((n) => (
                     <button key={n} type="button" className={chip(minSeats === n)} onClick={() => setParam("seats", minSeats === n ? null : String(n))}>
                       {n}+
@@ -201,12 +202,12 @@ export default function Fleet() {
               </FilterGroup>
             )}
             {gears.length > 1 && (
-              <FilterGroup title="Gearbox">
+              <FilterGroup title={tr("Gearbox")}>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(!gear)} onClick={() => setParam("gear", null)}>Any</button>
+                  <button type="button" className={chip(!gear)} onClick={() => setParam("gear", null)}>{tr("Any")}</button>
                   {gears.map((g) => (
                     <button key={g} type="button" className={chip(gear === g)} onClick={() => setParam("gear", gear === g ? null : g)}>
-                      {g === "automatic" ? "Automatic" : "Manual"}
+                      {g === "automatic" ? tr("Automatic") : tr("Manual")}
                     </button>
                   ))}
                 </div>
@@ -215,9 +216,9 @@ export default function Fleet() {
           </>
         }
         empty={isError
-          ? <QueryError title="Couldn't load vehicles" error={error} onRetry={() => void refetch()} />
-          : <YdEmptyState icon={Car} title={vehicles.length ? "No vehicles match" : "No vehicles available yet"}
-              subtitle={vehicles.length ? "Try other filters, or reset them." : "Check back soon."} />}
+          ? <QueryError title={tr("Couldn't load vehicles")} error={error} onRetry={() => void refetch()} />
+          : <YdEmptyState icon={Car} title={vehicles.length ? tr("No vehicles match") : tr("No vehicles available yet")}
+              subtitle={vehicles.length ? tr("Try other filters, or reset them.") : tr("Check back soon.")} />}
       />
       {/* The phone: chips, the rental companies, the list. */}
       <AppContainer className="py-space-4 md:hidden">
@@ -237,10 +238,10 @@ export default function Fleet() {
                 id: p.id,
                 name: p.name,
                 avatarUrl: p.avatarUrl ?? null,
-                meta: `${p.count} vehicle${p.count === 1 ? "" : "s"}`,
+                meta: (p.count === 1 ? tr("{count} vehicle", { count: p.count }) : tr("{count} vehicles", { count: p.count })),
               }))}
               icon={Building2}
-              label="Businesses"
+              label={tr("Businesses")}
               // The rail is a DOOR, as on every other listing — it opens the
               // business's own page (fleet shelf, reviews, gallery). Narrowing
               // the grid is the chips' job, not the rail's.
@@ -250,19 +251,19 @@ export default function Fleet() {
         )}
 
         <YdSectionHeading
-          title={providerId ? providers.find((p) => p.id === providerId)?.name ?? "Available vehicles" : "Available vehicles"}
+          title={providerId ? providers.find((p) => p.id === providerId)?.name ?? tr("Available vehicles") : tr("Available vehicles")}
           count={!isLoading && !isError ? shown.length : null}
         />
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Spinner /></div>
         ) : isError ? (
-          <QueryError title="Couldn't load vehicles" error={error} onRetry={() => void refetch()} />
+          <QueryError title={tr("Couldn't load vehicles")} error={error} onRetry={() => void refetch()} />
         ) : shown.length === 0 ? (
           <YdEmptyState
             icon={Car}
-            title={search.isActive ? "No vehicles match your search" : "No vehicles available yet"}
-            subtitle={search.isActive ? "Try a different word." : "Check back soon."}
+            title={search.isActive ? tr("No vehicles match your search") : tr("No vehicles available yet")}
+            subtitle={search.isActive ? tr("Try a different word.") : tr("Check back soon.")}
           />
         ) : (
           // Two columns on a laptop — one full-width row per car left half

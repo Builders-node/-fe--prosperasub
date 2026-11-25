@@ -25,6 +25,7 @@ import { useUnifiedBookings, type UnifiedBookingRow } from "@/hooks/useUnifiedBo
 import { WeekTimeGrid } from "@/components/provider/WeekTimeGrid";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment, type ApproveService } from "@/lib/subscriptionApprove";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 interface Props {
   providerId: string;
@@ -132,7 +133,7 @@ export function UnifiedBookingCalendar({
       // no counter to give back, so a plain write is right for them.
       if (next === "cancelled" && row.sourceTable === "cleaning_bookings") {
         const { cancelled } = await cancelCleaningBookings(supabaseDb, [row.id]);
-        if (cancelled.length === 0) throw new Error("This booking is already cancelled or completed");
+        if (cancelled.length === 0) throw new Error(tr("This booking is already cancelled or completed"));
         return;
       }
       // The booking engine's table is service-role only, and a PostgREST
@@ -143,7 +144,7 @@ export function UnifiedBookingCalendar({
       // and is refused here rather than silently dropped.
       if (row.sourceTable === "bookings") {
         if (next !== "cancelled") {
-          throw new Error("A booked hour can only be cancelled here — rebook it for another time instead.");
+          throw new Error(tr("A booked hour can only be cancelled here — rebook it for another time instead."));
         }
         await cancelCourtBooking(row.id);
         return;
@@ -155,10 +156,10 @@ export function UnifiedBookingCalendar({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Status updated");
+      toast.success(tr("Status updated"));
       qc.invalidateQueries({ queryKey: ["unified-bookings", sourceKey, providerId] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not update"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not update")),
   });
 
   const { userData } = useAuth();
@@ -168,15 +169,15 @@ export function UnifiedBookingCalendar({
   const approve = useMutation({
     mutationFn: async (row: UnifiedBookingRow) => {
       const service = approveServiceFor(row.sourceTable);
-      if (!service) throw new Error("Unsupported service");
+      if (!service) throw new Error(tr("Unsupported service"));
       await approvePayment(service, row.id, { adminUserId: userData?.id });
     },
     onSuccess: () => {
-      toast.success("Payment approved");
+      toast.success(tr("Payment approved"));
       qc.invalidateQueries({ queryKey: ["unified-bookings", sourceKey, providerId] });
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not approve"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not approve")),
   });
 
   const filtered = useMemo(
@@ -210,7 +211,7 @@ export function UnifiedBookingCalendar({
     const m = new Map<string, { name: string; rows: UnifiedBookingRow[] }>();
     filtered.forEach((b) => {
       const key = b.resourceId ?? b.resourceName ?? "__none__";
-      const name = b.resourceName ?? b.planName ?? "No calendar";
+      const name = b.resourceName ?? b.planName ?? tr("No calendar");
       const bucket = m.get(key) ?? { name, rows: [] };
       bucket.rows.push(b);
       m.set(key, bucket);
@@ -248,7 +249,7 @@ export function UnifiedBookingCalendar({
     return Array.from(s).sort();
   }, [bookings]);
 
-  const weekLabel = `${format(days[0], "MMM d")} — ${format(days[6], "MMM d")}`;
+  const weekLabel = `${format(days[0], "MMM d", { locale: dfLocale })} — ${format(days[6], "MMM d", { locale: dfLocale })}`;
 
   return (
     <div className="space-y-3">
@@ -257,7 +258,7 @@ export function UnifiedBookingCalendar({
         <Button
           variant="ghost" size="icon"
           onClick={() => setWeekStart((d) => addDays(d, -7))}
-          aria-label="Previous week"
+          aria-label={tr("Previous week")}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -269,13 +270,11 @@ export function UnifiedBookingCalendar({
           <Button
             variant="ghost" size="sm"
             onClick={() => setWeekStart(startOfWeekMonday(new Date()))}
-          >
-            Today
-          </Button>
+          >{tr("Today")}</Button>
           <Button
             variant="ghost" size="icon"
             onClick={() => setWeekStart((d) => addDays(d, 7))}
-            aria-label="Next week"
+            aria-label={tr("Next week")}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -294,9 +293,7 @@ export function UnifiedBookingCalendar({
                 ? "bg-primary/15 text-primary ring-1 ring-primary"
                 : "bg-muted/40 text-muted-foreground hover:text-foreground",
             )}
-          >
-            All calendars
-          </button>
+          >{tr("All calendars")}</button>
           {calendars.map((c) => {
             const count = filtered.filter((b) => b.resourceId === c.id).length;
             return (
@@ -330,9 +327,7 @@ export function UnifiedBookingCalendar({
                 ? "bg-primary/15 text-primary ring-1 ring-primary"
                 : "bg-muted/40 text-muted-foreground hover:text-foreground",
             )}
-          >
-            All · {bookings.length}
-          </button>
+          >{trx("All · {length}", { length: bookings.length })}</button>
           {statuses.map((s) => {
             const count = bookings.filter((b) => b.status === s).length;
             return (
@@ -359,7 +354,7 @@ export function UnifiedBookingCalendar({
         // no per-court chips — so this is a banner, not a replacement.
         <QueryError
           compact
-          title="Couldn't load your calendars"
+          title={tr("Couldn't load your calendars")}
           error={calendarsErr}
           onRetry={() => refetchCalendars()}
           retrying={calendarsFetching}
@@ -372,7 +367,7 @@ export function UnifiedBookingCalendar({
         // An empty grid or "No bookings this week" here would tell the owner
         // the week is free when we simply could not read it.
         <QueryError
-          title="Couldn't load this week's bookings"
+          title={tr("Couldn't load this week's bookings")}
           error={bookingsErr}
           onRetry={() => refetchBookings()}
           retrying={bookingsFetching}
@@ -394,8 +389,8 @@ export function UnifiedBookingCalendar({
       ) : filtered.length === 0 ? (
         <YdEmptyState
           icon={CalendarDays}
-          title="No bookings this week"
-          subtitle={statusFilter ? "Try changing the filter or navigating to another week." : "This week is quiet — check upcoming or past weeks."}
+          title={tr("No bookings this week")}
+          subtitle={statusFilter ? tr("Try changing the filter or navigating to another week.") : tr("This week is quiet — check upcoming or past weeks.")}
         />
       ) : (
         <div className="space-y-3">
@@ -408,7 +403,7 @@ export function UnifiedBookingCalendar({
               <section key={dayISO} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
                 <div className="mb-2 flex items-center justify-between">
                   <SectionOverline
-                    label={`${format(day, "EEE d MMM")}${isToday ? " · Today" : ""}`}
+                    label={`${format(day, "EEE d MMM", { locale: dfLocale })}${isToday ? " · Today" : ""}`}
                     count={rows.length}
                     tone={isToday ? "success" : "default"}
                   />
@@ -488,7 +483,7 @@ function BookingRow({
   const cleaner    = row.meta?.cleaner_hint as string | null;
   const phone      = row.meta?.phone as string | null;
   const timeRange = row.endAt && !isSameDay(row.startAt, row.endAt)
-    ? `${format(row.startAt, "MMM d")} → ${format(row.endAt, "MMM d")}`
+    ? `${format(row.startAt, "MMM d", { locale: dfLocale })} → ${format(row.endAt, "MMM d", { locale: dfLocale })}`
     : row.endAt
       ? `${timeLabel(row.startAt)} – ${timeLabel(row.endAt)}`
       : timeLabel(row.startAt);
@@ -500,9 +495,9 @@ function BookingRow({
     row.status.toLowerCase() === "booked" &&
     format(row.endAt ?? row.startAt, "yyyy-MM-dd") < todayHN();
   const title = dayLabel
-    ? (row.customerName ?? row.planName ?? "Booking")
+    ? (row.customerName ?? row.planName ?? tr("Booking"))
     // What was booked, then what it is on, then who.
-    : (row.planName ?? row.resourceName ?? row.customerName ?? "Booking");
+    : (row.planName ?? row.resourceName ?? row.customerName ?? tr("Booking"));
   // The line under the title never repeats it.
   const whoLine = !dayLabel && row.customerName && row.customerName !== title ? `${row.customerName} · ` : "";
   return (
@@ -525,30 +520,29 @@ function BookingRow({
         {phone && <CustomerPhone phone={phone} />}
         {location && (
           <p className="truncate text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground/80">Where:</span> {location}
+            <span className="font-semibold text-foreground/80">{tr("Where:")}</span> {location}
           </p>
         )}
         {access && (
           <p className="truncate text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground/80">Access:</span> {access}
+            <span className="font-semibold text-foreground/80">{tr("Access:")}</span> {access}
           </p>
         )}
         {notes && (
           <p className="line-clamp-2 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground/80">Notes:</span> {notes}
+            <span className="font-semibold text-foreground/80">{tr("Notes:")}</span> {notes}
           </p>
         )}
         {cleaner && (
           <p className="truncate text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground/80">For cleaner:</span> {cleaner}
+            <span className="font-semibold text-foreground/80">{tr("For cleaner:")}</span> {cleaner}
           </p>
         )}
       </div>
       {overdue && (
         <Button size="sm" variant="secondary" className="shrink-0 gap-1.5" disabled={pending}
           onClick={() => onSetStatus("completed")}>
-          <CheckCircle2 className="h-4 w-4" /> Mark done
-        </Button>
+          <CheckCircle2 className="h-4 w-4" />{" "}{tr("Mark done")}</Button>
       )}
       {row.priceCents != null && (
         <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
@@ -558,20 +552,18 @@ function BookingRow({
       {(actions.length > 0 || canApprovePayment || canReschedule) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="iconSm" variant="ghost" aria-label="Row actions" disabled={pending}>
+            <Button size="iconSm" variant="ghost" aria-label={tr("Row actions")} disabled={pending}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             {canApprovePayment && (
               <DropdownMenuItem onSelect={() => onApprovePayment?.()}>
-                <CheckCircle2 className="h-4 w-4 text-positive" /> Mark as paid
-              </DropdownMenuItem>
+                <CheckCircle2 className="h-4 w-4 text-positive" />{" "}{tr("Mark as paid")}</DropdownMenuItem>
             )}
             {canReschedule && (
               <DropdownMenuItem onSelect={() => onReschedule?.()}>
-                <CalendarClock className="h-4 w-4" /> Reschedule
-              </DropdownMenuItem>
+                <CalendarClock className="h-4 w-4" />{" "}{tr("Reschedule")}</DropdownMenuItem>
             )}
             {(canApprovePayment || canReschedule) && actions.length > 0 && <DropdownMenuSeparator />}
             {actions.map((a, i) => (
@@ -602,20 +594,20 @@ function rowActionsFor(row: UnifiedBookingRow): { status: string; label: string;
   const s = row.status.toLowerCase();
   if (row.sourceTable === "cleaning_bookings") {
     if (s === "booked") return [
-      { status: "completed", label: "Complete", icon: CheckCircle2 },
-      { status: "cancelled", label: "Cancel",   icon: XCircle, destructive: true },
+      { status: "completed", label: tr("Complete"), icon: CheckCircle2 },
+      { status: "cancelled", label: tr("Cancel"),   icon: XCircle, destructive: true },
     ];
     return [];
   }
   if (row.sourceTable === "bookings") {
     if (s !== "cancelled") return [
-      { status: "cancelled", label: "Cancel", icon: XCircle, destructive: true },
+      { status: "cancelled", label: tr("Cancel"), icon: XCircle, destructive: true },
     ];
     return [];
   }
   if (row.sourceTable === "food_subscriptions") {
-    if (s === "active") return [{ status: "paused", label: "Pause",  icon: PauseCircle }];
-    if (s === "paused") return [{ status: "active", label: "Resume", icon: PlayCircle }];
+    if (s === "active") return [{ status: "paused", label: tr("Pause"),  icon: PauseCircle }];
+    if (s === "paused") return [{ status: "active", label: tr("Resume"), icon: PlayCircle }];
     return [];
   }
   return [];

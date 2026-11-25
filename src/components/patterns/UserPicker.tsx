@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Search, X } from "lucide-react";
 import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 export interface PickerUser {
   id: string;
@@ -35,9 +36,9 @@ interface Props {
 export function UserPicker({
   value,
   onSelect,
-  placeholder = "Select a user…",
+  placeholder = tr("Select a user…"),
   allowClear = false,
-  clearLabel = "Clear selection",
+  clearLabel = tr("Clear selection"),
   providerId = null,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -95,7 +96,7 @@ export function UserPicker({
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or email…"
+              placeholder={tr("Search by name or email…")}
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
@@ -109,9 +110,9 @@ export function UserPicker({
                 <X className="mr-2 h-4 w-4" /> {clearLabel}
               </button>
             )}
-            {isLoading && <p className="px-3 py-2 text-sm text-muted-foreground">Loading…</p>}
+            {isLoading && <p className="px-3 py-2 text-sm text-muted-foreground">{tr("Loading…")}</p>}
             {!isLoading && filtered.length === 0 && (
-              <p className="px-3 py-2 text-sm text-muted-foreground">No users found</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">{tr("No users found")}</p>
             )}
             {filtered.map((u) => (
               <button

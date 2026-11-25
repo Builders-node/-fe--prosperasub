@@ -7,6 +7,7 @@ import { useResidences } from "@/hooks/useResidences";
 import { logAuditEvent } from "@/lib/auditLog";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 interface ProviderResidence { id: string; residence_id: string; }
 
@@ -69,12 +70,8 @@ export function ServiceLocationsSection({ providerId }: { providerId: string }) 
           <MapPin className="h-4 w-4 text-muted-foreground" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Service locations
-          </p>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Pick the residences this restaurant delivers to. Customers in other locations won't see it.
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{tr("Service locations")}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{tr("Pick the residences this restaurant delivers to. Customers in other locations won't see it.")}</p>
         </div>
       </div>
       <div className="mt-4">
@@ -83,7 +80,7 @@ export function ServiceLocationsSection({ providerId }: { providerId: string }) 
             {[1, 2].map((i) => <div key={i} className="h-9 w-32 animate-pulse rounded-full bg-muted" />)}
           </div>
         ) : residences.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground">No residences configured yet.</p>
+          <p className="text-sm italic text-muted-foreground">{tr("No residences configured yet.")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {residences.map((r) => {

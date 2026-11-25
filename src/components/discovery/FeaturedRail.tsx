@@ -8,6 +8,7 @@ import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import {
   OfferCard, PriceLine, RAIL_TILE, Rail, ShelfHeader, planIndex, planPhotos, useHomePlans, type HomePlan,
 } from "@/components/discovery/homePlans";
+import { tr } from "@/lib/tr";
 
 /**
  * "Featured" — the paid placements (Edge routes/promotions.ts).
@@ -28,8 +29,8 @@ export function FeaturedRail({ placement, archetypeKey, className }: {
   if (promos.length === 0) return null;
 
   return (
-    <section className={cn("space-y-3", className)} aria-label="Featured">
-      <ShelfHeader title="Featured" />
+    <section className={cn("space-y-3", className)} aria-label={tr("Featured")}>
+      <ShelfHeader title={tr("Featured")} />
       {/* The same cards as every other shelf — a featured plan is a plan, it
           just paid to stand first — told apart only by the badge. */}
       <Rail>
@@ -70,7 +71,7 @@ function PromoCard({ p, plan, href }: { p: ActivePromotion; plan: HomePlan | nul
       onClick={() => trackPromotion(p.id, "click")}
       // The shelf is called Featured; the card says what that means. Two
       // "Featured" on one card and its heading said the word twice.
-      badge="Sponsored"
+      badge={tr("Sponsored")}
       corner={p.plan ? <FavoriteButton kind="plan" id={p.plan.id} name={p.plan.name} variant="overlay" /> : undefined}
       photos={photos}
       deal={p.plan ? deal : null}

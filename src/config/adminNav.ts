@@ -15,6 +15,7 @@ import {
   Inbox, ListChecks, CreditCard, BadgePercent } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
+import { tr } from "@/lib/tr";
 
 export interface NavItem {
   label: string;
@@ -56,24 +57,24 @@ export interface NavSection {
 export type NavBadge = "applications" | "support";
 
 export const WORK_SECTION: NavSection = {
-  title: "Work",
+  title: tr("Work"),
   items: [
-    { label: "Today", path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
-    { label: "Orders", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
+    { label: tr("Today"), path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
+    { label: tr("Orders"), path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
-    { label: "Applications", path: adminRoutes.superAdminProviderApplications, icon: Inbox,
+    { label: tr("Applications"), path: adminRoutes.superAdminProviderApplications, icon: Inbox,
       badge: "applications",
       permissions: ["admin_settings.read"] },
-    { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
+    { label: tr("Support"), path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       badge: "support",
       permissions: ["users.read"] },
   ],
 };
 
 export const CATALOG_SECTION: NavSection = {
-  title: "Catalog",
+  title: tr("Catalog"),
   items: [
-    { label: "Businesses", path: adminRoutes.superAdminMarketplaceProviders, icon: Building2,
+    { label: tr("Businesses"), path: adminRoutes.superAdminMarketplaceProviders, icon: Building2,
       alsoActiveOn: [
         // Per-service admin pages still reachable by URL (courts, cleaning
         // operations) — listed so they take this item's permission.
@@ -82,14 +83,14 @@ export const CATALOG_SECTION: NavSection = {
         "/admin/food",
       ],
       permissions: ["admin_settings.read"] },
-    { label: "Plans", path: adminRoutes.superAdminMarketplacePlans, icon: ListChecks,
+    { label: tr("Plans"), path: adminRoutes.superAdminMarketplacePlans, icon: ListChecks,
       permissions: ["admin_settings.read"] },
-    { label: "Vehicles", path: adminRoutes.superAdminTransport, icon: CarFront,
+    { label: tr("Vehicles"), path: adminRoutes.superAdminTransport, icon: CarFront,
       alsoActiveOn: [adminRoutes.superAdminCarRentals],
       permissions: ["subscriptions.read"] },
-    { label: "Reviews", path: adminRoutes.superAdminMarketplaceReviews, icon: Star,
+    { label: tr("Reviews"), path: adminRoutes.superAdminMarketplaceReviews, icon: Star,
       permissions: ["admin_settings.read"] },
-    { label: "Services & categories", path: adminRoutes.superAdminMarketplace, icon: Layers,
+    { label: tr("Services & categories"), path: adminRoutes.superAdminMarketplace, icon: Layers,
       alsoActiveOn: [
         "/admin/marketplace/service",
         adminRoutes.superAdminServices,
@@ -99,52 +100,52 @@ export const CATALOG_SECTION: NavSection = {
 };
 
 export const PEOPLE_MONEY_SECTION: NavSection = {
-  title: "People & money",
+  title: tr("People & money"),
   items: [
-    { label: "Customers", path: adminRoutes.superAdminUsers, icon: Users,
+    { label: tr("Customers"), path: adminRoutes.superAdminUsers, icon: Users,
       alsoActiveOn: ["/admin/customers"],
       permissions: ["users.read"] },
-    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
+    { label: tr("Finance"),   path: adminRoutes.superAdminPayments,  icon: DollarSign,
       permissions: ["payments.read"] },
-    { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3,
+    { label: tr("Analytics"), path: adminRoutes.superAdminAnalytics, icon: BarChart3,
       permissions: ["subscriptions.read", "payments.read"] },
   ],
 };
 
 export const GROWTH_SECTION: NavSection = {
-  title: "Marketing",
+  title: tr("Marketing"),
   items: [
-    { label: "Banners", path: adminRoutes.superAdminAds, icon: Megaphone,
+    { label: tr("Banners"), path: adminRoutes.superAdminAds, icon: Megaphone,
       permissions: ["admin_settings.read"] },
-    { label: "Collections", path: adminRoutes.superAdminCollections, icon: LayoutGrid,
+    { label: tr("Collections"), path: adminRoutes.superAdminCollections, icon: LayoutGrid,
       permissions: ["admin_settings.read"] },
-    { label: "Promotions", path: adminRoutes.superAdminPromotions, icon: Sparkles,
+    { label: tr("Promotions"), path: adminRoutes.superAdminPromotions, icon: Sparkles,
       permissions: ["payments.read"] },
-    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
+    { label: tr("Promo codes"), path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
       permissions: ["payments.read"] },
-    { label: "Discounts", path: adminRoutes.superAdminDiscounts, icon: BadgePercent,
+    { label: tr("Discounts"), path: adminRoutes.superAdminDiscounts, icon: BadgePercent,
       permissions: ["payments.read"] },
-    { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
+    { label: tr("Announcements"), path: adminRoutes.superAdminAnnouncements, icon: BellRing,
       permissions: ["users.read"] },
   ],
 };
 
 export const SETTINGS_SECTION: NavSection = {
-  title: "Settings",
+  title: tr("Settings"),
   items: [
-    { label: "Payments", path: adminRoutes.superAdminPaymentSettings, icon: CreditCard,
+    { label: tr("Payments"), path: adminRoutes.superAdminPaymentSettings, icon: CreditCard,
       permissions: ["payments.read"] },
-    { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
+    { label: tr("Locations"),  path: adminRoutes.superAdminLocations, icon: MapPin,
       permissions: ["admin_settings.read"] },
-    { label: "Delivery", path: adminRoutes.superAdminDelivery, icon: Truck,
+    { label: tr("Delivery"), path: adminRoutes.superAdminDelivery, icon: Truck,
       permissions: ["admin_settings.read"] },
-    { label: "Tags", path: adminRoutes.superAdminTags, icon: Tag,
+    { label: tr("Tags"), path: adminRoutes.superAdminTags, icon: Tag,
       permissions: ["admin_settings.read"] },
-    { label: "Team", path: adminRoutes.superAdminRoles, icon: ShieldCheck,
+    { label: tr("Team"), path: adminRoutes.superAdminRoles, icon: ShieldCheck,
       permissions: ["role_management.read"] },
-    { label: "Audit log", path: adminRoutes.superAdminAuditLogs, icon: FileText,
+    { label: tr("Audit log"), path: adminRoutes.superAdminAuditLogs, icon: FileText,
       permissions: ["admin_settings.read"] },
-    { label: "Diagnostics", path: "/admin/diagnostics", icon: Wrench,
+    { label: tr("Diagnostics"), path: "/admin/diagnostics", icon: Wrench,
       permissions: ["admin_settings.read"] },
   ],
 };

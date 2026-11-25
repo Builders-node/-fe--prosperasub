@@ -22,6 +22,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { formatDateHN } from "@/lib/timezone";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Telling everybody something.
@@ -40,10 +41,10 @@ import { SortHeader } from "@/components/ui/sort-header";
 type Audience = "everyone" | "active" | "providers" | "provider";
 
 const AUDIENCE_LABEL: Record<Audience, string> = {
-  everyone: "Everyone with an account",
-  active: "Customers with something active",
-  providers: "People who run a business",
-  provider: "Customers of one business",
+  everyone: tr("Everyone with an account"),
+  active: tr("Customers with something active"),
+  providers: tr("People who run a business"),
+  provider: tr("Customers of one business"),
 };
 
 const Announcements = () => {
@@ -140,8 +141,8 @@ const Announcements = () => {
 
   const send = useMutation({
     mutationFn: async () => {
-      if (!title.trim()) throw new Error("Give it a title");
-      if (recipients.length === 0) throw new Error("Nobody is in this audience");
+      if (!title.trim()) throw new Error(tr("Give it a title"));
+      if (recipients.length === 0) throw new Error(tr("Nobody is in this audience"));
 
       const now = new Date().toISOString();
       const rows = recipients.map((uid) => ({
@@ -173,21 +174,21 @@ const Announcements = () => {
       return rows.length;
     },
     onSuccess: (n) => {
-      toast.success(`Sent to ${n} ${n === 1 ? "person" : "people"}`);
+      toast.success((n === 1 ? tr("Sent to {n} person", { n }) : tr("Sent to {n} people", { n })));
       setTitle(""); setBody(""); setActionUrl(""); setConfirming(false);
       void qc.invalidateQueries({ queryKey: ["announce-history"] });
     },
-    onError: (e: any) => { toast.error(e?.message || "Could not send"); setConfirming(false); },
+    onError: (e: any) => { toast.error(e?.message || tr("Could not send")); setConfirming(false); },
   });
 
   const ready = title.trim().length > 0 && recipients.length > 0 && !resolving;
 
   return (
-    <SuperAdminLayout title="Announcements" subtitle="Say something to customers or to the businesses">
+    <SuperAdminLayout title={tr("Announcements")} subtitle={tr("Say something to customers or to the businesses")}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="space-y-4 rounded-radius-md bg-card p-5">
           <div>
-            <Label>Who gets it</Label>
+            <Label>{tr("Who gets it")}</Label>
             <Select value={audience} onValueChange={(v) => setAudience(v as Audience)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -200,9 +201,9 @@ const Announcements = () => {
 
           {audience === "provider" && (
             <div>
-              <Label>Which business</Label>
+              <Label>{tr("Which business")}</Label>
               <Select value={providerId} onValueChange={setProviderId}>
-                <SelectTrigger><SelectValue placeholder="Pick a business" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tr("Pick a business")} /></SelectTrigger>
                 <SelectContent>
                   {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
@@ -211,45 +212,42 @@ const Announcements = () => {
           )}
 
           <div>
-            <Label htmlFor="a-title">Title</Label>
+            <Label htmlFor="a-title">{tr("Title")}</Label>
             <Input
               id="a-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="The beach club is closed on Thursday"
+              placeholder={tr("The beach club is closed on Thursday")}
               maxLength={120}
             />
           </div>
 
           <div>
-            <Label htmlFor="a-body">Message</Label>
+            <Label htmlFor="a-body">{tr("Message")}</Label>
             <Textarea
               id="a-body"
               rows={5}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Maintenance on the courts. Everything is back on Friday morning."
+              placeholder={tr("Maintenance on the courts. Everything is back on Friday morning.")}
             />
           </div>
 
           <div>
-            <Label htmlFor="a-url">Where it should take them (optional)</Label>
+            <Label htmlFor="a-url">{tr("Where it should take them (optional)")}</Label>
             <Input
               id="a-url"
               value={actionUrl}
               onChange={(e) => setActionUrl(e.target.value)}
               placeholder="/services/entertainment"
             />
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              A path on this site, like <code>/discovery</code>. Leave it empty and the
-              notification simply reads.
-            </p>
+            <p className="mt-1 text-[12px] text-muted-foreground">{tr("A path on this site, like")}{" "}<code>/discovery</code>{tr(". Leave it empty and the notification simply reads.")}</p>
           </div>
 
           <div className="flex items-center justify-between border-t border-border/60 pt-4">
             <p className="text-sm text-muted-foreground">
               {resolving ? (
-                <span className="inline-flex items-center gap-2"><Spinner size="sm" /> counting…</span>
+                <span className="inline-flex items-center gap-2"><Spinner size="sm" />{" "}{tr("counting…")}</span>
               ) : (
                 <>
                   <Users2 className="mr-1.5 inline h-4 w-4" />
@@ -258,24 +256,21 @@ const Announcements = () => {
               )}
             </p>
             <Button onClick={() => setConfirming(true)} disabled={!ready}>
-              <Send className="mr-1.5 h-4 w-4" /> Send
-            </Button>
+              <Send className="mr-1.5 h-4 w-4" />{" "}{tr("Send")}</Button>
           </div>
         </section>
 
         <aside className="space-y-3 rounded-radius-md bg-card p-5">
-          <h2 className="text-title font-semibold text-foreground">
-            Already sent
-          </h2>
+          <h2 className="text-title font-semibold text-foreground">{tr("Already sent")}</h2>
           {history.length > 1 && (
             <div className="flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
-              <span aria-sort={sort.ariaSort("title")}><SortHeader {...sort.headerProps("title")}>Title</SortHeader></span>
-              <span aria-sort={sort.ariaSort("sent")}><SortHeader {...sort.headerProps("sent")}>Sent</SortHeader></span>
-              <span aria-sort={sort.ariaSort("reach")}><SortHeader {...sort.headerProps("reach")}>Reach</SortHeader></span>
+              <span aria-sort={sort.ariaSort("title")}><SortHeader {...sort.headerProps("title")}>{tr("Title")}</SortHeader></span>
+              <span aria-sort={sort.ariaSort("sent")}><SortHeader {...sort.headerProps("sent")}>{tr("Sent")}</SortHeader></span>
+              <span aria-sort={sort.ariaSort("reach")}><SortHeader {...sort.headerProps("reach")}>{tr("Reach")}</SortHeader></span>
             </div>
           )}
           {history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing yet.</p>
+            <p className="text-sm text-muted-foreground">{tr("Nothing yet.")}</p>
           ) : (
             <ul className="divide-y divide-border/60">
               {sort.sorted.map((h, i) => (
@@ -301,8 +296,7 @@ const Announcements = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              <Megaphone className="mr-2 inline h-5 w-5 text-primary" />
-              Send to {recipients.length} {recipients.length === 1 ? "person" : "people"}?
+              <Megaphone className="mr-2 inline h-5 w-5 text-primary" />{trx("Send to {length}", { length: recipients.length })}{" "}{recipients.length === 1 ? "person" : "people"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               <strong className="text-foreground">{title || "—"}</strong>
@@ -311,15 +305,13 @@ const Announcements = () => {
                 {AUDIENCE_LABEL[audience]}
                 {audience === "provider" && providers.find((p) => p.id === providerId)
                   ? ` — ${providers.find((p) => p.id === providerId)!.name}`
-                  : ""}
-                . This cannot be unsent.
-              </span>
+                  : ""}{tr(". This cannot be unsent.")}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => send.mutate()} disabled={send.isPending}>
-              {send.isPending ? "Sending…" : "Send"}
+              {send.isPending ? tr("Sending…") : tr("Send")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

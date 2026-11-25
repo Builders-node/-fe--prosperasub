@@ -17,6 +17,7 @@ import { UserPicker } from "@/components/patterns/UserPicker";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * A booking taken by the business, on one of its own calendars.
@@ -91,7 +92,7 @@ export function NewCalendarBookingDialog({
   const noSlotsReason = useMemo(() => {
     if (loadingSlots || slots.length) return null;
     if (availability?.reason) return availability.reason.replace(/_/g, " ");
-    return "Nothing free on this day.";
+    return tr("Nothing free on this day.");
   }, [availability, loadingSlots, slots.length]);
 
   useEffect(() => { setFrom(""); }, [resourceId, date]);
@@ -114,11 +115,11 @@ export function NewCalendarBookingDialog({
           notes: notes.trim() || undefined,
         }),
       });
-      if (error) throw new Error(error.message || "Could not book that slot");
+      if (error) throw new Error(error.message || tr("Could not book that slot"));
       return data;
     },
     onSuccess: () => {
-      toast.success("Booked");
+      toast.success(tr("Booked"));
       qc.invalidateQueries({ queryKey: ["provider-bookings"] });
       qc.invalidateQueries({ queryKey: ["desk-availability"] });
       reset();
@@ -134,35 +135,28 @@ export function NewCalendarBookingDialog({
         <span onClick={() => setOpen(true)}>{trigger}</span>
       ) : (
         <Button onClick={() => setOpen(true)} className="gap-2">
-          <CalendarDays className="h-4 w-4" /> New booking
-        </Button>
+          <CalendarDays className="h-4 w-4" />{" "}{tr("New booking")}</Button>
       )}
 
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : reset())}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" /> New booking
-            </DialogTitle>
-            <DialogDescription>
-              An hour on one of your calendars, taken for a customer.
-            </DialogDescription>
+              <CalendarDays className="h-5 w-5 text-primary" />{" "}{tr("New booking")}</DialogTitle>
+            <DialogDescription>{tr("An hour on one of your calendars, taken for a customer.")}</DialogDescription>
           </DialogHeader>
 
           {loadingResources ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : resources.length === 0 ? (
-            <p className="rounded-radius-md bg-inset p-4 text-sm text-muted-foreground">
-              This business has no calendars yet. Add one in the Calendars tab and it becomes
-              bookable here and for customers.
-            </p>
+            <p className="rounded-radius-md bg-inset p-4 text-sm text-muted-foreground">{tr("This business has no calendars yet. Add one in the Calendars tab and it becomes bookable here and for customers.")}</p>
           ) : (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label>Calendar</Label>
+                  <Label>{tr("Calendar")}</Label>
                   <Select value={resourceId} onValueChange={setResourceId}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Pick one" /></SelectTrigger>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder={tr("Pick one")} /></SelectTrigger>
                     <SelectContent>
                       {resources.map((r) => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
@@ -171,14 +165,14 @@ export function NewCalendarBookingDialog({
                   </Select>
                 </div>
                 <div>
-                  <Label>Day</Label>
+                  <Label>{tr("Day")}</Label>
                   <Input type="date" className="mt-1" value={date} min={todayHN()}
                     onChange={(e) => setDate(e.target.value)} />
                 </div>
               </div>
 
               <div>
-                <Label>Time</Label>
+                <Label>{tr("Time")}</Label>
                 {loadingSlots ? (
                   <div className="mt-2 flex gap-2">
                     {[1, 2, 3, 4].map((i) => <div key={i} className="h-9 w-20 animate-pulse rounded-full bg-inset" />)}
@@ -207,7 +201,7 @@ export function NewCalendarBookingDialog({
               </div>
 
               <div>
-                <Label>Customer</Label>
+                <Label>{tr("Customer")}</Label>
                 <div className="mt-1">
                   <UserPicker
                     providerId={providerId}
@@ -219,36 +213,36 @@ export function NewCalendarBookingDialog({
                       // rather than an id it cannot read.
                       setName(u ? (u.display_name || u.name || u.email || "") : "");
                     }}
-                    placeholder="Search platform users…"
+                    placeholder={tr("Search platform users…")}
                     allowClear
-                    clearLabel="Not a platform user"
+                    clearLabel={tr("Not a platform user")}
                   />
                 </div>
                 {/* A walk-in has no account. The name is then all the booking
                     knows about them, which is why one of the two is required. */}
                 {!userId && (
-                  <Input className="mt-2" placeholder="…or type the name for a walk-in"
+                  <Input className="mt-2" placeholder={tr("…or type the name for a walk-in")}
                     value={name} onChange={(e) => setName(e.target.value)} />
                 )}
               </div>
 
               <div>
-                <Label>Notes</Label>
+                <Label>{tr("Notes")}</Label>
                 <Textarea className="mt-1" rows={2} value={notes}
-                  placeholder="Anything the person on shift should know"
+                  placeholder={tr("Anything the person on shift should know")}
                   onChange={(e) => setNotes(e.target.value)} />
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="ghost" onClick={reset}>Cancel</Button>
+            <Button variant="ghost" onClick={reset}>{tr("Cancel")}</Button>
             <Button
              
               disabled={!canBook || book.isPending}
               onClick={() => book.mutate()}
             >
-              {book.isPending ? "Booking…" : "Book it"}
+              {book.isPending ? tr("Booking…") : tr("Book it")}
             </Button>
           </DialogFooter>
         </DialogContent>

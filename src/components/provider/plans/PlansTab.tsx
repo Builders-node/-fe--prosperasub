@@ -18,6 +18,7 @@ import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { OfferEditor } from "@/components/provider/plans/OfferEditor";
+import { tr } from "@/lib/tr";
 
 /**
  * What this business sells: a list, and one editor behind it.
@@ -90,25 +91,24 @@ export function PlansTab({ providerId, sourceKey }: {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Deleted");
+      toast.success(tr("Deleted"));
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["offer-editor", providerId] });
       setDeleteTarget(null);
       // The sheet was open on the plan that no longer exists.
       setEditing(null);
     },
-    onError: (e: Error) => toast.error(e.message || "Could not delete"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not delete")),
   });
 
   return (
     <>
       <WorkspaceSection
-        title="Plans"
-        subtitle="What customers can buy. Open one to set its choices and prices."
+        title={tr("Plans")}
+        subtitle={tr("What customers can buy. Open one to set its choices and prices.")}
         action={
           <Button className="shrink-0 gap-2" onClick={startNew}>
-            <Plus className="h-4 w-4" /> New plan
-          </Button>
+            <Plus className="h-4 w-4" />{" "}{tr("New plan")}</Button>
         }
       />
 
@@ -118,7 +118,7 @@ export function PlansTab({ providerId, sourceKey }: {
         </div>
       ) : isError ? (
         <QueryError
-          title="Couldn't load your plans"
+          title={tr("Couldn't load your plans")}
           error={loadError}
           onRetry={() => refetch()}
           retrying={isFetching}
@@ -126,12 +126,11 @@ export function PlansTab({ providerId, sourceKey }: {
       ) : offers.length === 0 ? (
         <YdEmptyState
           icon={Package}
-          title="Nothing on sale yet"
-          subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
+          title={tr("Nothing on sale yet")}
+          subtitle={tr("A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it.")}
           action={
             <Button className="gap-2" onClick={startNew}>
-              <Plus className="h-4 w-4" /> Add a plan
-            </Button>
+              <Plus className="h-4 w-4" />{" "}{tr("Add a plan")}</Button>
           }
         />
       ) : (
@@ -153,8 +152,7 @@ export function PlansTab({ providerId, sourceKey }: {
                     size="sm" variant="outline" className="shrink-0 gap-1.5 px-3"
                     onClick={() => setEditing(o.id)}
                   >
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </Button>
+                    <Pencil className="h-3.5 w-3.5" />{" "}{tr("Edit")}</Button>
                 </div>
                 {o.description && (
                   <p className="mt-1 line-clamp-2 text-[14px] leading-[18px] text-muted-foreground">
@@ -194,7 +192,7 @@ export function PlansTab({ providerId, sourceKey }: {
         >
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <span className="truncate">{editing === "new" ? "New plan" : editingRow?.name || "Plan"}</span>
+              <span className="truncate">{editing === "new" ? tr("New plan") : editingRow?.name || tr("Plan")}</span>
               <StatusPill status={editing === "new" || (editingRow && editingRow.status !== "active") ? "draft" : "active"} />
             </SheetTitle>
           </SheetHeader>
@@ -222,16 +220,14 @@ export function PlansTab({ providerId, sourceKey }: {
       <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Discard changes?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {editing === "new" ? "This plan hasn't been saved — nothing will be created." : "Your changes to this plan are not saved."}
+              {editing === "new" ? tr("This plan hasn't been saved — nothing will be created.") : tr("Your changes to this plan are not saved.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => { setConfirmClose(false); setDirty(false); setEditing(null); }}>
-              Discard
-            </AlertDialogAction>
+            <AlertDialogCancel>{tr("Keep editing")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { setConfirmClose(false); setDirty(false); setEditing(null); }}>{tr("Discard")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -239,20 +235,15 @@ export function PlansTab({ providerId, sourceKey }: {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Delete this plan?")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && (
-                <>
-                  This deletes <strong className="text-foreground">{deleteTarget.name}</strong> and
-                  every price combination inside it. Any customer subscription linked to it loses
-                  its plan reference. To stop selling it without touching what people already
-                  bought, open it and take it off sale instead.
-                </>
+                <>{tr("This deletes")}{" "}<strong className="text-foreground">{deleteTarget.name}</strong>{" "}{tr("and every price combination inside it. Any customer subscription linked to it loses its plan reference. To stop selling it without touching what people already bought, open it and take it off sale instead.")}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deleteTarget && del.mutate(deleteTarget)}

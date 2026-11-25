@@ -13,6 +13,7 @@ import { useHomePlans } from "@/components/discovery/homePlans";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * Promotions — what businesses bought to be seen (Edge routes/promotions.ts).
@@ -61,23 +62,21 @@ export default function Promotions() {
       const { error } = await adminApi(`/admin/promotions/${id}/end`, { method: "POST" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Ended"); void qc.invalidateQueries({ queryKey: ["admin-promotions"] }); },
-    onError: (e: Error) => toast.error(e.message || "Could not end it"),
+    onSuccess: () => { toast.success(tr("Ended")); void qc.invalidateQueries({ queryKey: ["admin-promotions"] }); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not end it")),
   });
 
   return (
-    <SuperAdminLayout title="Promotions" subtitle="Featured weeks and boosts businesses bought to be seen">
+    <SuperAdminLayout title={tr("Promotions")} subtitle={tr("Featured weeks and boosts businesses bought to be seen")}>
       {confirmDialog}
       {data && !data.enabled && (
-        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          Promotions aren't available yet, so businesses can't buy them. Diagnostics shows what is missing.
-        </p>
+        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">{tr("Promotions aren't available yet, so businesses can't buy them. Diagnostics shows what is missing.")}</p>
       )}
 
       <div className="mb-4 grid grid-cols-3 gap-2">
-        <Stat label="Live now" value={String(rows.filter(live).length)} />
-        <Stat label="Featured · 30d" value={formatUSD(featuredRevenue)} />
-        <Stat label="Boost take · 30d" value={formatUSD(boostRevenue)} />
+        <Stat label={tr("Live now")} value={String(rows.filter(live).length)} />
+        <Stat label={tr("Featured · 30d")} value={formatUSD(featuredRevenue)} />
+        <Stat label={tr("Boost take · 30d")} value={formatUSD(boostRevenue)} />
       </div>
 
       <GrantCard />
@@ -87,7 +86,7 @@ export default function Promotions() {
       <AdminListShell
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Search a business"
+        searchPlaceholder={tr("Search a business")}
         isLoading={isLoading}
         isError={isError}
         error={error}
@@ -96,8 +95,8 @@ export default function Promotions() {
         isNoResults={rows.length > 0 && filtered.length === 0}
         onClearFilters={search ? () => setSearch("") : undefined}
         count={filtered.length}
-        emptyTitle="Nothing promoted yet"
-        emptySubtitle="Businesses buy a featured week or switch on a boost from their workspace's Promote tab."
+        emptyTitle={tr("Nothing promoted yet")}
+        emptySubtitle={tr("Businesses buy a featured week or switch on a boost from their workspace's Promote tab.")}
       >
         <div className="space-y-0.5 rounded-radius-lg bg-card p-1.5">
           {filtered.map((r) => {
@@ -109,23 +108,21 @@ export default function Promotions() {
                   <p className="truncate text-title font-semibold text-foreground">
                     {r.providerName}
                     <span className="font-normal text-muted-foreground">
-                      {" · "}{r.kind === "boost" ? `Boost +${r.extra_commission_pct}%` : `Featured · ${r.placement === "home" ? "Home" : "Service"}`}
+                      {" · "}{r.kind === "boost" ? tr("Boost +{extra_commission_pct}%", { extra_commission_pct: r.extra_commission_pct }) : (r.placement === "home" ? tr("Featured · Home") : tr("Featured · Service"))}
                     </span>
                   </p>
                   <p className="truncate text-meta text-muted-foreground">
                     {r.kind === "featured"
-                      ? `${format(new Date(r.starts_at), "MMM d")} → ${r.ends_at ? format(new Date(r.ends_at), "MMM d") : "—"} · ${r.price_cents > 0 ? formatUSD(r.price_cents) : "Free"}`
-                      : r.status === "active" ? "On" : r.status === "paused" ? "Off" : "Ended"}
-                    {` · ${s.impressions} views · ${s.clicks} taps · ${s.orders} orders · ${formatUSD(s.revenueCents)}`}
+                      ? `${format(new Date(r.starts_at), "MMM d", { locale: dfLocale })} → ${r.ends_at ? format(new Date(r.ends_at), "MMM d", { locale: dfLocale }) : "—"} · ${r.price_cents > 0 ? formatUSD(r.price_cents) : "Free"}`
+                      : r.status === "active" ? tr("On") : r.status === "paused" ? tr("Off") : tr("Ended")}
+                    {tr(" · {views} views · {taps} taps · {orders} orders · {revenue}", { views: s.impressions, taps: s.clicks, orders: s.orders, revenue: formatUSD(s.revenueCents) })}
                   </p>
                 </div>
                 {r.status !== "ended" && (
                   <Button size="sm" variant="secondary" loading={end.isPending && end.variables === r.id}
                     onClick={async () => {
-                      if (await confirm({ title: `End the promotion for ${r.providerName}?`, description: "A featured week is not refunded automatically.", confirmLabel: "End promotion" })) end.mutate(r.id);
-                    }}>
-                    End
-                  </Button>
+                      if (await confirm({ title: tr("End the promotion for {providerName}?", { providerName: r.providerName }), description: tr("A featured week is not refunded automatically."), confirmLabel: tr("End promotion") })) end.mutate(r.id);
+                    }}>{tr("End")}</Button>
                 )}
               </div>
             );
@@ -164,26 +161,26 @@ function SettingsCard({ initial }: { initial: Settings }) {
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Prices saved"); void qc.invalidateQueries({ queryKey: ["admin-promotions"] }); },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onSuccess: () => { toast.success(tr("Prices saved")); void qc.invalidateQueries({ queryKey: ["admin-promotions"] }); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((v) => ({ ...v, [k]: e.target.value }));
 
   return (
     <section className="mb-4 space-y-3 rounded-radius-lg bg-card p-4">
       <div>
-        <h2 className="text-title font-semibold text-foreground">Prices</h2>
-        <p className="text-meta text-muted-foreground">A boost's rate is fixed when the business switches it on; a featured week's price when it is bought.</p>
+        <h2 className="text-title font-semibold text-foreground">{tr("Prices")}</h2>
+        <p className="text-meta text-muted-foreground">{tr("A boost's rate is fixed when the business switches it on; a featured week's price when it is bought.")}</p>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Input inputSize="sm" label="Home, $ / week" type="number" min={0} value={f.home} onChange={set("home")} />
-        <Input inputSize="sm" label="Service, $ / week" type="number" min={0} value={f.service} onChange={set("service")} />
-        <Input inputSize="sm" label="Boost, extra %" type="number" min={0} max={50} value={f.boost} onChange={set("boost")} />
-        <Input inputSize="sm" label="Home slots (for sale)" type="number" min={0} max={12} value={f.slotsHome} onChange={set("slotsHome")} />
-        <Input inputSize="sm" label="Slots per service (for sale)" type="number" min={0} max={12} value={f.slotsService} onChange={set("slotsService")} />
+        <Input inputSize="sm" label={tr("Home, $ / week")} type="number" min={0} value={f.home} onChange={set("home")} />
+        <Input inputSize="sm" label={tr("Service, $ / week")} type="number" min={0} value={f.service} onChange={set("service")} />
+        <Input inputSize="sm" label={tr("Boost, extra %")} type="number" min={0} max={50} value={f.boost} onChange={set("boost")} />
+        <Input inputSize="sm" label={tr("Home slots (for sale)")} type="number" min={0} max={12} value={f.slotsHome} onChange={set("slotsHome")} />
+        <Input inputSize="sm" label={tr("Slots per service (for sale)")} type="number" min={0} max={12} value={f.slotsService} onChange={set("slotsService")} />
       </div>
       <div className="flex justify-end">
-        <Button size="sm" loading={save.isPending} onClick={() => save.mutate()}>Save prices</Button>
+        <Button size="sm" loading={save.isPending} onClick={() => save.mutate()}>{tr("Save prices")}</Button>
       </div>
     </section>
   );
@@ -224,27 +221,27 @@ function GrantCard() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(`${biz?.name ?? "Business"} is featured for ${weeks} week${weeks === "1" ? "" : "s"}`);
+      toast.success((weeks === "1" ? tr("{value} is featured for {weeks} week", { value: biz?.name ?? tr("Business"), weeks }) : tr("{value} is featured for {weeks} weeks", { value: biz?.name ?? tr("Business"), weeks })));
       setProviderId(""); setPlanId("");
       void qc.invalidateQueries({ queryKey: ["admin-promotions"] });
       void qc.invalidateQueries({ queryKey: ["promotions-active"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not feature it"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not feature it")),
   });
 
   return (
     <section className="mb-4 space-y-3 rounded-radius-lg bg-card p-4">
       <div>
-        <h2 className="text-title font-semibold text-foreground">Feature for free</h2>
-        <p className="text-meta text-muted-foreground">Put a business or one of its offers in a featured slot at no cost. Its owner is told. Free placements don’t use up the slots businesses can buy.</p>
+        <h2 className="text-title font-semibold text-foreground">{tr("Feature for free")}</h2>
+        <p className="text-meta text-muted-foreground">{tr("Put a business or one of its offers in a featured slot at no cost. Its owner is told. Free placements don’t use up the slots businesses can buy.")}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <select className={fieldClass} value={providerId} onChange={(e) => setProviderId(e.target.value)} aria-label="Business">
-          <option value="">Business…</option>
+        <select className={fieldClass} value={providerId} onChange={(e) => setProviderId(e.target.value)} aria-label={tr("Business")}>
+          <option value="">{tr("Business…")}</option>
           {businesses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <select className={fieldClass} value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={!providerId} aria-label="Offer">
-          <option value="">The whole business</option>
+        <select className={fieldClass} value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={!providerId} aria-label={tr("Offer")}>
+          <option value="">{tr("The whole business")}</option>
           {ownPlans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
@@ -261,17 +258,15 @@ function GrantCard() {
                 placement === pl ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {pl === "home" ? "Home page" : "Its service listing"}
+              {pl === "home" ? tr("Home page") : tr("Its service listing")}
             </button>
           ))}
         </div>
-        <select className={cn(fieldClass, "w-auto")} value={weeks} onChange={(e) => setWeeks(e.target.value)} aria-label="How long">
-          {["1", "2", "4", "8", "12"].map((w) => <option key={w} value={w}>{w} week{w === "1" ? "" : "s"}</option>)}
+        <select className={cn(fieldClass, "w-auto")} value={weeks} onChange={(e) => setWeeks(e.target.value)} aria-label={tr("How long")}>
+          {["1", "2", "4", "8", "12"].map((w) => <option key={w} value={w}>{w === "1" ? trx("{w} week", { w }) : trx("{w} weeks", { w })}</option>)}
         </select>
         <span className="flex-1" />
-        <Button size="sm" disabled={!providerId} loading={grant.isPending} onClick={() => grant.mutate()}>
-          Feature for free
-        </Button>
+        <Button size="sm" disabled={!providerId} loading={grant.isPending} onClick={() => grant.mutate()}>{tr("Feature for free")}</Button>
       </div>
     </section>
   );

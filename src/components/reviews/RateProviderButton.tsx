@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Where a rating can be left from.
@@ -151,9 +152,9 @@ export function RateProviderButton({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!uid) throw new Error("Please sign in to leave a review.");
-      if (!providerId) throw new Error("Provider not found for this subscription.");
-      if (rating < 1) throw new Error("Pick a star rating first.");
+      if (!uid) throw new Error(tr("Please sign in to leave a review."));
+      if (!providerId) throw new Error(tr("Provider not found for this subscription."));
+      if (rating < 1) throw new Error(tr("Pick a star rating first."));
       const { error } = await supabaseDb.from("provider_reviews").upsert(
         {
           provider_id: providerId,
@@ -183,10 +184,10 @@ export function RateProviderButton({
       return url && /^https:\/\//.test(url) ? url : null;
     },
     onSuccess: (googleUrl) => {
-      toast.success(myReview ? "Review updated" : "Thanks for your review!", googleUrl ? {
-        description: "Would you share it on Google too? It helps a local business more than anything.",
+      toast.success(myReview ? tr("Review updated") : tr("Thanks for your review!"), googleUrl ? {
+        description: tr("Would you share it on Google too? It helps a local business more than anything."),
         duration: 15000,
-        action: { label: "Review on Google", onClick: () => window.open(googleUrl, "_blank", "noopener,noreferrer") },
+        action: { label: tr("Review on Google"), onClick: () => window.open(googleUrl, "_blank", "noopener,noreferrer") },
       } : undefined);
       qc.invalidateQueries({ queryKey: ["my-provider-review-inline", service, itemId] });
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
@@ -205,7 +206,7 @@ export function RateProviderButton({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Review removed");
+      toast.success(tr("Review removed"));
       qc.invalidateQueries({ queryKey: ["my-provider-review-inline", service, itemId] });
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
       qc.invalidateQueries({ queryKey: ["provider-rating-summary", providerId] });
@@ -225,9 +226,9 @@ export function RateProviderButton({
   const displayRating = myReview?.rating ?? 0;
   if (onlyIfRated && !myReview) return null;
   const idlePrompt = myReview
-    ? "Your rating · tap to edit"
+    ? tr("Your rating · tap to edit")
     : prompt
-      ?? (service === "cleaning" ? "How was your cleaning?" : "How was your visit?");
+      ?? (service === "cleaning" ? tr("How was your cleaning?") : tr("How was your visit?"));
 
   return (
     <>
@@ -252,7 +253,7 @@ export function RateProviderButton({
               key={i}
               type="button"
               onClick={(e) => { e.stopPropagation(); openWithRating(i); }}
-              aria-label={`${i} star${i > 1 ? "s" : ""}`}
+              aria-label={(i > 1 ? tr("{i} stars", { i }) : tr("{i} star", { i }))}
               className="p-0.5 transition-transform active:scale-90"
             >
               <Star
@@ -273,11 +274,9 @@ export function RateProviderButton({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-black">
               <Star className="h-5 w-5 text-attention" />
-              {myReview ? "Update your review" : "Rate this provider"}
+              {myReview ? tr("Update your review") : tr("Rate this provider")}
             </DialogTitle>
-            <DialogDescription>
-              Your rating helps others on Roatán choose better.
-            </DialogDescription>
+            <DialogDescription>{tr("Your rating helps others on Roatán choose better.")}</DialogDescription>
           </DialogHeader>
 
           <div className="mt-2 space-y-4">
@@ -290,8 +289,8 @@ export function RateProviderButton({
               rows={3}
               maxLength={500}
               placeholder={
-                service === "cleaning" ? "How was the cleaning? Reliability, thoroughness…"
-                    : "How was your membership experience?"
+                service === "cleaning" ? tr("How was the cleaning? Reliability, thoroughness…")
+                    : tr("How was your membership experience?")
               }
             />
           </div>
@@ -304,20 +303,17 @@ export function RateProviderButton({
                 onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
               >
-                <Trash2 className="mr-1 h-4 w-4" /> Delete
-              </Button>
+                <Trash2 className="mr-1 h-4 w-4" />{" "}{tr("Delete")}</Button>
             )}
             <div className="flex-1" />
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{tr("Cancel")}</Button>
             <Button
              
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || rating < 1}
             >
               {saveMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              {myReview ? "Update" : "Post review"}
+              {myReview ? tr("Update") : tr("Post review")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -20,6 +20,7 @@
  */
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent, type AuditAction, type EntityType } from "@/lib/auditLog";
+import { tr } from "@/lib/tr";
 
 export type ApproveService = "cleaning" | "food" | "beach" | "plan" | "cars";
 
@@ -149,7 +150,7 @@ export async function approvePayment(
     // Rentals are written by the server only; it records this as a manual payment.
     const { error } = await adminApi(`/admin/rentals/bookings/${rowId}`, {
       method: "PATCH",
-      body: JSON.stringify({ markPaid: { note: "Approved by an admin", method: opts.paymentMethod || "manual", reference: opts.paymentReference ?? null } }),
+      body: JSON.stringify({ markPaid: { note: tr("Approved by an admin"), method: opts.paymentMethod || "manual", reference: opts.paymentReference ?? null } }),
     });
     if (error) throw error;
   } else {
@@ -184,10 +185,10 @@ export function isPendingPayment(row: { payment_status?: string | null } | null 
 // on it. `canonicalPaymentMethod` still maps legacy crypto/solana/lives rows so
 // historical records render (PaymentMethodBadge shows them as LIVES).
 export const PAYMENT_METHOD_OPTIONS = [
-  { value: "manual",    label: "Manual / cash" },
-  { value: "lightning", label: "Lightning" },
-  { value: "onchain",   label: "On-chain BTC" },
-  { value: "paypal",    label: "PayPal" },
+  { value: "manual",    label: tr("Manual / cash") },
+  { value: "lightning", label: tr("Lightning") },
+  { value: "onchain",   label: tr("On-chain BTC") },
+  { value: "paypal",    label: tr("PayPal") },
 ] as const;
 
 /**

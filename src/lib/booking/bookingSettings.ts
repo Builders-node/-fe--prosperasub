@@ -1,4 +1,5 @@
 import { formatTime } from "@/lib/formatTime";
+import { tr } from "@/lib/tr";
 
 /** How far ahead the calendar reaches. Fixed — providers no longer cap it. */
 export const BOOKING_HORIZON_DAYS = 365;
@@ -12,7 +13,7 @@ export const BOOKING_HORIZON_DAYS = 365;
 
 /** Weekday order is Monday-first to match the platform's calendars. */
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
-export const WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+export const WEEKDAY_LABELS = [tr("Monday"), tr("Tuesday"), tr("Wednesday"), tr("Thursday"), tr("Friday"), tr("Saturday"), tr("Sunday")] as const;
 
 export interface DayHours {
   enabled: boolean;

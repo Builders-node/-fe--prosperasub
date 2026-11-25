@@ -7,6 +7,7 @@ import { ChevronDown, MessageSquare, Star } from "lucide-react";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatDateHN } from "@/lib/timezone";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * What customers said, shown to the business they said it about.
@@ -33,7 +34,7 @@ interface ReviewRow {
 
 function Stars({ value, className }: { value: number; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-0.5", className)} aria-label={`${value} out of 5`}>
+    <span className={cn("inline-flex items-center gap-0.5", className)} aria-label={tr("{value} out of 5", { value })}>
       {[1, 2, 3, 4, 5].map((n) => (
         <Star
           key={n}
@@ -62,38 +63,34 @@ function ReplyBox({ providerId, review }: { providerId: string; review: ReviewRo
       if (error) throw error;
     },
     onSuccess: (_d, reply) => {
-      toast.success(reply ? "Reply published" : "Reply removed");
+      toast.success(reply ? tr("Reply published") : tr("Reply removed"));
       setEditing(false);
       void qc.invalidateQueries({ queryKey: ["provider-reviews-owner", providerId] });
       void qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save the reply"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save the reply")),
   });
 
   if (!editing) {
     return review.reply ? (
       <div className="mt-1 rounded-radius-md bg-inset p-3">
-        <p className="text-meta font-semibold text-foreground">Your reply</p>
+        <p className="text-meta font-semibold text-foreground">{tr("Your reply")}</p>
         <p className="mt-0.5 text-body text-muted-foreground">{review.reply}</p>
-        <button type="button" className="mt-1 text-meta font-semibold text-primary" onClick={() => { setText(review.reply ?? ""); setEditing(true); }}>
-          Edit
-        </button>
+        <button type="button" className="mt-1 text-meta font-semibold text-primary" onClick={() => { setText(review.reply ?? ""); setEditing(true); }}>{tr("Edit")}</button>
       </div>
     ) : (
-      <button type="button" className="text-meta font-semibold text-primary" onClick={() => setEditing(true)}>
-        Reply
-      </button>
+      <button type="button" className="text-meta font-semibold text-primary" onClick={() => setEditing(true)}>{tr("Reply")}</button>
     );
   }
   return (
     <div className="mt-1 space-y-2">
       <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={1000}
-        placeholder="Thank you for… / Sorry about… — everyone sees this under the review." />
+        placeholder={tr("Thank you for… / Sorry about… — everyone sees this under the review.")} />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" loading={save.isPending} disabled={!text.trim() && !review.reply} onClick={() => save.mutate(text.trim())}>
-          {text.trim() ? "Publish reply" : "Remove reply"}
+          {text.trim() ? tr("Publish reply") : tr("Remove reply")}
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+        <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>{tr("Cancel")}</Button>
       </div>
     </div>
   );
@@ -138,9 +135,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
     <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">
-          What customers said
-        </h2>
+        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">{tr("What customers said")}</h2>
       </div>
 
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -150,9 +145,8 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
           </span>
           <div>
             <Stars value={Math.round(average)} />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {rated.length} rating{rated.length === 1 ? "" : "s"}
-              {withComment.length > 0 && ` · ${withComment.length} written`}
+            <p className="mt-1 text-xs text-muted-foreground">{rated.length === 1 ? trx("{length} rating", { length: rated.length }) : trx("{length} ratings", { length: rated.length })}
+              {withComment.length > 0 && tr(" · {length} written", { length: withComment.length })}
             </p>
           </div>
         </div>
@@ -187,7 +181,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
             {r.comment?.trim() ? (
               <p className="text-sm leading-relaxed text-muted-foreground">{r.comment.trim()}</p>
             ) : (
-              <p className="text-sm italic text-muted-foreground/70">Rated without a comment</p>
+              <p className="text-sm italic text-muted-foreground/70">{tr("Rated without a comment")}</p>
             )}
             <ReplyBox providerId={providerId} review={r} />
           </li>
@@ -200,7 +194,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
           onClick={() => setExpanded((v) => !v)}
           className="mt-3 inline-flex items-center gap-1 text-[14px] font-semibold text-primary transition-opacity hover:opacity-80"
         >
-          {expanded ? "Show less" : `Show all ${reviews.length}`}
+          {expanded ? tr("Show less") : tr("Show all {length}", { length: reviews.length })}
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
         </button>
       )}

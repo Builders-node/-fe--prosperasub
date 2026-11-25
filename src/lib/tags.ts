@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { dietaryTagMeta, DIETARY_TAGS } from "@/lib/foodDietaryTags";
 import type { LucideIcon } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * The tag dictionary — the words a plan can be tagged with, in groups.
@@ -35,7 +36,7 @@ const g = (key: string, label: string, sortOrder: number, tags: Array<[string, s
 
 export const DEFAULT_TAG_GROUPS: TagGroup[] = [
   g("level", "Level", 0, [["beginner", "Beginner"], ["advanced", "Advanced"], ["professional", "Professional"]]),
-  g("audience", "Good for", 1, [["kids", "Kids"], ["family", "Family"], ["couples", "Couples"]]),
+  g("audience", tr("Good for"), 1, [["kids", "Kids"], ["family", "Family"], ["couples", "Couples"]]),
   g("format", "Format", 2, [["course", "Course"], ["certification", "Certification"]]),
   g("diet", "Diet", 3, (Object.keys(DIETARY_TAGS) as Array<keyof typeof DIETARY_TAGS>)
     .filter((k) => k !== "kids")

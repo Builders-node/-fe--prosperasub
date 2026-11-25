@@ -41,6 +41,7 @@ import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
 import type { PortalTab } from "@/components/provider/portalTab";
 import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
 import { QrCodesCard } from "@/components/provider/QrCodesCard";
+import { tr } from "@/lib/tr";
 
 /**
  * The single provider management view — banner + header + tab dispatch. Layout-
@@ -201,9 +202,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   if (!provider) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
-        <p className="font-semibold text-foreground">Provider not found</p>
-        <p className="mt-1 text-sm text-muted-foreground">It may have been removed, or you don't have access.</p>
-        <Button className="mt-4" variant="outline" onClick={() => navigate(backHref)}>Back</Button>
+        <p className="font-semibold text-foreground">{tr("Provider not found")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tr("It may have been removed, or you don't have access.")}</p>
+        <Button className="mt-4" variant="outline" onClick={() => navigate(backHref)}>{tr("Back")}</Button>
       </div>
     );
   }
@@ -230,7 +231,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     value: "bookings",
     // "Bookings": the day's work and what can be booked, in one place. Schedule
     // and Calendars were two tabs about the same thing.
-    label: "Bookings",
+    label: tr("Bookings"),
     icon: CalendarClock,
     render: () => (
       <div className="space-y-1">
@@ -300,7 +301,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         {/* How to reach the business, last on Overview: reference, not the
             first thing an owner opens the workspace for. No Edit of its own —
             the one Edit is in the title bar (phone) or the header card. */}
-        <WorkspaceSection title="Details" subtitle="Shown to customers on your page">
+        <WorkspaceSection title={tr("Details")} subtitle={tr("Shown to customers on your page")}>
           <ProviderDetailsRows provider={provider} />
         </WorkspaceSection>
       </div>
@@ -322,7 +323,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   // the server says who that is — the tab does not guess.
   const moneyTab: PortalTab<unknown> = {
     value: "money",
-    label: "Money",
+    label: tr("Money"),
     icon: Wallet,
     render: () => (
       <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={serviceKey} />
@@ -336,7 +337,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    */
   const promoteTab: PortalTab<unknown> = {
     value: "promote",
-    label: "Promote",
+    label: tr("Promote"),
     icon: Megaphone,
     render: () => <ProviderPromotions providerId={provider.id} />,
   };
@@ -348,7 +349,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    */
   const discountsTab: PortalTab<unknown> = {
     value: "discounts",
-    label: "Discounts",
+    label: tr("Discounts"),
     icon: BadgePercent,
     render: () => (
       <div className="space-y-4">
@@ -365,7 +366,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    */
   const teamTab: PortalTab<unknown> = {
     value: "team",
-    label: "Team",
+    label: tr("Team"),
     icon: Users,
     render: () => (
       // Visible to the whole team, editable by the owner. Who your colleagues
@@ -404,7 +405,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     overviewTab,
     {
       value: "offerings",
-      label: "Offerings",
+      label: tr("Offerings"),
       icon: Package,
       render: () => custom.offerings?.(workspaceCtx) ?? (
         <>
@@ -420,7 +421,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     // Where the business goes — its own zones for a visit or its own delivery.
     {
       value: "delivery",
-      label: "Delivery",
+      label: tr("Delivery"),
       icon: Truck,
       render: () => <ProviderDeliveryTab providerId={provider.id} />,
     },
@@ -454,15 +455,15 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   const kpiUnknown = kpis.isPending || kpis.isError;
   const stats: Array<{ label: string; value: string }> = [
     ...(isOwner ? [{
-      label: "Balance",
+      label: tr("Balance"),
       value: balanceQ.isPending || balanceQ.isError || balanceQ.data == null
         ? "—"
         : formatUSD(balanceQ.data.availableCents),
     }] : []),
-    { label: "Active customers", value: kpiUnknown ? "—" : String(kpis.active) },
-    { label: "Upcoming 7d", value: kpiUnknown ? "—" : String(kpis.upcoming) },
+    { label: tr("Active customers"), value: kpiUnknown ? "—" : String(kpis.active) },
+    { label: tr("Upcoming 7d"), value: kpiUnknown ? "—" : String(kpis.upcoming) },
     {
-      label: kpis.ratingCount ? `Rating · ${kpis.ratingCount}` : "Rating",
+      label: kpis.ratingCount ? tr("Rating · {ratingCount}", { ratingCount: kpis.ratingCount }) : tr("Rating"),
       value: kpis.rating != null ? kpis.rating.toFixed(1) : "—",
     },
   ];
@@ -505,11 +506,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
               )}
               <div className="mt-3 flex gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setEditing(true)} className="flex-1 gap-1.5 px-3">
-                  <Edit className="h-4 w-4" /> Edit
-                </Button>
+                  <Edit className="h-4 w-4" />{" "}{tr("Edit")}</Button>
                 <Button size="sm" variant="secondary" onClick={openPublic} className="flex-[1.4] gap-1.5 px-3">
-                  <ExternalLink className="h-4 w-4" /> View public
-                </Button>
+                  <ExternalLink className="h-4 w-4" />{" "}{tr("View public")}</Button>
               </div>
             </div>
           </section>
@@ -533,8 +532,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             onClick={openPublic}
             className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3.5 py-2 text-[14px] font-semibold text-white backdrop-blur transition-colors hover:bg-black/50"
           >
-            <ExternalLink className="h-4 w-4" /> View public
-          </button>
+            <ExternalLink className="h-4 w-4" />{" "}{tr("View public")}</button>
         </div>
 
         {/* Who this is: the avatar, the name and the description. The avatar is
@@ -560,8 +558,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
               onClick={() => setEditing(true)}
               className={editInTitleBar ? "hidden shrink-0 gap-2 md:inline-flex" : "shrink-0 gap-2"}
             >
-              <Edit className="h-4 w-4" /> Edit
-            </Button>
+              <Edit className="h-4 w-4" />{" "}{tr("Edit")}</Button>
           </div>
 
           {/* A business still under review needs telling; an approved one does

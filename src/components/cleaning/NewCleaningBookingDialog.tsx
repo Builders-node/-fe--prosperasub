@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { fetchAllRows } from "@/lib/supabasePaging";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Admin/owner one-off booking creator for a cleaning provider — mounted on the
@@ -91,9 +92,9 @@ type Target =
  * JS `getDay()` numbers so they can be compared without a lookup.
  */
 const WEEKDAYS = [
-  { dow: 1, short: "Mon" }, { dow: 2, short: "Tue" }, { dow: 3, short: "Wed" },
-  { dow: 4, short: "Thu" }, { dow: 5, short: "Fri" }, { dow: 6, short: "Sat" },
-  { dow: 0, short: "Sun" },
+  { dow: 1, short: tr("Mon") }, { dow: 2, short: tr("Tue") }, { dow: 3, short: tr("Wed") },
+  { dow: 4, short: tr("Thu") }, { dow: 5, short: tr("Fri") }, { dow: 6, short: tr("Sat") },
+  { dow: 0, short: tr("Sun") },
 ] as const;
 
 const DAY_PLURAL: Record<number, string> = {
@@ -101,11 +102,11 @@ const DAY_PLURAL: Record<number, string> = {
 };
 
 const CADENCE_LABEL: Record<Cadence, string> = {
-  once:     "Just this date",
-  daily:    "Daily",
-  weekly:   "Weekly",
-  biweekly: "Every 2 weeks",
-  monthly:  "Monthly",
+  once:     tr("Just this date"),
+  daily:    tr("Daily"),
+  weekly:   tr("Weekly"),
+  biweekly: tr("Every 2 weeks"),
+  monthly:  tr("Monthly"),
 };
 
 /**
@@ -217,7 +218,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
           client_id: r.client_id ?? null,
           package_id: r.package_id ?? null,
           apartment_note: r.apartment_note ?? null,
-          package_name: pkg?.name || "Cleaning plan",
+          package_name: pkg?.name || tr("Cleaning plan"),
           customer_name: customer,
           suggested_count: suggested,
           per_month: pkg?.per_month || 0,
@@ -474,10 +475,10 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!target) throw new Error(mode === "user" ? "Pick a customer" : "Pick a subscription");
-      if (!date) throw new Error("Pick a date");
-      if (!startTime) throw new Error("Pick a start time");
-      if (!dates.length) throw new Error("No dates to book");
+      if (!target) throw new Error(mode === "user" ? tr("Pick a customer") : tr("Pick a subscription"));
+      if (!date) throw new Error(tr("Pick a date"));
+      if (!startTime) throw new Error(tr("Pick a start time"));
+      if (!dates.length) throw new Error(tr("No dates to book"));
 
       // Loop sequentially — ensureCleaningSlot may seed a new slot per date, and
       // running these in parallel could double-seed for the same day+time.
@@ -607,7 +608,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
         // dialog stays open with the series intact to do it with. Re-running
         // skips what already exists instead of doubling it.
         toast.error(
-          `${note || "Nothing booked"}. Failed: ${failed.map((f) => f.date).join(", ")} — ${failed[0].reason}`,
+          tr("{value}. Failed: {join} — {reason}", { value: note || tr("Nothing booked"), join: failed.map((f) => f.date).join(", "), reason: failed[0].reason }),
           { duration: 10_000 },
         );
         return;
@@ -617,12 +618,12 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
       // exactly how this was reported. The confirmation has to say where the
       // rest went.
       toast.success(
-        asked > 1 ? note : "Booking created",
+        asked > 1 ? note : tr("Booking created"),
         asked > 1
           ? {
               description: `${dayLabel(dates[0])} → ${dayLabel(dates[dates.length - 1])}`
                 + (spansMonths > 1
-                  ? ` · across ${spansMonths} months. The list shows one week at a time.`
+                  ? tr(" · across {spansMonths} months. The list shows one week at a time.", { spansMonths })
                   : ""),
               duration: spansMonths > 1 ? 10_000 : 5_000,
             }
@@ -630,7 +631,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
       );
       resetAndClose();
     },
-    onError: (e: Error) => toast.error(e.message || "Could not create booking"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not create booking")),
   });
 
   const resetAndClose = () => {
@@ -651,8 +652,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
 
   const defaultTrigger = (
     <Button onClick={() => setOpen(true)} className="gap-2">
-      <Plus className="h-4 w-4" /> New booking
-    </Button>
+      <Plus className="h-4 w-4" />{" "}{tr("New booking")}</Button>
   );
 
   // One line that says what the button will create — the whole series, read
@@ -664,7 +664,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
   const rhythm = cadence === "once" ? null
     : cadence === "daily" ? "every day"
     : cadence === "monthly" ? "monthly"
-    : cadence === "biweekly" ? `every other week · ${weekdayWords}`
+    : cadence === "biweekly" ? tr("every other week · {weekdayWords}", { weekdayWords })
     : weekdayWords;
   const matchesPlan = !!selectedSub && count === selectedSub.suggested_count
     && weekdays.length === 0 && cadence === suggestCadenceFor(selectedSub.per_month);
@@ -683,10 +683,10 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
       <ResponsiveDialog
         open={open}
         onOpenChange={(o) => { if (!o && !create.isPending) resetAndClose(); }}
-        title="Book a cleaning"
+        title={tr("Book a cleaning")}
         footer={
           <div className="flex w-full gap-2">
-            <Button variant="secondary" className="flex-1" onClick={resetAndClose} disabled={create.isPending}>Cancel</Button>
+            <Button variant="secondary" className="flex-1" onClick={resetAndClose} disabled={create.isPending}>{tr("Cancel")}</Button>
             <Button
               className="flex-1"
               onClick={() => create.mutate()}
@@ -695,7 +695,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
               disabled={!target || !date || !startTime || !dates.length || dayOff || create.isPending}
             >
               {create.isPending && <Spinner size="sm" className="mr-2" />}
-              {dates.length > 1 ? `Book ${dates.length} visits` : "Book visit"}
+              {dates.length > 1 ? tr("Book {length} visits", { length: dates.length }) : tr("Book visit")}
             </Button>
           </div>
         }
@@ -705,11 +705,11 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
               so a customer who paid off-platform or is on a trial couldn't be
               scheduled at all. */}
           <section className={section}>
-            <h3 className={heading}>Who</h3>
+            <h3 className={heading}>{tr("Who")}</h3>
             <div className="flex rounded-radius-md bg-inset p-0.5">
               {([
-                { key: "subscription", label: "A subscriber" },
-                { key: "user", label: "Any customer" },
+                { key: "subscription", label: tr("A subscriber") },
+                { key: "user", label: tr("Any customer") },
               ] as const).map((m) => (
                 <button
                   key={m.key}
@@ -732,7 +732,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
               <>
                 <Select value={subId} onValueChange={setSubId}>
                   <SelectTrigger>
-                    <SelectValue placeholder={subsLoading ? "Loading…" : "Pick a subscription"} />
+                    <SelectValue placeholder={subsLoading ? tr("Loading…") : tr("Pick a subscription")} />
                   </SelectTrigger>
                   <SelectContent>
                     {subs.map((s) => (
@@ -743,12 +743,8 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                   </SelectContent>
                 </Select>
                 {!subsLoading && subs.length === 0 && (
-                  <p className="text-meta text-muted-foreground">
-                    No paid subscriptions yet —{" "}
-                    <button type="button" className="font-semibold text-foreground underline underline-offset-2"
-                      onClick={() => { setMode("user"); setSubId(""); }}>
-                      book for any customer
-                    </button>.
+                  <p className="text-meta text-muted-foreground">{tr("No paid subscriptions yet —")}{" "}<button type="button" className="font-semibold text-foreground underline underline-offset-2"
+                      onClick={() => { setMode("user"); setSubId(""); }}>{tr("book for any customer")}</button>.
                   </p>
                 )}
               </>
@@ -756,7 +752,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
               <>
                 <Select value={userId} onValueChange={setUserId}>
                   <SelectTrigger>
-                    <SelectValue placeholder={usersLoading ? "Loading…" : "Pick a customer"} />
+                    <SelectValue placeholder={usersLoading ? tr("Loading…") : tr("Pick a customer")} />
                   </SelectTrigger>
                   <SelectContent>
                     {/* Search inside the list, so the dialog does not grow a second field. */}
@@ -765,13 +761,13 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                         value={userSearch}
                         onChange={(e) => setUserSearch(e.target.value)}
                         onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="Search by name or email…"
+                        placeholder={tr("Search by name or email…")}
                         inputSize="sm"
                       />
                     </div>
                     {visibleUsers.length === 0 && (
                       <div className="px-3 py-2 text-meta text-muted-foreground">
-                        {usersLoading ? "Loading customers…" : "No customer matches that search."}
+                        {usersLoading ? tr("Loading customers…") : tr("No customer matches that search.")}
                       </div>
                     )}
                     {visibleUsers.map((u) => (
@@ -781,22 +777,20 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-meta text-muted-foreground">
-                  Not tied to a subscription — for off-platform or free visits.
-                </p>
+                <p className="text-meta text-muted-foreground">{tr("Not tied to a subscription — for off-platform or free visits.")}</p>
               </>
             )}
           </section>
 
           {/* 2 — when the first visit is. */}
           <section className={section}>
-            <h3 className={heading}>When</h3>
+            <h3 className={heading}>{tr("When")}</h3>
             <div className="grid grid-cols-2 gap-2">
-              <Input type="date" aria-label="Date" value={date} min={todayHN()} onChange={(e) => setDate(e.target.value)} />
+              <Input type="date" aria-label={tr("Date")} value={date} min={todayHN()} onChange={(e) => setDate(e.target.value)} />
               {noGrid ? (
                 <div className="flex gap-1">
-                  <Input type="time" aria-label="Start" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                  <Input type="time" aria-label="End" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  <Input type="time" aria-label={tr("Start")} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" aria-label={tr("End")} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               ) : (
                 <Select
@@ -809,8 +803,8 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                     setEndTime(w.end);
                   }}
                 >
-                  <SelectTrigger aria-label="Time">
-                    <SelectValue placeholder={dayOff ? "Closed" : windowsLoading ? "Loading…" : "Time"} />
+                  <SelectTrigger aria-label={tr("Time")}>
+                    <SelectValue placeholder={dayOff ? tr("Closed") : windowsLoading ? tr("Loading…") : tr("Time")} />
                   </SelectTrigger>
                   <SelectContent>
                     {slotWindows.map((w) => (
@@ -825,29 +819,27 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
               )}
             </div>
             {dayOff && (
-              <p className="text-meta text-attention">
-                Closed on {WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? "that day"}s — pick another date.
-              </p>
+              <p className="text-meta text-attention">{trx("Closed on {value}s — pick another date.", { value: WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? tr("that day") })}</p>
             )}
             {noGrid && (
-              <p className="text-meta text-muted-foreground">No time slots set up yet, so type the time.</p>
+              <p className="text-meta text-muted-foreground">{tr("No time slots set up yet, so type the time.")}</p>
             )}
           </section>
 
           {/* 3 — how often. One row of choices, then only what that choice needs. */}
           <section className={section}>
-            <h3 className={heading}>How often</h3>
+            <h3 className={heading}>{tr("How often")}</h3>
             <div className="grid grid-cols-5 gap-0.5 rounded-radius-md bg-inset p-0.5">
               {(["once", "weekly", "biweekly", "monthly", "daily"] as Cadence[]).map((c) => (
                 <button key={c} type="button" onClick={() => setCadence(c)} className={segment(cadence === c)}>
-                  {c === "once" ? "Once" : c === "biweekly" ? "2 weeks" : CADENCE_LABEL[c]}
+                  {c === "once" ? tr("Once") : c === "biweekly" ? tr("2 weeks") : CADENCE_LABEL[c]}
                 </button>
               ))}
             </div>
 
             {weekdaysApply && (
               <div className="space-y-1.5 pt-1">
-                <p className="text-label text-foreground">On</p>
+                <p className="text-label text-foreground">{tr("On")}</p>
                 {/* items-stretch keeps this a real row: the dialog unwraps
                     wrappers that only space their children. */}
                 <div className="flex items-stretch gap-1">
@@ -860,7 +852,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                         key={d.dow}
                         type="button"
                         disabled={off && !weekdays.includes(d.dow)}
-                        title={off ? "Closed at this time" : undefined}
+                        title={off ? tr("Closed at this time") : undefined}
                         aria-pressed={on}
                         onClick={() => setWeekdays((prev) =>
                           prev.includes(d.dow) ? prev.filter((x) => x !== d.dow) : [...prev, d.dow])}
@@ -881,8 +873,8 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
             {cadence !== "once" && (
               <div className="flex items-center justify-between gap-3 pt-1">
                 <div>
-                  <p className="text-label text-foreground">Visits</p>
-                  {matchesPlan && <p className="text-meta text-muted-foreground">The whole paid period</p>}
+                  <p className="text-label text-foreground">{tr("Visits")}</p>
+                  {matchesPlan && <p className="text-meta text-muted-foreground">{tr("The whole paid period")}</p>}
                 </div>
                 <QtyStepper value={count} noun="visit" max={MAX_VISITS} onChange={(n) => setCount(Math.max(1, n))} />
               </div>
@@ -894,26 +886,23 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
               one", so the span is always said. */}
           {dates.length > 0 && !dayOff && (
             <section className="space-y-2 rounded-radius-md bg-inset p-3">
-              <p className="text-body font-semibold text-foreground">
-                {dates.length} visit{dates.length === 1 ? "" : "s"}
+              <p className="text-body font-semibold text-foreground">{dates.length === 1 ? trx("{length} visit", { length: dates.length }) : trx("{length} visits", { length: dates.length })}
                 {rhythm ? ` · ${rhythm}` : ""}
                 {startTime ? ` · ${startTime}${endTime ? `–${endTime}` : ""}` : ""}
               </p>
               <p className="text-meta text-muted-foreground">
                 {dayLabel(dates[0])}{dates.length > 1 ? ` → ${dayLabel(dates[dates.length - 1])}` : ""}
-                {spansMonths > 1 ? ` · across ${spansMonths} months` : ""}
-                {cadence !== "once" && grid?.dates.size ? " · closed days skipped" : ""}
+                {spansMonths > 1 ? tr(" · across {spansMonths} months", { spansMonths }) : ""}
+                {cadence !== "once" && grid?.dates.size ? tr(" · closed days skipped") : ""}
               </p>
               {droppedVisits > 0 && (
-                <p className="text-meta text-attention">
-                  {droppedVisits} visit{droppedVisits === 1 ? "" : "s"} had no open day left and won't be booked.
-                </p>
+                <p className="text-meta text-attention">{droppedVisits === 1 ? trx("{droppedVisits} visit", { droppedVisits }) : trx("{droppedVisits} visits", { droppedVisits })}{" "}{tr("had no open day left and won't be booked.")}</p>
               )}
               {dates.length > 1 && (
                 <>
                   <button type="button" onClick={() => setShowDates((v) => !v)}
                     className="text-meta font-semibold text-foreground underline underline-offset-2">
-                    {showDates ? "Hide dates" : "Show dates"}
+                    {showDates ? tr("Hide dates") : tr("Show dates")}
                   </button>
                   {showDates && (
                     <div className="flex flex-wrap gap-1">
@@ -931,14 +920,14 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
 
           {/* 4 — where, and anything the cleaner should know. */}
           <section className={section}>
-            <h3 className={heading}>Where</h3>
-            <Input value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Apartment, building" aria-label="Where" />
+            <h3 className={heading}>{tr("Where")}</h3>
+            <Input value={where} onChange={(e) => setWhere(e.target.value)} placeholder={tr("Apartment, building")} aria-label={tr("Where")} />
             <Textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notes for the cleaner — access, quirks (optional)"
-              aria-label="Notes for the cleaner"
+              placeholder={tr("Notes for the cleaner — access, quirks (optional)")}
+              aria-label={tr("Notes for the cleaner")}
             />
           </section>
         </div>

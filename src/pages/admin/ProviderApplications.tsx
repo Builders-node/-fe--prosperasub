@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { patchApplication } from "@/lib/admin/providerApplications";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 type Filter = "pending" | "approved" | "rejected" | "all";
 
@@ -89,10 +90,10 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
   /** Email + in-app notice of the decision (Edge routes/provider-alerts.ts). */
   const sendDecision = async (appId: string, sentMessage: string) => {
     const { data, error } = await adminApi(`/admin/provider-applications/${appId}/decision`, { method: "POST" });
-    if (error) { toast.warning("Decision saved, but the applicant could not be emailed."); return; }
+    if (error) { toast.warning(tr("Decision saved, but the applicant could not be emailed.")); return; }
     const r = data as { emailed?: boolean } | null;
     if (r?.emailed) toast.info(sentMessage);
-    else toast.warning("Decision saved, but no email went out — the application has no contact address.");
+    else toast.warning(tr("Decision saved, but no email went out — the application has no contact address."));
   };
 
   const approve = useMutation({
@@ -207,13 +208,13 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       }
 
       if (!app.archetype_key && app.service === "other") {
-        throw new Error("This business picked “Something else”. Assign it a service on the card first (create one in Marketplace if it doesn't exist), then approve.");
+        throw new Error(tr("This business picked “Something else”. Assign it a service on the card first (create one in Marketplace if it doesn't exist), then approve."));
       }
 
       const categoryKey = await resolveCategoryKey();
       if (!categoryKey) {
         throw new Error(
-          `No category exists for this service yet. Add one under Settings → Services → ${app.archetype_key ?? app.service} → Categories, then approve again.`,
+          tr("No category exists for this service yet. Add one under Settings → Services → {value} → Categories, then approve again.", { value: app.archetype_key ?? app.service }),
         );
       }
 
@@ -302,30 +303,30 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     },
     onSuccess: (r) => {
       if (r.alreadyApproved) {
-        toast.info("Already approved — refreshed list");
+        toast.info(tr("Already approved — refreshed list"));
       } else {
         // Every approval creates the business (universal row, plus its legacy
         // twin for food/cleaning) — the old message said otherwise for every
         // service without a legacy table.
-        toast.success("Approved — a draft business was created. Fill it in, then Go live.", {
+        toast.success(tr("Approved — a draft business was created. Fill it in, then Go live."), {
           action: r.providerId
-            ? { label: "Open", onClick: () => navigate(`/admin/marketplace/providers/${r.providerId}`) }
+            ? { label: tr("Open"), onClick: () => navigate(`/admin/marketplace/providers/${r.providerId}`) }
             : undefined,
         });
         // The applicant is told — by email and in the app. Without an account
         // the email carries the hand-over link, so nobody has to set an owner.
         void sendDecision(r.appId, r.ownerAssigned
-          ? "The applicant was emailed: their business is waiting in My business."
-          : "The applicant was emailed a link to take the business over.");
+          ? tr("The applicant was emailed: their business is waiting in My business.")
+          : tr("The applicant was emailed a link to take the business over."));
         if (r.calendar && !r.calendar.calendarId) {
-          toast.warning("No Google calendar was created — provision it from the business's Overview tab.");
+          toast.warning(tr("No Google calendar was created — provision it from the business's Overview tab."));
         }
       }
       qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
       qc.invalidateQueries({ queryKey: ["marketplace-providers"] });
       setApproveTarget(null);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not approve"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not approve")),
   });
 
   const reject = useMutation({
@@ -334,12 +335,12 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       await logAuditEvent(userData!.id, "reject", "provider_application", app.id, {});
     },
     onSuccess: (_d, vars) => {
-      toast.success("Application rejected");
-      void sendDecision(String(vars.app.id), "The applicant was emailed the decision.");
+      toast.success(tr("Application rejected"));
+      void sendDecision(String(vars.app.id), tr("The applicant was emailed the decision."));
       qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
       setRejectTarget(null); setRejectNotes("");
     },
-    onError: (e: any) => toast.error(e?.message || "Could not reject"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not reject")),
   });
 
   // Applications carry the archetype the applicant picked in BecomeProvider.
@@ -360,10 +361,10 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     .filter((a) => !q || [a.business_name, a.contact_email, a.contact_phone, a.residence].some((v) => (v ?? "").toLowerCase().includes(q)));
 
   const FILTERS: { label: string; value: Filter; count: number }[] = [
-    { label: "To review", value: "pending",  count: counts.pending  },
-    { label: "Approved", value: "approved", count: counts.approved },
-    { label: "Rejected", value: "rejected", count: counts.rejected },
-    { label: "All",      value: "all",      count: counts.all      },
+    { label: tr("To review"), value: "pending",  count: counts.pending  },
+    { label: tr("Approved"), value: "approved", count: counts.approved },
+    { label: tr("Rejected"), value: "rejected", count: counts.rejected },
+    { label: tr("All"),      value: "all",      count: counts.all      },
   ];
 
   const body = (
@@ -376,11 +377,11 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         />
 
         <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search applications…"
+          search={search} onSearch={setSearch} searchPlaceholder={tr("Search applications…")}
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No applications yet" emptySubtitle="Businesses that apply to join appear here."
+          emptyTitle={tr("No applications yet")} emptySubtitle={tr("Businesses that apply to join appear here.")}
           onClearFilters={() => { setSearch(""); setFilter("all"); }}
         >
           <div className="grid gap-3 md:grid-cols-2">
@@ -388,8 +389,8 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
               const svc = SERVICE_REGISTRY[a.service as ServiceKey];
               const arche = archetypes.find((x) => x.key === a.archetype_key);
               const Icon = a.unit === "vehicles" ? CarFront : arche?.Icon ?? svc?.icon ?? Store;
-              const serviceLabel = a.unit === "vehicles" ? "Rental company"
-                : a.service === "other" && !a.archetype_key ? "Something else — needs a service"
+              const serviceLabel = a.unit === "vehicles" ? tr("Rental company")
+                : a.service === "other" && !a.archetype_key ? tr("Something else — needs a service")
                 : arche?.label ?? svc?.label ?? a.service;
               const isPending = a.status === "pending";
               const isApproved = a.status === "approved";
@@ -435,9 +436,8 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                     )}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span>
-                        Applied {a.created_at ? format(new Date(a.created_at), "MMM d, yyyy") : "—"}
-                        {a.reviewed_at && ` · Reviewed ${format(new Date(a.reviewed_at), "MMM d")}`}
+                      <span>{tr("Applied")}{" "}{a.created_at ? format(new Date(a.created_at), "MMM d, yyyy", { locale: dfLocale }) : "—"}
+                        {a.reviewed_at && tr(" · Reviewed {format}", { format: format(new Date(a.reviewed_at), "MMM d", { locale: dfLocale }) })}
                       </span>
                     </div>
                   </div>
@@ -448,7 +448,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
 
                   {isRejected && a.review_notes && (
                     <p className="rounded-radius-md bg-negative/10 p-3 text-xs text-negative">
-                      <span className="font-semibold">Rejection reason:</span> {a.review_notes}
+                      <span className="font-semibold">{tr("Rejection reason:")}</span> {a.review_notes}
                     </p>
                   )}
 
@@ -466,10 +466,9 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                         // Only THIS card shows progress; the others stay usable.
                         disabled={approve.isPending && approve.variables?.id === a.id}
                         loading={approve.isPending && approve.variables?.id === a.id}
-                        loadingText="Approving…"
+                        loadingText={tr("Approving…")}
                       >
-                        <Check className="h-3.5 w-3.5" /> Approve
-                      </Button>
+                        <Check className="h-3.5 w-3.5" />{" "}{tr("Approve")}</Button>
                       <Button
                         size="sm"
                         variant="secondary"
@@ -477,8 +476,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                         onClick={() => { setRejectTarget(a); setRejectNotes(""); }}
                         disabled={(reject.isPending && reject.variables?.app?.id === a.id) || (approve.isPending && approve.variables?.id === a.id)}
                       >
-                        <X className="h-3.5 w-3.5" /> Reject
-                      </Button>
+                        <X className="h-3.5 w-3.5" />{" "}{tr("Reject")}</Button>
                     </div>
                   )}
                 </div>
@@ -491,19 +489,16 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       <AlertDialog open={!!approveTarget} onOpenChange={(o) => { if (!o && !approve.isPending) setApproveTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Approve {approveTarget?.business_name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This creates a draft business{approveTarget?.unit === "vehicles" ? " under Vehicles" : ""}, hands it to the applicant and emails them.
-              Nothing is public until it goes live from its page.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{trx("Approve {business_name}?", { business_name: approveTarget?.business_name })}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("This creates a draft business")}{approveTarget?.unit === "vehicles" ? tr(" under Vehicles") : ""}{tr(", hands it to the applicant and emails them. Nothing is public until it goes live from its page.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={approve.isPending}>Back</AlertDialogCancel>
+            <AlertDialogCancel disabled={approve.isPending}>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={approve.isPending}
               onClick={(e) => { e.preventDefault(); if (approveTarget) approve.mutate(approveTarget); }}
             >
-              {approve.isPending ? "Approving…" : "Approve"}
+              {approve.isPending ? tr("Approving…") : tr("Approve")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -513,25 +508,22 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       <AlertDialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectNotes(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reject application?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Reject application?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{rejectTarget?.business_name}</strong> is told by email that the application was not accepted. The note stays on the application for your team.
-            </AlertDialogDescription>
+              <strong>{rejectTarget?.business_name}</strong>{" "}{tr("is told by email that the application was not accepted. The note stays on the application for your team.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
             value={rejectNotes}
             onChange={(e) => setRejectNotes(e.target.value)}
-            placeholder="Reason (optional)"
+            placeholder={tr("Reason (optional)")}
             rows={3}
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => reject.mutate({ app: rejectTarget, notes: rejectNotes })}
               variant="destructive"
-            >
-              Reject
-            </AlertDialogAction>
+            >{tr("Reject")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -541,8 +533,8 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
   if (embedded) return body;
   return (
     <SuperAdminLayout
-      title="Applications"
-      subtitle="Businesses that want to join. Approving one creates its draft."
+      title={tr("Applications")}
+      subtitle={tr("Businesses that want to join. Approving one creates its draft.")}
     >
       {body}
     </SuperAdminLayout>
@@ -555,18 +547,18 @@ function AssignService({ app, onDone }: { app: any; onDone: () => void }) {
   const [key, setKey] = useState("");
   const save = useMutation({
     mutationFn: () => patchApplication(app.id, { archetypeKey: key }),
-    onSuccess: () => { toast.success("Service assigned — you can approve it now"); onDone(); },
-    onError: (e: any) => toast.error(e?.message || "Could not assign"),
+    onSuccess: () => { toast.success(tr("Service assigned — you can approve it now")); onDone(); },
+    onError: (e: any) => toast.error(e?.message || tr("Could not assign")),
   });
   return (
     <div className="flex items-center gap-2 rounded-radius-md bg-attention/10 p-2">
       <Select value={key} onValueChange={setKey}>
-        <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Assign a service…" /></SelectTrigger>
+        <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder={tr("Assign a service…")} /></SelectTrigger>
         <SelectContent>
           {archetypes.map((x) => <SelectItem key={x.key} value={x.key}>{x.label}</SelectItem>)}
         </SelectContent>
       </Select>
-      <Button size="sm" disabled={!key} loading={save.isPending} onClick={() => save.mutate()}>Assign</Button>
+      <Button size="sm" disabled={!key} loading={save.isPending} onClick={() => save.mutate()}>{tr("Assign")}</Button>
     </div>
   );
 }

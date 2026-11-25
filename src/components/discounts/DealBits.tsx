@@ -1,6 +1,7 @@
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { DisplayDiscount } from "@/lib/discounts";
+import { tr } from "@/lib/tr";
 
 /**
  * The two marks a discounted offer wears everywhere it is sold: a pill on its
@@ -44,7 +45,7 @@ export function DealPrice({
         size === "page" ? "text-3xl leading-none" : "text-heading leading-tight",
         was ? "text-destructive" : "text-foreground",
       )}>
-        {from && <span className="text-meta font-medium tracking-normal text-muted-foreground">From </span>}
+        {from && <span className="text-meta font-medium tracking-normal text-muted-foreground">{tr("From")}{" "}</span>}
         {formatUSD(now)}
       </span>
       {was && (

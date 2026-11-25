@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SortDir } from "@/lib/table/useTableSort";
+import { tr } from "@/lib/tr";
 
 /**
  * A column header you can click to sort by. Goes inside a <TableHead> or a
@@ -32,7 +33,7 @@ export function SortHeader({
         align === "center" && "mx-auto",
         className,
       )}
-      aria-label={`Sort by ${typeof children === "string" ? children : "this column"}${active ? (dir === "asc" ? ", ascending" : ", descending") : ""}`}
+      aria-label={tr("Sort by {value}{value2}", { value: typeof children === "string" ? children : tr("this column"), value2: active ? (dir === "asc" ? tr(", ascending") : tr(", descending")) : "" })}
     >
       <span>{children}</span>
       <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "opacity-100" : "opacity-40 group-hover:opacity-70")} />

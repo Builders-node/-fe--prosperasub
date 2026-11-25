@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * What the platform keeps, and therefore what the provider is owed.
  *
@@ -78,11 +79,11 @@ export function splitTakeParts(parts: RevenuePart[], defaultPct: number): TakeRe
     platformCents += Math.min(Math.round((cents * rate) / 100), cents);
     if (part.pct != null && Number(part.pct) === 0) ownClientsCents += cents;
   }
-  const base = `Platform keeps ${clamp(defaultPct)}% of what customers paid`;
+  const base = tr("Platform keeps {clamp}% of what customers paid", { clamp: clamp(defaultPct) });
   return {
     platformCents,
     providerCents: revenue - platformCents,
     ownClientsCents,
-    explanation: ownClientsCents > 0 ? `${base} · 0% on orders from clients you brought` : base,
+    explanation: ownClientsCents > 0 ? tr("{base} · 0% on orders from clients you brought", { base }) : base,
   };
 }

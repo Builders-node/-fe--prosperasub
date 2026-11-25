@@ -16,6 +16,7 @@ import ProviderDetail from "@/pages/ProviderDetail";
 import Book from "./Book";
 import MyBookings from "./MyBookings";
 import BookingDetail from "./BookingDetail";
+import { tr } from "@/lib/tr";
 
 /**
  * The car-rental storefront, mounted at /vehicles.
@@ -31,7 +32,7 @@ import BookingDetail from "./BookingDetail";
  */
 
 /** What the tab says while the marketplace is not the thing on screen. */
-const CARS_TITLE = "EverySub Vehicles — rent a vehicle on Roatán";
+const CARS_TITLE = tr("EverySub Vehicles — rent a vehicle on Roatán");
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
   /**
@@ -115,11 +116,9 @@ function RequireAuth({ children, title }: { children: ReactNode; title: string }
       <CarPage title={title}>
         <AppContainer className="py-6">
           <section className="mx-auto max-w-[480px] space-y-4 rounded-radius-lg bg-card p-6 text-center">
-            <p className="text-title font-semibold text-foreground">Log in to continue</p>
-            <p className="text-body text-muted-foreground">
-              Your bookings are kept with your account, so we need to know it's you.
-            </p>
-            <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>Log in or sign up</Button>
+            <p className="text-title font-semibold text-foreground">{tr("Log in to continue")}</p>
+            <p className="text-body text-muted-foreground">{tr("Your bookings are kept with your account, so we need to know it's you.")}</p>
+            <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>{tr("Log in or sign up")}</Button>
           </section>
         </AppContainer>
       </CarPage>
@@ -152,9 +151,9 @@ export default function VehiclesApp() {
             breadcrumbs, Plans/Reviews/Gallery, contacts. A second design here
             was the mistake this route corrects. */}
         <Route path="providers/:providerId" element={<ProviderDetail />} />
-        <Route path="book/:id" element={<RequireAuth title="Book"><CarPage title="Book"><Book /></CarPage></RequireAuth>} />
-        <Route path="my-bookings" element={<RequireAuth title="My bookings"><CarPage title="My bookings"><MyBookings /></CarPage></RequireAuth>} />
-        <Route path="booking/:id" element={<RequireAuth title="Booking"><CarPage title="Booking"><BookingDetail /></CarPage></RequireAuth>} />
+        <Route path="book/:id" element={<RequireAuth title={tr("Book")}><CarPage title={tr("Book")}><Book /></CarPage></RequireAuth>} />
+        <Route path="my-bookings" element={<RequireAuth title={tr("My bookings")}><CarPage title={tr("My bookings")}><MyBookings /></CarPage></RequireAuth>} />
+        <Route path="booking/:id" element={<RequireAuth title={tr("Booking")}><CarPage title={tr("Booking")}><BookingDetail /></CarPage></RequireAuth>} />
         {/*
           The fleet had a second admin of its own here, because on a separate
           origin /admin was out of reach. It is one app now, so cars are run

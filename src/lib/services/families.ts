@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * A family that owns its storefront.
  *
@@ -36,9 +37,9 @@ export interface FamilyStorefront {
 export const FAMILY_STOREFRONTS: Record<string, FamilyStorefront> = {
   vehicles: {
     href: "/vehicles",
-    title: "Vehicles",
-    allLabel: "All vehicles",
-    caption: "Every vehicle, priced by the day",
+    title: tr("Vehicles"),
+    allLabel: tr("All vehicles"),
+    caption: tr("Every vehicle, priced by the day"),
   },
 };
 

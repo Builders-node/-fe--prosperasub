@@ -4,6 +4,7 @@ import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { accountApi } from "@/integrations/supabase/client";
 import { RateProviderButton, type Service } from "@/components/reviews/RateProviderButton";
 import { useAuth } from "@/contexts/AuthContext";
+import { trx, dfLocale } from "@/lib/tr";
 
 /**
  * "How was it?" — one line per business, above everything else.
@@ -39,7 +40,7 @@ const when = (iso: string) => {
   const d = parseISO(iso);
   if (isToday(d)) return "today";
   if (isYesterday(d)) return "yesterday";
-  return format(d, "MMM d");
+  return format(d, "MMM d", { locale: dfLocale });
 };
 
 const noun: Record<string, string> = {
@@ -95,9 +96,7 @@ export function ReviewPromptCard() {
           type="button"
           onClick={() => setExpanded(true)}
           className="w-full py-1 text-[12px] leading-[16px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {hidden} more to rate
-        </button>
+        >{trx("{hidden} more to rate", { hidden })}</button>
       )}
     </section>
   );

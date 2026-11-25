@@ -62,6 +62,7 @@ import { accountApi } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { publicSiteUrl } from "@/integrations/supabase/config";
 import { vatCentsFor, vatLabel } from "@/lib/checkout/vat";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -90,18 +91,18 @@ interface PlanRow {
 
 /** The quote answers with a reason, not a sentence. */
 const PROMO_REFUSALS: Record<string, string> = {
-  unknown: "No such code.",
-  inactive: "That code is not running.",
-  "not-yet": "That code has not started yet.",
-  expired: "That code has expired.",
-  "wrong-business": "That code is for a different business.",
-  "too-small": "Your order is below this code's minimum.",
-  "used-up": "That code has been fully used.",
-  "already-used": "You have already used that code.",
+  unknown: tr("No such code."),
+  inactive: tr("That code is not running."),
+  "not-yet": tr("That code has not started yet."),
+  expired: tr("That code has expired."),
+  "wrong-business": tr("That code is for a different business."),
+  "too-small": tr("Your order is below this code's minimum."),
+  "used-up": tr("That code has been fully used."),
+  "already-used": tr("You have already used that code."),
 };
 
 const UniversalPlanCheckout = () => {
-  useSeo({ title: "Checkout" });
+  useSeo({ title: tr("Checkout") });
   const { archetypeKey: serviceSegment, planId } = useParams<{ archetypeKey: string; planId: string }>();
   const [searchParams] = useSearchParams();
   /**
@@ -338,13 +339,13 @@ const UniversalPlanCheckout = () => {
       const q = data as { ok: boolean; reason?: string; discount_cents?: number; code?: string };
       if (!q?.ok) {
         setPromo(null);
-        setPromoError(PROMO_REFUSALS[q?.reason ?? ""] ?? "That code will not work here.");
+        setPromoError(PROMO_REFUSALS[q?.reason ?? ""] ?? tr("That code will not work here."));
         return;
       }
       setPromo({ code: q.code ?? code, discountCents: q.discount_cents ?? 0 });
     } catch {
       setPromo(null);
-      setPromoError("Could not check that code just now.");
+      setPromoError(tr("Could not check that code just now."));
     } finally {
       setPromoChecking(false);
     }
@@ -452,15 +453,15 @@ const UniversalPlanCheckout = () => {
   const termTooLongToRenew = autoRenewPossible && !paypalCanRenew(plan!.period, periods);
   const autoRenewEligible = autoRenewPossible && !termTooLongToRenew;
   /** "month", "4 weeks", "3 months" — the term PayPal will repeat. */
-  const renewTerm = plan ? (periods > 1 ? termLabelFor(plan.period, periods) : periodNoun(plan.period) || "period") : "period";
+  const renewTerm = plan ? (periods > 1 ? termLabelFor(plan.period, periods) : periodNoun(plan.period) || tr("period")) : tr("period");
   const feePct = surchargePercent(paymentMethod);
   /** What each LATER term costs — the list price — when the first one is discounted. */
   const renewEffectiveCents = useOffer
     ? addSurchargeCents(totalCents + vatCentsFor(totalCents, vatPct) + deliveryFeeCents, paymentMethod)
     : effectiveTotalCents;
   const renewSentence = useOffer && renewEffectiveCents !== effectiveTotalCents
-    ? `${formatUSD(effectiveTotalCents)} now, then ${formatUSD(renewEffectiveCents)} every ${renewTerm}`
-    : `${formatUSD(effectiveTotalCents)} every ${renewTerm}`;
+    ? tr("{now} now, then {next} every {term}", { now: formatUSD(effectiveTotalCents), next: formatUSD(renewEffectiveCents), term: renewTerm })
+    : tr("{amount} every {term}", { amount: formatUSD(effectiveTotalCents), term: renewTerm });
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
   // A renewal does not get to choose when it starts: it starts the day the
   // current period ends, or today if that has already passed.
@@ -596,14 +597,14 @@ const UniversalPlanCheckout = () => {
       return pendingSubIdRef.current;
     } catch (err: any) {
       const refusal = Object.keys(DELIVERY_REFUSALS).find((k) => String(err?.message ?? "").includes(k));
-      toast.error(refusal ? DELIVERY_REFUSALS[refusal] : err?.message || "Could not reserve subscription");
+      toast.error(refusal ? DELIVERY_REFUSALS[refusal] : err?.message || tr("Could not reserve subscription"));
       return null;
     }
   };
 
   const createSubscription = useMutation({
     mutationFn: async (o: { paymentRef: string; status: "paid" | "pending"; method: string }) => {
-      if (!plan) throw new Error("Missing plan data");
+      if (!plan) throw new Error(tr("Missing plan data"));
 
       if (renewSubId) {
         // The server verifies the reference with the payment provider before it
@@ -623,7 +624,7 @@ const UniversalPlanCheckout = () => {
             idempotency_key: idempotencyKey,
           }),
         });
-        if (error) throw new Error(error.message || "Renewal failed");
+        if (error) throw new Error(error.message || tr("Renewal failed"));
         return { id: renewSubId };
       }
 
@@ -686,36 +687,36 @@ const UniversalPlanCheckout = () => {
 
   const startPayment = async () => {
     if (!plan) return;
-    if (totalCents <= 0) { toast.error("This plan has no price yet."); return; }
-    if (!startDate) { toast.error("Choose a start date."); return; }
+    if (totalCents <= 0) { toast.error(tr("This plan has no price yet.")); return; }
+    if (!startDate) { toast.error(tr("Choose a start date.")); return; }
     // The card says WhatsApp is required; this is where that becomes true.
     // A business with no way to reach the customer cannot confirm, reschedule
     // or find the door.
     if (!phone.trim()) {
-      setPhoneErr("We need a WhatsApp number to reach you about this order.");
+      setPhoneErr(tr("We need a WhatsApp number to reach you about this order."));
       setDetailsOpen(true);
-      toast.error("Add your WhatsApp number.");
+      toast.error(tr("Add your WhatsApp number."));
       return;
     }
     if (wantsDelivery) {
-      const where = visit ? "Where should they come?" : "Where should we deliver it?";
+      const where = visit ? tr("Where should they come?") : tr("Where should we deliver it?");
       if (!point) { toast.error(where); setMapOpen(true); return; }
       if (!quoteOk) { toast.error(quote ? quoteLine(quote) : where); setMapOpen(true); return; }
     }
     if (needsTextAddress && !address.trim()) {
-      toast.error(plan.fulfilment === "deliveries" ? "Where should it be delivered?" : "Where should we come?");
+      toast.error(plan.fulfilment === "deliveries" ? tr("Where should it be delivered?") : tr("Where should we come?"));
       return;
     }
     if (plan.selection && selections.length < plan.selection.min) {
-      toast.error(`Pick at least ${plan.selection.min} — ${plan.selection.label.toLowerCase()}.`);
+      toast.error(tr("Pick at least {min} — {toLowerCase}.", { min: plan.selection.min, toLowerCase: plan.selection.label.toLowerCase() }));
       return;
     }
     // provider_subscriptions.user_id is a uuid column and the JWT id may be a
     // Google-format string; inserting that raises 22P02 and fails the whole
     // statement. Better to say so than to lose the sale to a Postgres error.
     // A renewal inserts nothing, so it has no such constraint to satisfy.
-    if (!renewSubId && !userUuid) { toast.error("We couldn't verify your account. Please sign in again."); return; }
-    if (renewSubId && !renewSubject) { toast.error("We couldn't load the subscription you're renewing."); return; }
+    if (!renewSubId && !userUuid) { toast.error(tr("We couldn't verify your account. Please sign in again.")); return; }
+    if (renewSubId && !renewSubject) { toast.error(tr("We couldn't load the subscription you're renewing.")); return; }
 
     setIsGenerating(true);
     try {
@@ -730,9 +731,9 @@ const UniversalPlanCheckout = () => {
         return;
       }
 
-      if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
+      if (!btcPrice) { toast.error(tr("BTC price not loaded yet.")); return; }
       const sats = convertToSats(centsToDollars(effectiveTotalCents));
-      if (sats <= 0) { toast.error("Unable to calculate payment amount."); return; }
+      if (sats <= 0) { toast.error(tr("Unable to calculate payment amount.")); return; }
 
       mutationCalledRef.current = false;
       setShowPayment(true);
@@ -773,7 +774,7 @@ const UniversalPlanCheckout = () => {
 
   if (planLoading || (!!renewSubId && renewLoading)) {
     return (
-      <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
+      <UserLayout title={tr("Checkout")} showBackButton backTo={listingHref} showBottomNav={false}>
         <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
           <Skeleton className="h-24" />
           <Skeleton className="h-56" />
@@ -786,15 +787,13 @@ const UniversalPlanCheckout = () => {
   // direct link — only renewed by someone who already holds it.
   if (planError || !plan || ((plan.status !== "active" || !plan.providerActive) && !renewSubId)) {
     return (
-      <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
+      <UserLayout title={tr("Checkout")} showBackButton backTo={listingHref} showBottomNav={false}>
         <div className="mx-auto max-w-xl px-4 py-16 text-center">
           <Sparkles className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">Plan not available</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            It may have been withdrawn. Browse what's on offer instead.
-          </p>
+          <p className="font-semibold text-foreground">{tr("Plan not available")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{tr("It may have been withdrawn. Browse what's on offer instead.")}</p>
           <Button asChild variant="outline" className="mt-4">
-            <a href={listingHref}>Back</a>
+            <a href={listingHref}>{tr("Back")}</a>
           </Button>
         </div>
       </UserLayout>
@@ -803,17 +802,12 @@ const UniversalPlanCheckout = () => {
 
   if (renewSubId && !renewSubject) {
     return (
-      <UserLayout title="Renew" showBackButton backTo="/my-subscriptions" showBottomNav={false}>
+      <UserLayout title={tr("Renew")} showBackButton backTo="/my-subscriptions" showBottomNav={false}>
         <div className="mx-auto max-w-xl px-4 py-16 text-center">
           <RefreshCw className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">Subscription not found</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            We couldn't find the subscription you're renewing. Open it from your
-            subscriptions and try again.
-          </p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate("/my-subscriptions")}>
-            My subscriptions
-          </Button>
+          <p className="font-semibold text-foreground">{tr("Subscription not found")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{tr("We couldn't find the subscription you're renewing. Open it from your subscriptions and try again.")}</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/my-subscriptions")}>{tr("My subscriptions")}</Button>
         </div>
       </UserLayout>
     );
@@ -821,24 +815,24 @@ const UniversalPlanCheckout = () => {
 
   if (showSuccess) {
     return (
-      <UserLayout title="Checkout" showBackButton={false} showBottomNav={false}>
+      <UserLayout title={tr("Checkout")} showBackButton={false} showBottomNav={false}>
         <div className="mx-auto max-w-xl px-4 py-6">
           <CheckoutSuccessPanel
             icon={Sparkles}
             amount={formatUSD(effectiveTotalCents)}
-            eyebrow={renewing ? "Subscription extended" : plan.oneTime ? "Purchase confirmed" : "Subscription confirmed"}
+            eyebrow={renewing ? tr("Subscription extended") : plan.oneTime ? tr("Purchase confirmed") : tr("Subscription confirmed")}
             subtitle={
               renewing
-                ? `Your ${plan.name} now runs through ${format(endDate, "d MMM yyyy")}.`
+                ? tr("Your {name} now runs through {endDate}.", { name: plan.name, endDate: format(endDate, "d MMM yyyy", { locale: dfLocale }) })
                 : plan.oneTime
-                ? `${plan.name} is yours. We'll be in touch with the details.`
-                : `Your ${plan.name} subscription is active. We'll be in touch with the details.`
+                ? tr("{name} is yours. We'll be in touch with the details.", { name: plan.name })
+                : tr("Your {name} subscription is active. We'll be in touch with the details.", { name: plan.name })
             }
-            ctaLabel={canBook ? "Book a time" : "View my subscriptions"}
+            ctaLabel={canBook ? tr("Book a time") : tr("View my subscriptions")}
             onCta={() => navigate(canBook ? `/providers/${plan.providerUniversalId}/book` : "/my-subscriptions")}
             secondary={canBook
-              ? { label: "My subscriptions", onClick: () => navigate("/my-subscriptions") }
-              : { label: "Back", onClick: () => navigate(listingHref) }}
+              ? { label: tr("My subscriptions"), onClick: () => navigate("/my-subscriptions") }
+              : { label: tr("Back"), onClick: () => navigate(listingHref) }}
           />
           {/* What happens now — in the business's own words (this plan's,
               else the business's), or EverySub's until it writes some. */}
@@ -856,32 +850,32 @@ const UniversalPlanCheckout = () => {
   <ResumeCard
             goodsCents={totalCents}
             feeCents={Math.max(0, effectiveTotalCents - payableCents)}
-            feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
+            feeLabel={feePct > 0 ? tr("Fee · {feePct}%", { feePct }) : tr("Fee")}
             totalCents={effectiveTotalCents}
             extra={[
               ...(discountCents > 0
-                ? [{ label: useOffer && offer ? quoteLabel(offer) : `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
+                ? [{ label: useOffer && offer ? quoteLabel(offer) : tr("Promo · {code}", { code: promo?.code }), value: `−${formatUSD(discountCents)}` }]
                 : []),
               ...(bonusCents > 0
-                ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
+                ? [{ label: tr("Bonus"), value: `−${formatUSD(bonusCents)}` }]
                 : []),
               ...(vatCents > 0
                 ? [{ label: vatLabel(vatPct), value: formatUSD(vatCents) }]
                 : []),
               ...(wantsDelivery && quoteOk
-                ? [{ label: visit ? "Call-out" : "Delivery", value: quoteOk.feeCents === 0 ? "Free" : formatUSD(quoteOk.feeCents) }]
+                ? [{ label: visit ? tr("Call-out") : tr("Delivery"), value: quoteOk.feeCents === 0 ? "Free" : formatUSD(quoteOk.feeCents) }]
                 : []),
               ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
-                ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
+                ? [{ label: tr("Included"), value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
                 : []),
-              { label: "Term", value: termLabelFor(plan.period, periods) },
-              ...(perPerson ? [{ label: "People", value: String(Math.max(1, people)) }] : []),
-              ...(multi ? [{ label: "Portions", value: String(portions) }] : []),
-              { label: renewing ? "Renews from" : "Start date",
-                value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy") },
+              { label: tr("Term"), value: termLabelFor(plan.period, periods) },
+              ...(perPerson ? [{ label: tr("People"), value: String(Math.max(1, people)) }] : []),
+              ...(multi ? [{ label: tr("Portions"), value: String(portions) }] : []),
+              { label: renewing ? tr("Renews from") : tr("Start date"),
+                value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy", { locale: dfLocale }) },
               // A one-time purchase does not "end" — the date is how long what
               // was bought stays usable (a pass, a session to schedule).
-              { label: plan.oneTime ? "Valid until" : "Ends", value: format(endDate, "d MMM yyyy") },
+              { label: plan.oneTime ? tr("Valid until") : tr("Ends"), value: format(endDate, "d MMM yyyy", { locale: dfLocale }) },
             ]}
           />
   );
@@ -891,9 +885,7 @@ const UniversalPlanCheckout = () => {
               button that leaves the checkout only made them wonder which one
               pays. Putting a plan aside lives on the plan page. */}
           {enabledMethods.length === 0 && (
-            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
-              Payments are temporarily unavailable. Try again in a few minutes.
-            </p>
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">{tr("Payments are temporarily unavailable. Try again in a few minutes.")}</p>
           )}
           <Button
             size="lg"
@@ -918,7 +910,7 @@ const UniversalPlanCheckout = () => {
 
   return (
     <UserLayout
-      title={renewing ? "Renew" : "Checkout"}
+      title={renewing ? tr("Renew") : tr("Checkout")}
       showBackButton
       backTo={renewing ? "/my-subscriptions" : listingHref}
       showBottomNav={false}
@@ -927,10 +919,7 @@ const UniversalPlanCheckout = () => {
       <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
       <div className="min-w-0 space-y-1">
         {renewing && (
-          <p className="px-1 pb-1 text-sm text-muted-foreground">
-            Extends the same subscription — nothing new is created, and the new
-            period starts when the current one ends.
-          </p>
+          <p className="px-1 pb-1 text-sm text-muted-foreground">{tr("Extends the same subscription — nothing new is created, and the new period starts when the current one ends.")}</p>
         )}
 
         {/* 1 — what is being bought. */}
@@ -957,19 +946,17 @@ const UniversalPlanCheckout = () => {
                   something the server will not do. */}
               {renewing ? (
                 <div className="rounded-radius-md bg-inset p-3.5">
-                  <p className="text-xs text-muted-foreground">Renewing</p>
+                  <p className="text-xs text-muted-foreground">{tr("Renewing")}</p>
                   <p className="mt-0.5 text-sm font-semibold text-foreground">
                     {renewSubject!.currentEnd
-                      ? `Current period ends ${format(new Date(`${renewSubject!.currentEnd}T00:00:00`), "d MMM yyyy")}`
-                      : "Current period"}
+                      ? tr("Current period ends {format}", { format: format(new Date(`${renewSubject!.currentEnd}T00:00:00`), "d MMM yyyy", { locale: dfLocale }) })
+                      : tr("Current period")}
                   </p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    New period {format(new Date(`${effectiveStart}T00:00:00`), "d MMM")} → {format(endDate, "d MMM yyyy")}
-                  </p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{trx("New period {format} → {endDate}", { format: format(new Date(`${effectiveStart}T00:00:00`), "d MMM", { locale: dfLocale }), endDate: format(endDate, "d MMM yyyy", { locale: dfLocale }) })}</p>
                 </div>
               ) : (
                 <FieldRows>
-                  <FieldRow icon={<CalendarDays className="h-4 w-4" />} label="Start date" required>
+                  <FieldRow icon={<CalendarDays className="h-4 w-4" />} label={tr("Start date")} required>
                     <input
                       id="up-start"
                       type="date"
@@ -1008,9 +995,7 @@ const UniversalPlanCheckout = () => {
                   screen can serve meals without knowing what a meal is. */}
               {plan.selection && (
                 <>
-                  <Label className="mt-4 block text-xs text-muted-foreground">
-                    {plan.selection.label} — pick {plan.selection.max}
-                  </Label>
+                  <Label className="mt-4 block text-xs text-muted-foreground">{trx("{label} — pick {max}", { label: plan.selection.label, max: plan.selection.max })}</Label>
                   <div className="mt-1.5 flex flex-wrap gap-2">
                     {plan.selection.options.map((opt) => {
                       const on = selections.includes(opt.key);
@@ -1044,7 +1029,7 @@ const UniversalPlanCheckout = () => {
             the pin on the map with its zone's price and time, or where to
             come for self-service. */}
         {!showPayment && offerModes.length > 0 && serviceMode && (
-          <CheckoutCard title={offerModes.length > 1 ? "How you get it" : SERVICE_MODES.find((m) => m.key === serviceMode)?.label ?? "Delivery"}>
+          <CheckoutCard title={offerModes.length > 1 ? tr("How you get it") : SERVICE_MODES.find((m) => m.key === serviceMode)?.label ?? tr("Delivery")}>
             <div className="space-y-3">
               {offerModes.length > 1 && (
                 <div className="flex rounded-full bg-inset p-0.5">
@@ -1064,7 +1049,7 @@ const UniversalPlanCheckout = () => {
                     <MapPin className={cn("h-5 w-5 shrink-0", point ? "text-primary" : "text-muted-foreground")} />
                     <span className="min-w-0 flex-1">
                       <span className={cn("block truncate text-body font-semibold", point ? "text-foreground" : "text-muted-foreground")}>
-                        {point?.line ?? "Choose the address on the map"}
+                        {point?.line ?? tr("Choose the address on the map")}
                       </span>
                       {quote && (
                         <span className={cn("block truncate text-meta", quoteOk ? "text-muted-foreground" : "text-negative")}>
@@ -1078,31 +1063,27 @@ const UniversalPlanCheckout = () => {
                     <input
                       value={doorDetails}
                       onChange={(e) => setDoorDetails(e.target.value.slice(0, 200))}
-                      placeholder="Apartment, gate code, how to find you"
-                      aria-label={visit ? "How to find you" : "Details for the courier"}
+                      placeholder={tr("Apartment, gate code, how to find you")}
+                      aria-label={visit ? tr("How to find you") : tr("Details for the courier")}
                       className="h-12 w-full rounded-radius-md bg-inset px-3 text-body text-foreground outline-none placeholder:text-muted-foreground"
                     />
                   )}
                   {quoteOk?.freeFromCents != null && quoteOk.feeCents > 0 && (
-                    <p className="text-meta text-muted-foreground">Free {visit ? "call-out" : "delivery"} from {formatUSD(quoteOk.freeFromCents)}.</p>
+                    <p className="text-meta text-muted-foreground">{tr("Free")}{" "}{visit ? "call-out" : "delivery"}{" "}{trx("from {freeFromCents}.", { freeFromCents: formatUSD(quoteOk.freeFromCents) })}</p>
                   )}
                 </>
               ) : (
                 <p className="flex items-start gap-2 text-body text-muted-foreground">
                   <Footprints className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    You go to {plan.providerName ?? "the business"}
-                    {plan.providerLocation ? <> — <span className="text-foreground">{plan.providerLocation}</span></> : null}.
-                    {" "}They'll message you on WhatsApp.
-                  </span>
+                  <span>{trx("You go to {value}", { value: plan.providerName ?? tr("the business") })}{plan.providerLocation ? <> — <span className="text-foreground">{plan.providerLocation}</span></> : null}{tr(". They'll message you on WhatsApp.")}</span>
                 </p>
               )}
             </div>
             <AddressMapDialog
               open={mapOpen}
               onOpenChange={setMapOpen}
-              title={visit ? "Where should they come?" : "Where should we deliver it?"}
-              description="Move the map until the pin sits on your door."
+              title={visit ? tr("Where should they come?") : tr("Where should we deliver it?")}
+              description={tr("Move the map until the pin sits on your door.")}
               coverage={(pt) => {
                 const q = quoteAt(pt);
                 return q ? { ok: q.ok, text: quoteLine(q) } : { ok: false, text: "" };
@@ -1124,12 +1105,12 @@ const UniversalPlanCheckout = () => {
           >
             <FieldRows>
               {plan.needsArea && !serviceMode && (
-                <FieldRow icon={<MapPin className="h-4 w-4" />} label="Residence">
+                <FieldRow icon={<MapPin className="h-4 w-4" />} label={tr("Residence")}>
                   <input
                     id="pc-area"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
-                    placeholder="Duna Residences"
+                    placeholder={tr("Duna Residences")}
                     className={fieldInputClass}
                   />
                 </FieldRow>
@@ -1138,20 +1119,20 @@ const UniversalPlanCheckout = () => {
               {needsTextAddress && (
                 <FieldRow
                   icon={<MapPin className="h-4 w-4" />}
-                  label={plan.fulfilment === "deliveries" ? "Delivery address" : "Where the visit happens"}
+                  label={plan.fulfilment === "deliveries" ? tr("Delivery address") : tr("Where the visit happens")}
                   required
                 >
                   <input
                     id="pc-address"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Building, unit, anything the driver needs"
+                    placeholder={tr("Building, unit, anything the driver needs")}
                     className={fieldInputClass}
                   />
                 </FieldRow>
               )}
 
-              <FieldRow icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" required>
+              <FieldRow icon={<MessageCircle className="h-4 w-4" />} label={tr("WhatsApp")} required>
                 <input
                   id="up-phone"
                   type="tel"
@@ -1175,14 +1156,14 @@ const UniversalPlanCheckout = () => {
             that card is collapsed by default, so the comment was where nobody
             looked. The business sees it on the subscriber. */}
         {!showPayment && (
-          <CheckoutCard title={`Comment for ${plan.providerName ?? "the business"}`}>
+          <CheckoutCard title={tr("Comment for {value}", { value: plan.providerName ?? tr("the business") })}>
             <NotesField
               value={notes}
               onChange={setNotes}
               label=""
-              placeholder="Gate code, a dog in the yard, preferences…"
-              title={`Comment for ${plan.providerName ?? "the business"}`}
-              description="They'll see it with your order. Optional."
+              placeholder={tr("Gate code, a dog in the yard, preferences…")}
+              title={tr("Comment for {value}", { value: plan.providerName ?? tr("the business") })}
+              description={tr("They'll see it with your order. Optional.")}
             />
           </CheckoutCard>
         )}
@@ -1194,43 +1175,35 @@ const UniversalPlanCheckout = () => {
             hidden behind a link. */}
         {/* Single orders only — see discountCents. */}
         <section className={cn("rounded-radius-md bg-card p-4", (multi || showPayment) && "hidden")}>
-          <Label htmlFor="promo">Promo code</Label>
+          <Label htmlFor="promo">{tr("Promo code")}</Label>
           <div className="mt-1 flex gap-2">
             <Input
               id="promo"
               value={promoInput}
               onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
-              placeholder="VILLAGE20"
+              placeholder={tr("VILLAGE20")}
               className="font-mono tracking-[0.12em]"
               maxLength={24}
               disabled={!!promo}
             />
             {promo ? (
-              <Button variant="secondary" onClick={() => { setPromo(null); setPromoInput(""); }}>
-                Remove
-              </Button>
+              <Button variant="secondary" onClick={() => { setPromo(null); setPromoInput(""); }}>{tr("Remove")}</Button>
             ) : (
               <Button
                 variant="secondary"
                 onClick={() => void applyPromo()}
                 disabled={promoChecking || promoInput.trim().length < 3}
                 loading={promoChecking}
-              >
-                Apply
-              </Button>
+              >{tr("Apply")}</Button>
             )}
           </div>
           {promoError && <p className="mt-1 text-[13px] text-destructive">{promoError}</p>}
           {promo && !useOffer && (
-            <p className="mt-1 text-[13px] text-positive">
-              {promo.code} applied — {formatUSD(discountCents)} off
-            </p>
+            <p className="mt-1 text-[13px] text-positive">{trx("{code} applied — {discountCents} off", { code: promo.code, discountCents: formatUSD(discountCents) })}</p>
           )}
           {/* Discounts do not stack — say which one won, so a code that "did nothing" is explained. */}
           {useOffer && offer && (
-            <p className="mt-1 text-meta text-positive">
-              {quoteLabel(offer)} — {formatUSD(discountCents)} off
-              {promo ? `. That's more than ${promo.code} gives, so the code isn't used.` : " already applied."}
+            <p className="mt-1 text-meta text-positive">{trx("{quoteLabel} — {discountCents} off", { quoteLabel: quoteLabel(offer), discountCents: formatUSD(discountCents) })}{promo ? tr(". That's more than {code} gives, so the code isn't used.", { code: promo.code }) : tr(" already applied.")}
             </p>
           )}
         </section>
@@ -1243,13 +1216,9 @@ const UniversalPlanCheckout = () => {
           <section className="flex items-center gap-3 rounded-radius-md bg-card p-4">
             <Gift className="h-5 w-5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-foreground">
-                Use your bonus
-              </p>
-              <p className="text-[13px] text-muted-foreground">
-                {formatUSD(balanceCents)} available
-                {bonusUsableCents < balanceCents
-                  ? ` — up to ${formatUSD(bonusUsableCents)} on this order`
+              <p className="text-[15px] font-semibold text-foreground">{tr("Use your bonus")}</p>
+              <p className="text-[13px] text-muted-foreground">{trx("{balanceCents} available", { balanceCents: formatUSD(balanceCents) })}{bonusUsableCents < balanceCents
+                  ? tr(" — up to {bonusUsableCents} on this order", { bonusUsableCents: formatUSD(bonusUsableCents) })
                   : ""}
               </p>
             </div>
@@ -1262,10 +1231,7 @@ const UniversalPlanCheckout = () => {
         {bonusEarnedCents > 0 && !showPayment && (
           <p className="flex items-center gap-2 px-1 text-meta text-muted-foreground">
             <Gift className="h-4 w-4 shrink-0 text-primary" />
-            <span>
-              You'll get <span className="font-semibold text-foreground">{formatUSD(bonusEarnedCents)}</span> back
-              as bonus once this is paid — spend it on your next order or renewal.
-            </span>
+            <span>{tr("You'll get")}{" "}<span className="font-semibold text-foreground">{formatUSD(bonusEarnedCents)}</span>{" "}{tr("back as bonus once this is paid — spend it on your next order or renewal.")}</span>
           </p>
         )}
 
@@ -1273,11 +1239,11 @@ const UniversalPlanCheckout = () => {
 
         {showPayment && paymentMethod === "paypal" ? (
           <section className="overflow-hidden rounded-radius-md bg-card p-4">
-            <h2 className="mb-4 text-xl font-semibold tracking-[-0.02em] text-foreground">Pay with PayPal</h2>
+            <h2 className="mb-4 text-xl font-semibold tracking-[-0.02em] text-foreground">{tr("Pay with PayPal")}</h2>
             {isPaid ? (
               <div className="flex items-center justify-center gap-2 rounded-radius-md bg-positive/10 p-4">
                 <CheckCircle2 className="h-5 w-5 text-positive" />
-                <span className="text-sm font-medium text-positive">Payment received! Activating…</span>
+                <span className="text-sm font-medium text-positive">{tr("Payment received! Activating…")}</span>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1290,13 +1256,8 @@ const UniversalPlanCheckout = () => {
                       onChange={(e) => setAutoRenew(e.target.checked)}
                     />
                     <span>
-                      <span className="font-medium text-foreground">
-                        Renew automatically every {renewTerm}
-                      </span>
-                      <span className="block text-muted-foreground">
-                        PayPal charges {renewSentence} until you cancel —
-                        any time, from My subscriptions or your PayPal account.
-                      </span>
+                      <span className="font-medium text-foreground">{trx("Renew automatically every {renewTerm}", { renewTerm })}</span>
+                      <span className="block text-muted-foreground">{trx("PayPal charges {renewSentence} until you cancel — any time, from My subscriptions or your PayPal account.", { renewSentence })}</span>
                     </span>
                   </label>
                 )}
@@ -1326,7 +1287,7 @@ const UniversalPlanCheckout = () => {
             totalCents={effectiveTotalCents}
             meta={{ description: orderDescription, ...paymentMeta() }}
             isPaid={isPaid}
-            successLabel="Activating subscription…"
+            successLabel={tr("Activating subscription…")}
             onPaid={(id) => onExternalPaid(id, "crypto_gateway")}
             // Same reason as the Bitcoin rails: the reference must be on the
             // reserved row before the customer pays, or a closed tab strands it.
@@ -1346,10 +1307,10 @@ const UniversalPlanCheckout = () => {
             isPaid={isPaid}
             isExpired={inv.state.isExpired}
             onRetry={() => { inv.reset(); void startPayment(); }}
-            successLabel="Activating subscription…"
+            successLabel={tr("Activating subscription…")}
           />
         ) : !showPayment ? (
-          <CheckoutCard title="Payment method">
+          <CheckoutCard title={tr("Payment method")}>
             <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
 
             {/* Said before the PayPal step, not only on it: choosing PayPal here
@@ -1358,19 +1319,13 @@ const UniversalPlanCheckout = () => {
             {paymentMethod === "paypal" && termTooLongToRenew && (
               <div className="mt-3 flex items-start gap-2 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
                 <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span>
-                  {termLabelFor(plan.period, periods)} is paid once — PayPal can renew a term of up to a year.
-                  We'll remind you before it ends.
-                </span>
+                <span>{trx("{termLabelFor} is paid once — PayPal can renew a term of up to a year. We'll remind you before it ends.", { termLabelFor: termLabelFor(plan.period, periods) })}</span>
               </div>
             )}
             {paymentMethod === "paypal" && autoRenewEligible && (
               <div className="mt-3 flex items-start gap-2 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
                 <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>
-                  With PayPal this renews automatically: {renewSentence} until you cancel.
-                  You can switch it off on the next step, or cancel any time in My subscriptions.
-                </span>
+                <span>{trx("With PayPal this renews automatically: {renewSentence} until you cancel. You can switch it off on the next step, or cancel any time in My subscriptions.", { renewSentence })}</span>
               </div>
             )}
 
@@ -1379,25 +1334,17 @@ const UniversalPlanCheckout = () => {
                 it belongs next to the rate that changed it. */}
             {(paymentMethod === "lightning" || paymentMethod === "onchain") && btcPrice && (
               <div className="mt-3 flex items-center justify-between rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
-                <span>
-                  ≈ {(inv.state.sats ?? estimatedSats).toLocaleString()} sats
-                  <span className="mx-1.5 opacity-40">·</span>
-                  1 BTC = ${btcPrice.toLocaleString()}
-                </span>
-                <Button variant="ghost" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
+                <span>{trx("≈ {toLocaleString} sats", { toLocaleString: (inv.state.sats ?? estimatedSats).toLocaleString() })}<span className="mx-1.5 opacity-40">·</span>{trx("1 BTC = ${toLocaleString}", { toLocaleString: btcPrice.toLocaleString() })}</span>
+                <Button variant="ghost" size="iconSm" onClick={refreshPrice} aria-label={tr("Refresh Bitcoin price")}>
                   <RefreshCw className="h-3 w-3" />
                 </Button>
               </div>
             )}
             {paymentMethod === "crypto_gateway" && (
-              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
-                USDT, USDC, ETH, SOL and more. You pick the coin on the next step.
-              </p>
+              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">{tr("USDT, USDC, ETH, SOL and more. You pick the coin on the next step.")}</p>
             )}
             {paymentMethod === "paypal" && (
-              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
-                Card or PayPal balance, on PayPal's own checkout.
-              </p>
+              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">{tr("Card or PayPal balance, on PayPal's own checkout.")}</p>
             )}
           </CheckoutCard>
         ) : (
@@ -1408,9 +1355,7 @@ const UniversalPlanCheckout = () => {
         )}
 
         {showPayment && !isPaid && (
-          <Button variant="ghost" className="w-full" onClick={backToMethods}>
-            Change payment method
-          </Button>
+          <Button variant="ghost" className="w-full" onClick={backToMethods}>{tr("Change payment method")}</Button>
         )}
       </div>
 

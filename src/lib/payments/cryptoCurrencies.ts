@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * Human names for gateway tickers.
  *
@@ -11,7 +12,7 @@
 const KNOWN: Record<string, { coin: string; network?: string }> = {
   usdttrc20: { coin: "USDT", network: "Tron" },
   usdterc20: { coin: "USDT", network: "Ethereum" },
-  usdtbsc:   { coin: "USDT", network: "BNB Chain" },
+  usdtbsc:   { coin: "USDT", network: tr("BNB Chain") },
   usdtsol:   { coin: "USDT", network: "Solana" },
   usdtmatic: { coin: "USDT", network: "Polygon" },
   usdtton:   { coin: "USDT", network: "TON" },
@@ -25,7 +26,7 @@ const KNOWN: Record<string, { coin: string; network?: string }> = {
   ltc:       { coin: "LTC" },
   ton:       { coin: "TON" },
   trx:       { coin: "TRX",  network: "Tron" },
-  bnbbsc:    { coin: "BNB",  network: "BNB Chain" },
+  bnbbsc:    { coin: "BNB",  network: tr("BNB Chain") },
   xrp:       { coin: "XRP" },
   doge:      { coin: "DOGE" },
   xmr:       { coin: "XMR" },

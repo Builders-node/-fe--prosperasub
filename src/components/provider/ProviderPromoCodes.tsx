@@ -12,6 +12,7 @@ import { accountApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The business's own promo codes (Edge routes/provider-growth.ts).
@@ -49,7 +50,7 @@ export function ProviderPromoCodes({ providerId }: { providerId: string }) {
       if (error) throw error;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: KEY }),
-    onError: (e: Error) => toast.error(e.message || "Could not update the code"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not update the code")),
   });
 
   // A manager gets 403 here — the section simply isn't theirs.
@@ -58,12 +59,11 @@ export function ProviderPromoCodes({ providerId }: { providerId: string }) {
   return (
     <div className="space-y-1">
       <WorkspaceSection
-        title="Promo codes"
-        subtitle="Discounts on your plans only. The discount comes off what you earn."
+        title={tr("Promo codes")}
+        subtitle={tr("Discounts on your plans only. The discount comes off what you earn.")}
         action={
           <Button size="sm" variant="secondary" className="gap-2" onClick={() => setCreating(true)}>
-            <Plus /> New code
-          </Button>
+            <Plus />{" "}{tr("New code")}</Button>
         }
       />
       {codes.length > 0 && (
@@ -76,13 +76,13 @@ export function ProviderPromoCodes({ providerId }: { providerId: string }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-mono text-title font-semibold text-foreground">{c.code}</span>
                 <span className="block truncate text-meta text-muted-foreground">
-                  {c.kind === "percent" ? `${c.percent_off}% off` : `${formatUSD(c.amount_off_cents ?? 0)} off`}
-                  {c.max_redemptions ? ` · up to ${c.max_redemptions} uses` : ""}
-                  {c.ends_at ? ` · until ${formatDateHN(c.ends_at)}` : ""}
+                  {c.kind === "percent" ? tr("{percent_off}% off", { percent_off: c.percent_off }) : `${formatUSD(c.amount_off_cents ?? 0)} off`}
+                  {c.max_redemptions ? tr(" · up to {max_redemptions} uses", { max_redemptions: c.max_redemptions }) : ""}
+                  {c.ends_at ? tr(" · until {ends_at}", { ends_at: formatDateHN(c.ends_at) }) : ""}
                   {c.description ? ` · ${c.description}` : ""}
                 </span>
               </span>
-              <Switch checked={c.status === "active"} onCheckedChange={() => toggle.mutate(c)} aria-label={`Turn ${c.code} ${c.status === "active" ? "off" : "on"}`} />
+              <Switch checked={c.status === "active"} onCheckedChange={() => toggle.mutate(c)} aria-label={(c.status === "active" ? tr("Turn {code} off", { code: c.code }) : tr("Turn {code} on", { code: c.code }))} />
             </div>
           ))}
         </div>
@@ -110,8 +110,8 @@ function CreateCodeDialog({ providerId, onClose, onCreated }: { providerId: stri
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success(`${code.trim().toUpperCase()} is live`); onCreated(); onClose(); },
-    onError: (e: Error) => toast.error(e.message || "Could not create the code"),
+    onSuccess: () => { toast.success(tr("{toUpperCase} is live", { toUpperCase: code.trim().toUpperCase() })); onCreated(); onClose(); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not create the code")),
   });
   const valid = /^[A-Za-z0-9_-]{3,24}$/.test(code.trim()) && Number(value) > 0;
 
@@ -119,18 +119,18 @@ function CreateCodeDialog({ providerId, onClose, onCreated }: { providerId: stri
     <ResponsiveDialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title="New promo code"
-      description="Customers type it at checkout. It works on your plans only."
+      title={tr("New promo code")}
+      description={tr("Customers type it at checkout. It works on your plans only.")}
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button loading={create.isPending} disabled={!valid} onClick={() => create.mutate()}>Create code</Button>
+          <Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button loading={create.isPending} disabled={!valid} onClick={() => create.mutate()}>{tr("Create code")}</Button>
         </div>
       }
     >
-      <Input label="Code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))} placeholder="SUMMER10" maxLength={24} />
+      <Input label={tr("Code")} value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))} placeholder={tr("SUMMER10")} maxLength={24} />
       <div className="space-y-1.5">
-        <p className="text-body font-medium text-foreground">Discount</p>
+        <p className="text-body font-medium text-foreground">{tr("Discount")}</p>
         <div className="flex items-end gap-2">
           <div className="flex shrink-0 rounded-full bg-inset p-1">
             {(["percent", "fixed"] as const).map((k) => (
@@ -144,10 +144,10 @@ function CreateCodeDialog({ providerId, onClose, onCreated }: { providerId: stri
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Input label="Ends (optional)" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} inputSize="sm" />
-        <Input label="Max uses (optional)" type="number" min={1} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} inputSize="sm" />
+        <Input label={tr("Ends (optional)")} type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} inputSize="sm" />
+        <Input label={tr("Max uses (optional)")} type="number" min={1} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} inputSize="sm" />
       </div>
-      <Input label="Note (optional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="For Instagram followers" maxLength={200} />
+      <Input label={tr("Note (optional)")} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr("For Instagram followers")} maxLength={200} />
     </ResponsiveDialog>
   );
 }

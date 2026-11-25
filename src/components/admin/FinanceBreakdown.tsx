@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { useTableSort, type SortAccessors } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
+import { tr, dfLocale } from "@/lib/tr";
 
 
 /**
@@ -31,11 +32,11 @@ import { SortHeader } from "@/components/ui/sort-header";
  * money, and they land in "Other / LIVES" rather than falling out of the sums.
  */
 const METHODS = [
-  { key: "lightning", label: "Lightning" },
-  { key: "onchain", label: "On-chain" },
-  { key: "paypal", label: "PayPal" },
-  { key: "crypto_gateway", label: "Other crypto" },
-  { key: "other", label: "Other / LIVES" },
+  { key: "lightning", label: tr("Lightning") },
+  { key: "onchain", label: tr("On-chain") },
+  { key: "paypal", label: tr("PayPal") },
+  { key: "crypto_gateway", label: tr("Other crypto") },
+  { key: "other", label: tr("Other / LIVES") },
 ] as const;
 type MethodKey = (typeof METHODS)[number]["key"];
 
@@ -232,14 +233,14 @@ export function FinanceBreakdown() {
         grand += r.cents;
       });
 
-      const header = ["Service", "Business", "Customer", "Email", "Plan", "Payment method", "Amount (USD)", "Reference", "Period start", "Period end", "Created at", "Status"];
+      const header = ["Service", "Business", "Customer", "Email", "Plan", tr("Payment method"), tr("Amount (USD)"), "Reference", tr("Period start"), tr("Period end"), tr("Created at"), "Status"];
       const pad = (cells: string[]) => [...cells, ...Array(header.length - cells.length).fill("")];
       downloadCsv([
         header,
         ...rows.map((r) => [r.service, r.business, r.user, r.email, r.plan, r.method, usd(r.cents), r.reference, r.periodStart, r.periodEnd, r.createdAt, r.status]),
         pad([]), // spacer
         ...Object.entries(serviceSum).map(([svc, cents]) => pad(["TOTAL", svc, "", "", "", "", usd(cents)])),
-        pad(["GRAND TOTAL", `${rows.length} payments`, "", "", "", "", usd(grand)]),
+        pad([tr("GRAND TOTAL"), `${rows.length} payments`, "", "", "", "", usd(grand)]),
       ], `finance-detailed_${format(start, "yyyy-MM-dd")}_to_${format(end, "yyyy-MM-dd")}.csv`);
     } finally {
       setDetailedLoading(false);
@@ -264,13 +265,8 @@ export function FinanceBreakdown() {
       <div className="flex flex-col p-space-6 gap-space-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h3 className="text-panel-title flex items-center gap-space-2">
-            <TrendingUp className="h-5 w-5 text-muted-foreground" />
-            Finance breakdown
-          </h3>
-          <p className="type-body text-muted-foreground">
-            Revenue by service × payment method, recognized straight-line across each sale's service
-            period. The same paid sales the Dashboard counts — cars and one-off plans included.
-          </p>
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />{tr("Finance breakdown")}</h3>
+          <p className="type-body text-muted-foreground">{tr("Revenue by service × payment method, recognized straight-line across each sale's service period. The same paid sales the Dashboard counts — cars and one-off plans included.")}</p>
         </div>
         <div className="flex flex-col items-stretch gap-space-2 sm:flex-row sm:items-center">
           <Button size="sm"
@@ -278,20 +274,18 @@ export function FinanceBreakdown() {
             className="gap-2 px-4"
             onClick={exportCsv}
             disabled={isLoading || grandTotal === 0}
-            title="Summary CSV: revenue by service × payment method"
+            title={tr("Summary CSV: revenue by service × payment method")}
           >
-            <Download className="h-4 w-4" />
-            Summary CSV
-          </Button>
+            <Download className="h-4 w-4" />{tr("Summary CSV")}</Button>
           <Button size="sm"
             variant="outline"
             className="gap-2 px-4"
             onClick={exportDetailedCsv}
             disabled={isLoading || detailedLoading || grandTotal === 0}
-            title="Detailed CSV: every paid sale created in the period — business, customer, plan, amount, method, dates, reference"
+            title={tr("Detailed CSV: every paid sale created in the period — business, customer, plan, amount, method, dates, reference")}
           >
             <FileSpreadsheet className="h-4 w-4" />
-            {detailedLoading ? "Building…" : "Detailed CSV"}
+            {detailedLoading ? tr("Building…") : tr("Detailed CSV")}
           </Button>
         </div>
       </div>
@@ -301,10 +295,10 @@ export function FinanceBreakdown() {
         <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-muted/40 px-5 py-4">
           <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <CalendarRange className="h-4 w-4" />
-            {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")}
+            {format(start, "MMM d, yyyy", { locale: dfLocale })} — {format(end, "MMM d, yyyy", { locale: dfLocale })}
           </span>
           <div className="text-right">
-            <p className="text-meta text-muted-foreground">Recognized in period</p>
+            <p className="text-meta text-muted-foreground">{tr("Recognized in period")}</p>
             <p className="text-2xl font-black tabular-nums text-primary">{formatUSD(grandTotal)}</p>
           </div>
         </div>
@@ -313,11 +307,11 @@ export function FinanceBreakdown() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
+                <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>{tr("Service")}</SortHeader></TableHead>
                 {METHODS.map((m) => (
                   <TableHead key={m.key} className="px-3 py-2 text-right" aria-sort={sort.ariaSort(m.key)}><SortHeader {...sort.headerProps(m.key)} align="right">{m.label}</SortHeader></TableHead>
                 ))}
-                <TableHead className="pl-3 py-2 text-right" aria-sort={sort.ariaSort("total")}><SortHeader {...sort.headerProps("total")} align="right">Total</SortHeader></TableHead>
+                <TableHead className="pl-3 py-2 text-right" aria-sort={sort.ariaSort("total")}><SortHeader {...sort.headerProps("total")} align="right">{tr("Total")}</SortHeader></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className={cn(isLoading && "opacity-50")}>
@@ -345,7 +339,7 @@ export function FinanceBreakdown() {
             </TableBody>
             <TableFooter>
               <TableRow className="border-t border-border text-foreground">
-                <TableCell className="py-2.5 pr-4 font-bold">Total</TableCell>
+                <TableCell className="py-2.5 pr-4 font-bold">{tr("Total")}</TableCell>
                 {METHODS.map((m) => (
                   <TableCell key={m.key} className="px-3 py-2.5 text-right font-bold tabular-nums">
                     {methodTotals(m.key) ? formatUSD(methodTotals(m.key)) : "—"}

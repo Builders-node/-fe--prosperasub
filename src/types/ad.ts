@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 export interface Ad {
   id: string;
   title: string;
@@ -23,7 +24,7 @@ export const AD_PLACEMENTS = [
   // Desktop shows this strip on every customer-facing page (SiteAdBanner);
   // phones show it on the home screen only. The value stays `home_top` —
   // it's what every existing row carries.
-  { value: "home_top", label: "Top banner — site-wide on desktop, home on mobile" },
+  { value: "home_top", label: tr("Top banner — site-wide on desktop, home on mobile") },
 ] as const;
 
 export const EMPTY_AD = {

@@ -5,6 +5,7 @@ import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { formatUSD } from "@/lib/pricing";
 import { FUEL_LABEL, type RentalVehicle } from "../types/carRental";
 import { vehiclePath } from "../lib/routes";
+import { tr } from "@/lib/tr";
 
 /**
  * A car in the fleet, drawn as the same card as every plan on the platform:
@@ -46,7 +47,7 @@ export function VehicleCard({ v, showProvider = false }: {
       ) : typeof v.daily_price_cents === "number" && v.daily_price_cents > 0 ? (
         <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
           {formatUSD(v.daily_price_cents)}
-          <span className="text-meta font-medium tracking-normal text-muted-foreground"> / day</span>
+          <span className="text-meta font-medium tracking-normal text-muted-foreground">{" "}{tr("/ day")}</span>
         </p>
       ) : null}
     />

@@ -11,6 +11,7 @@ import { fetchPlatformRollup } from "@/lib/analytics/platformRollup";
 import { useTabParam } from "@/hooks/useTabParam";
 import { FinanceRangePicker, useFinanceRange } from "@/components/admin/finance/FinanceRange";
 import { QueryError } from "@/components/patterns/QueryError";
+import { tr } from "@/lib/tr";
 
 const FINANCE_TABS = ["payments", "profit", "payouts"] as const;
 
@@ -49,15 +50,15 @@ const AdminPayments = () => {
   const [financeTab, setFinanceTab] = useTabParam(FINANCE_TABS);
 
   return (
-    <SuperAdminLayout title="Finance" subtitle="Payments, commission and payouts across every service">
+    <SuperAdminLayout title={tr("Finance")} subtitle={tr("Payments, commission and payouts across every service")}>
       <TabPills
         className="mb-space-4"
         value={financeTab}
         onChange={setFinanceTab}
         tabs={[
-          { value: "payments", label: "Payments" },
-          { value: "profit", label: "Commission" },
-          { value: "payouts", label: "Payouts" },
+          { value: "payments", label: tr("Payments") },
+          { value: "profit", label: tr("Commission") },
+          { value: "payouts", label: tr("Payouts") },
         ]}
       />
       {/* One period for Payments and Commission; Payouts is a ledger, not a period. */}
@@ -71,17 +72,17 @@ const AdminPayments = () => {
           {rollupError ? (
             <QueryError
               compact
-              title="Couldn't load the revenue totals"
+              title={tr("Couldn't load the revenue totals")}
               error={rollupErrorObj}
               onRetry={() => void refetchRollup()}
             />
           ) : (
             <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              <FinanceTile label="Paid sales" value={rollup ? String(paidSales) : "—"} hint={`Made ${rangeLabel.startsWith("this") ? rangeLabel : `in ${rangeLabel}`}`} />
-              <FinanceTile label="Awaiting payment" value={rollup ? String(rollup.totals.awaitingPayment) : "—"} hint="Right now · every service"
+              <FinanceTile label={tr("Paid sales")} value={rollup ? String(paidSales) : "—"} hint={tr("Made {value}", { value: rangeLabel.startsWith("this") ? rangeLabel : `in ${rangeLabel}` })} />
+              <FinanceTile label={tr("Awaiting payment")} value={rollup ? String(rollup.totals.awaitingPayment) : "—"} hint={tr("Right now · every service")}
                 warning={(rollup?.totals.awaitingPayment ?? 0) > 0} className="col-span-1" />
-              <FinanceTile label="Sold" value={rollup ? formatUSD(soldCents) : "—"}
-                hint="Full price of those sales. The breakdown below spreads each over its service period" className="col-span-2 md:col-span-1" />
+              <FinanceTile label={tr("Sold")} value={rollup ? formatUSD(soldCents) : "—"}
+                hint={tr("Full price of those sales. The breakdown below spreads each over its service period")} className="col-span-2 md:col-span-1" />
             </section>
           )}
 
@@ -91,7 +92,7 @@ const AdminPayments = () => {
           </section>
 
           <Link to="/admin/settings/payments" className="mt-space-4 flex items-center justify-between gap-3 rounded-radius-md bg-card p-4 text-body text-muted-foreground transition-colors hover:bg-muted/40 md:mt-space-5">
-            <span>Payment methods and fees moved to <span className="font-semibold text-foreground">Settings → Payments</span></span>
+            <span>{tr("Payment methods and fees moved to")}{" "}<span className="font-semibold text-foreground">{tr("Settings → Payments")}</span></span>
             <ArrowUpRight className="h-4 w-4" />
           </Link>
           {/* Payment methods and their fees are production settings, not part

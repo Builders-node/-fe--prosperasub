@@ -5,6 +5,7 @@ import { nowHN } from "@/lib/timezone";
 import {
   fetchServiceIndex, serviceOfSale, visibleServices, type SaleSource, type ServiceIndex,
 } from "@/lib/analytics/serviceIndex";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * The platform's subscriptions, normalized once.
@@ -140,7 +141,7 @@ export function groupRevenue(
       key,
       // A row whose plan was deleted still happened; naming it after its id
       // would be worse than admitting we no longer know what it was.
-      label: key === "__none__" ? unassignedLabel : nameOf(key) ?? "Unknown",
+      label: key === "__none__" ? unassignedLabel : nameOf(key) ?? tr("Unknown"),
       revenueCents: 0,
       subs: 0,
     };
@@ -187,7 +188,7 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
   const now = nowHN();
   const buckets = Array.from({ length: ROLLUP_MONTHS }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (ROLLUP_MONTHS - 1) + i, 1);
-    return { label: format(d, "MMM"), start: startOfMonth(d), end: endOfMonth(d) };
+    return { label: format(d, "MMM", { locale: dfLocale }), start: startOfMonth(d), end: endOfMonth(d) };
   });
 
   // A service gets a row when it is switched on or has earned something —
@@ -265,13 +266,13 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
 export type RollupPeriod = "7d" | "30d" | "month" | "last_month" | "90d" | "12m" | "all";
 
 export const ROLLUP_PERIODS: { key: RollupPeriod; label: string; days: number | null }[] = [
-  { key: "7d", label: "7 days", days: 7 },
-  { key: "30d", label: "30 days", days: 30 },
-  { key: "month", label: "This month", days: null },
-  { key: "last_month", label: "Last month", days: null },
-  { key: "90d", label: "90 days", days: 90 },
-  { key: "12m", label: "12 months", days: 365 },
-  { key: "all", label: "All time", days: null },
+  { key: "7d", label: tr("7 days"), days: 7 },
+  { key: "30d", label: tr("30 days"), days: 30 },
+  { key: "month", label: tr("This month"), days: null },
+  { key: "last_month", label: tr("Last month"), days: null },
+  { key: "90d", label: tr("90 days"), days: 90 },
+  { key: "12m", label: tr("12 months"), days: 365 },
+  { key: "all", label: tr("All time"), days: null },
 ];
 
 /** The Finance range that shows the same window, when there is one. */
@@ -290,9 +291,9 @@ export const parseRollupPeriod = (raw: string | null | undefined, fallback: Roll
   ROLLUP_PERIODS.some((p) => p.key === raw) ? (raw as RollupPeriod) : fallback;
 
 export const periodLabel = (p: RollupPeriod) =>
-  p === "all" ? "all time"
-    : p === "month" ? "this month"
-    : p === "last_month" ? "last month"
+  p === "all" ? tr("all time")
+    : p === "month" ? tr("this month")
+    : p === "last_month" ? tr("last month")
     : `last ${ROLLUP_PERIODS.find((x) => x.key === p)!.label}`;
 
 export interface PeriodFigures {

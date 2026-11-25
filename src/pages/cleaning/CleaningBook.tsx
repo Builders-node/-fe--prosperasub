@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { resolvePlanBookingSettings } from "@/lib/booking/resolvePlanSettings";
 import { blockAppliesOn, mondayFirstIndex, to12h, toMinutes } from "@/lib/booking/bookingSettings";
 import { DayStrip, TimeSlotPicker, WEEKDAYS } from "@/components/booking/TimePickers";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -337,7 +338,7 @@ const CleaningBook = () => {
   const scheduleMutation = useMutation({
     mutationFn: async () => {
       const cleanedNotes = notes.trim();
-      if (!cleanedNotes) throw new Error("Apartment / access notes are required");
+      if (!cleanedNotes) throw new Error(tr("Apartment / access notes are required"));
       const { data, error } = await supabase.rpc("schedule_cleaning_subscription", {
         p_subscription_id: selectedSubId,
         p_day_of_week:     selectedDay,
@@ -348,7 +349,7 @@ const CleaningBook = () => {
       return data;
     },
     onSuccess: () => {
-      toast.success("Weekly cleaning schedule confirmed.");
+      toast.success(tr("Weekly cleaning schedule confirmed."));
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-schedule"] });
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-bookings"] });
@@ -356,14 +357,14 @@ const CleaningBook = () => {
       navigate("/my-subscriptions?tab=cleaning");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Could not save this cleaning schedule");
+      toast.error(error.message || tr("Could not save this cleaning schedule"));
     },
   });
 
   const handleConfirmSchedule = () => {
     if (!notes.trim()) {
-      setNotesError("Apartment / access notes are required.");
-      toast.error("Add your apartment number before confirming.");
+      setNotesError(tr("Apartment / access notes are required."));
+      toast.error(tr("Add your apartment number before confirming."));
       return;
     }
     setNotesError("");
@@ -405,7 +406,7 @@ const CleaningBook = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <UserLayout title="Schedule Cleaning" showBackButton backTo="/my-subscriptions" showBottomNav={false}>
+    <UserLayout title={tr("Schedule Cleaning")} showBackButton backTo="/my-subscriptions" showBottomNav={false}>
       {/* Outer shell — pads for the measured bar rather than guessing at it. */}
       <div className="flex min-h-[calc(100dvh-60px)] flex-col bg-[hsl(var(--background))] pb-[calc(var(--checkout-footer-h,140px)+16px)]">
 
@@ -419,16 +420,12 @@ const CleaningBook = () => {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <CalendarDays className="h-7 w-7 text-primary" />
               </div>
-              <h2 className="mb-2 text-lg font-bold text-foreground">No paid plan to schedule</h2>
-              <p className="mb-6 text-sm text-muted-foreground">
-                Pay for a cleaning plan first. Scheduling opens after payment is confirmed.
-              </p>
+              <h2 className="mb-2 text-lg font-bold text-foreground">{tr("No paid plan to schedule")}</h2>
+              <p className="mb-6 text-sm text-muted-foreground">{tr("Pay for a cleaning plan first. Scheduling opens after payment is confirmed.")}</p>
               <Button
                 onClick={() => navigate("/services/cleaning")}
                 className="w-full bg-foreground text-background hover:bg-foreground/90"
-              >
-                View cleaning plans
-              </Button>
+              >{tr("View cleaning plans")}</Button>
             </div>
           </div>
         )}
@@ -447,25 +444,23 @@ const CleaningBook = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground">
-                        {(selectedSubscription as any)?.cleaning_packages?.name || "Cleaning plan"}
+                        {(selectedSubscription as any)?.cleaning_packages?.name || tr("Cleaning plan")}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {selectedSubscription
-                          ? `Paid until ${format(toDate(periodEnd), "MMM d, yyyy")}`
-                          : "Loading…"}
+                          ? tr("Paid until {format}", { format: format(toDate(periodEnd), "MMM d, yyyy", { locale: dfLocale }) })
+                          : tr("Loading…")}
                       </p>
                     </div>
                   </div>
                   {schedulableSubscriptions.length > 1 && (
                     <Select value={selectedSubId} onValueChange={setSelectedSubId}>
            <SelectTrigger inputSize="sm" className="w-auto rounded-full">
-                        <SelectValue placeholder="Choose plan" />
+                        <SelectValue placeholder={tr("Choose plan")} />
                       </SelectTrigger>
                       <SelectContent>
                         {schedulableSubscriptions.map((sub) => (
-                          <SelectItem key={sub.id} value={sub.id}>
-                            {(sub as any).cleaning_packages?.name || "Cleaning plan"} — {sub.billing_period_months || 1} mo
-                          </SelectItem>
+                          <SelectItem key={sub.id} value={sub.id}>{trx("{value} — {value2} mo", { value: (sub as any).cleaning_packages?.name || tr("Cleaning plan"), value2: sub.billing_period_months || 1 })}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -479,47 +474,39 @@ const CleaningBook = () => {
 
               {/* ── Day strip ── */}
               <section>
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Choose a weekday
-                </h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">{tr("Choose a weekday")}</h2>
                 <DayStrip
                   selected={selectedDay}
                   onSelect={(day) => { setSelectedDay(day); setSelectedTime(""); }}
                   occurrences={weekdayOccurrences}
                 />
                 {scheduleDates.length > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {scheduleDates.length} session{scheduleDates.length !== 1 ? "s" : ""} in your paid period
-                    {nextCleaningDate ? ` · Next: ${format(toDate(nextCleaningDate), "MMM d")}` : ""}
+                  <p className="mt-2 text-xs text-muted-foreground">{scheduleDates.length !== 1 ? trx("{length} sessions", { length: scheduleDates.length }) : trx("{length} session", { length: scheduleDates.length })}{" "}{tr("in your paid period")}{nextCleaningDate ? tr(" · Next: {format}", { format: format(toDate(nextCleaningDate), "MMM d", { locale: dfLocale }) }) : ""}
                   </p>
                 )}
               </section>
 
               {/* ── Time slots ── */}
               <section>
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Choose a time
-                </h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">{tr("Choose a time")}</h2>
 
                 {!scheduleDates.length ? (
                   <div className="rounded-radius-md border border-border bg-card p-6 text-center">
-                    <p className="text-sm font-semibold text-foreground">No dates in paid period</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Try a different weekday.</p>
+                    <p className="text-sm font-semibold text-foreground">{tr("No dates in paid period")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{tr("Try a different weekday.")}</p>
                   </div>
                 ) : !timeChoices.length ? (
                   <div className="rounded-radius-md border border-border bg-card p-6 text-center">
-                    <p className="text-sm font-semibold text-foreground">No time works for every date</p>
+                    <p className="text-sm font-semibold text-foreground">{tr("No time works for every date")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {blockedDates.length > 0
-                        ? `Nothing is published on ${blockedDates
+                        ? tr("Nothing is published on {join}{value}. Try another weekday, or contact us and we'll set it up for you.", { join: blockedDates
                             .slice(0, 3)
-                            .map((d) => format(toDate(d), "MMM d"))
-                            .join(", ")}${blockedDates.length > 3 ? ` and ${blockedDates.length - 3} more` : ""}. Try another weekday, or contact us and we'll set it up for you.`
-                        : "Every time is already full on at least one of your dates. Try another weekday, or contact us and we'll set it up for you."}
+                            .map((d) => format(toDate(d), "MMM d", { locale: dfLocale }))
+                            .join(", "), value: blockedDates.length > 3 ? tr(" and {n} more", { n: blockedDates.length - 3 }) : "" })
+                        : tr("Every time is already full on at least one of your dates. Try another weekday, or contact us and we'll set it up for you.")}
                     </p>
-                    <Link to="/support" className="mt-3 inline-block text-xs font-semibold text-primary hover:opacity-80">
-                      Contact support
-                    </Link>
+                    <Link to="/support" className="mt-3 inline-block text-xs font-semibold text-primary hover:opacity-80">{tr("Contact support")}</Link>
                   </div>
                 ) : (
                   <TimeSlotPicker
@@ -532,9 +519,7 @@ const CleaningBook = () => {
 
               {/* ── Apartment notes ── */}
               <section>
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Access details
-                </h2>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">{tr("Access details")}</h2>
                 <div className="rounded-radius-md border border-border bg-card p-4">
                   <Textarea
                     value={notes}
@@ -542,25 +527,21 @@ const CleaningBook = () => {
                       setNotes(e.target.value);
                       if (notesError && e.target.value.trim()) setNotesError("");
                     }}
-                    placeholder="Apartment 1204, tower name, door code, or any entry notes…"
+                    placeholder={tr("Apartment 1204, tower name, door code, or any entry notes…")}
                     rows={3}
                     className="resize-none rounded-xl border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                   />
                   {notesError && (
                     <p className="mt-2 text-xs font-medium text-destructive">{notesError}</p>
                   )}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Required so the cleaning team knows exactly where to go.
-                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">{tr("Required so the cleaning team knows exactly where to go.")}</p>
                 </div>
               </section>
 
               {/* ── Schedule summary (visible on larger screens / when selected) ── */}
               {selectedTimeOption && (
                 <section className="rounded-radius-md border border-primary/20 bg-primary/5 p-4">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-widest text-primary/70">
-                    Your schedule
-                  </p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-widest text-primary/70">{tr("Your schedule")}</p>
                   <div className="space-y-2">
                     {[
                       {
@@ -568,16 +549,16 @@ const CleaningBook = () => {
                         value: WEEKDAYS.find((d) => d.value === selectedDay)?.label,
                       },
                       {
-                        label: "Time",
+                        label: tr("Time"),
                         value: timeLabel(selectedTimeOption.start, selectedTimeOption.end),
                       },
                       {
-                        label: "Sessions",
+                        label: tr("Sessions"),
                         value: `${scheduleDates.length} total`,
                       },
                       nextCleaningDate && {
-                        label: "First cleaning",
-                        value: format(toDate(nextCleaningDate), "EEEE, MMM d"),
+                        label: tr("First cleaning"),
+                        value: format(toDate(nextCleaningDate), "EEEE, MMM d", { locale: dfLocale }),
                       },
                     ]
                       .filter(Boolean)
@@ -607,19 +588,15 @@ const CleaningBook = () => {
                 variant="outline"
                 className="flex-1 md:flex-none md:px-8"
                 onClick={() => navigate("/my-subscriptions")}
-              >
-                Cancel
-              </Button>
+              >{tr("Cancel")}</Button>
               <Button size="lg"
                 className="flex-[2] gap-2 md:ml-auto md:flex-none md:px-10"
                 disabled={!canConfirm}
                 loading={scheduleMutation.isPending}
-                loadingText="Scheduling..."
+                loadingText={tr("Scheduling...")}
                 onClick={handleConfirmSchedule}
               >
-                <CheckCircle2 className="h-4 w-4" />
-                Confirm schedule
-              </Button>
+                <CheckCircle2 className="h-4 w-4" />{tr("Confirm schedule")}</Button>
             </div>
           </CheckoutStickyFooter>
         )}

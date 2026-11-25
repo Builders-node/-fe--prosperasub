@@ -51,6 +51,7 @@ import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PaymentTermsNote } from "@/components/plans/PaymentTermsNote";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * The plan, before the till.
@@ -232,7 +233,7 @@ const PlanDetail = () => {
             priceUnit: "/ week",
             providerId: bridged?.id ? String(bridged.id) : null,
             legacyProviderId: food.provider_id ? String(food.provider_id) : null,
-            meta: food.meals_per_day ? `${food.meals_per_day} meal${food.meals_per_day === 1 ? "" : "s"} a day` : null,
+            meta: food.meals_per_day ? (food.meals_per_day === 1 ? tr("{meals_per_day} meal a day", { meals_per_day: food.meals_per_day }) : tr("{meals_per_day} meals a day", { meals_per_day: food.meals_per_day })) : null,
           };
         }
 
@@ -619,7 +620,7 @@ const PlanDetail = () => {
       plan.source === "beach" ? (providerArchetype ?? archetypeKey) : archetypeKey,
     );
     const cat = categoryQ.data as { key: string; label: string } | null | undefined;
-    const list: Array<{ label: string; href: string }> = [{ label: "EverySub", href: "/discovery" }];
+    const list: Array<{ label: string; href: string }> = [{ label: tr("EverySub"), href: "/discovery" }];
     if (listingHref && serviceLabel) list.push({ label: serviceLabel, href: listingHref });
     if (listingHref && cat) list.push({ label: cat.label, href: `${listingHref}?category=${encodeURIComponent(cat.key)}` });
     if (prov?.name && plan.providerId) list.push({ label: prov.name, href: providerHref(canonicalKey, prov.slug || plan.providerId) });
@@ -665,9 +666,9 @@ const PlanDetail = () => {
 
   if (planQ.isError) {
     return (
-      <Shell title="Plan">
+      <Shell title={tr("Plan")}>
         <QueryError
-          title="Couldn't load this plan"
+          title={tr("Couldn't load this plan")}
           error={planQ.error instanceof Error ? planQ.error.message : undefined}
           onRetry={() => planQ.refetch()}
           retrying={planQ.isFetching}
@@ -678,11 +679,11 @@ const PlanDetail = () => {
 
   if (!plan) {
     return (
-      <Shell title="Not found">
+      <Shell title={tr("Not found")}>
         <YdEmptyState
           icon={SearchX}
-          title="No such plan"
-          subtitle="It may have been taken off the platform. Browse what's on offer."
+          title={tr("No such plan")}
+          subtitle={tr("It may have been taken off the platform. Browse what's on offer.")}
         />
       </Shell>
     );
@@ -715,7 +716,7 @@ const PlanDetail = () => {
    */
   const breadcrumbs = trail
     .map((c, i) => ({
-      label: i === 0 ? "Home" : c.label,
+      label: i === 0 ? tr("Home") : c.label,
       href: i === trail.length - 1 ? undefined : c.href,
     }))
     .filter((c, i, all) => i === 0 || c.label.trim().toLowerCase() !== all[i - 1].label.trim().toLowerCase())
@@ -746,7 +747,7 @@ const PlanDetail = () => {
   const notOnSale = !!shopStatus && !["active", "approved"].includes(shopStatus);
   // One-time when the chosen combination (or the plan itself) is sold once.
   const oneTime = chosen ? normPeriod(chosen.period) === "one_time" : !!plan?.oneTime;
-  const ctaLabel = notOnSale ? "Not on sale yet" : decideLabel(priceCents, unit, { oneTime, from: showFrom });
+  const ctaLabel = notOnSale ? tr("Not on sale yet") : decideLabel(priceCents, unit, { oneTime, from: showFrom });
 
   const buyDisabled = notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3));
 
@@ -772,7 +773,7 @@ const PlanDetail = () => {
         unitPriceCents: priceCents ?? 0, periods: 1,
       } as never, 1);
     }
-    toast.success("Saved to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
+    toast.success(tr("Saved to your cart"), { action: { label: tr("View cart"), onClick: () => navigate("/cart") } });
   };
   // An offer received only by a visit or a delivery needs the customer's pin,
   // which only its checkout asks for.
@@ -787,15 +788,14 @@ const PlanDetail = () => {
         className="flex w-full items-center justify-center gap-2 rounded-radius-md px-4 py-2.5 text-body font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
       >
         {alreadyInCart
-          ? <><Check className="h-4 w-4" /> In your cart · View cart</>
+          ? <><Check className="h-4 w-4" />{" "}{tr("In your cart · View cart")}</>
           : <><ShoppingCart className="h-4 w-4" /> {ADD_TO_CART}</>}
       </button>
       {/* Somebody collecting several plans sees the way back to them — the
           cart never opens by itself. */}
       {cartCount > 0 && !alreadyInCart && (
         <button type="button" onClick={() => navigate("/cart")} className="block w-full text-center text-meta text-muted-foreground hover:text-foreground">
-          {cartCount} {cartCount === 1 ? "item" : "items"} in your cart · Check out together
-        </button>
+          {cartCount} {cartCount === 1 ? "item" : "items"}{" "}{tr("in your cart · Check out together")}</button>
       )}
     </div>
   );
@@ -890,9 +890,7 @@ const PlanDetail = () => {
               </div>
             </div>
             {providerName && (
-              <p className="text-meta leading-4 text-muted-foreground">
-                by{" "}
-                {sellerHref ? (
+              <p className="text-meta leading-4 text-muted-foreground">{tr("by")}{" "}{sellerHref ? (
                   <Link to={sellerHref} className="font-semibold text-foreground underline-offset-2 hover:underline">
                     {providerName}
                   </Link>
@@ -917,9 +915,7 @@ const PlanDetail = () => {
 
           {currentUnit && (
             <div className="space-y-1.5">
-              <p className="text-meta text-muted-foreground">
-                {formatUSD(currentUnit.cents)} per {currentUnit.unit}
-              </p>
+              <p className="text-meta text-muted-foreground">{trx("{cents} per {unit}", { cents: formatUSD(currentUnit.cents), unit: currentUnit.unit })}</p>
               {bestDeal && (
                 // A cheaper combination of the same offer, one tap away. A row
                 // in the card's inset grey like the tracks above it — the
@@ -933,16 +929,12 @@ const PlanDetail = () => {
                     −{bestDeal.savePct}%
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-title font-semibold leading-[22px] text-foreground">
-                      {formatUSD(bestDeal.cents)} per {currentUnit.unit}
-                    </span>
+                    <span className="block truncate text-title font-semibold leading-[22px] text-foreground">{trx("{cents} per {unit}", { cents: formatUSD(bestDeal.cents), unit: currentUnit.unit })}</span>
                     {bestDeal.label && (
-                      <span className="block truncate text-meta leading-4 text-muted-foreground">
-                        with {bestDeal.label}
-                      </span>
+                      <span className="block truncate text-meta leading-4 text-muted-foreground">{trx("with {label}", { label: bestDeal.label })}</span>
                     )}
                   </span>
-                  <span className="shrink-0 text-title font-semibold text-primary">Switch</span>
+                  <span className="shrink-0 text-title font-semibold text-primary">{tr("Switch")}</span>
                 </button>
               )}
             </div>
@@ -975,9 +967,7 @@ const PlanDetail = () => {
           )}
 
           {offer && !chosen && (
-            <p className="text-meta text-destructive">
-              That combination isn't offered — pick another.
-            </p>
+            <p className="text-meta text-destructive">{tr("That combination isn't offered — pick another.")}</p>
           )}
 
           {/* How it reaches them, priced for the visitor's own pin, before
@@ -995,7 +985,7 @@ const PlanDetail = () => {
 
         {(plan.features.length > 0 || entitlementLines.length > 0) && (
           <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-            <h2 className="text-heading font-semibold text-foreground">What's included</h2>
+            <h2 className="text-heading font-semibold text-foreground">{tr("What's included")}</h2>
             <ul className="space-y-2">
               {/* What the plan GRANTS comes first and in the plan's own words —
                   "4 cleanings a month", "4 hours a month" — because a package
@@ -1037,7 +1027,7 @@ const PlanDetail = () => {
         if (!others.length || !providerName) return null;
         return (
           <section className="mt-1 space-y-3 rounded-radius-lg bg-card p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:bg-transparent md:px-6 md:shadow-none">
-            <h2 className="text-heading font-semibold text-foreground">More from {providerName}</h2>
+            <h2 className="text-heading font-semibold text-foreground">{trx("More from {providerName}", { providerName })}</h2>
             <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 lg:grid-cols-4">
               {others.map((p) => (
                 <UniversalPlanCard
@@ -1053,7 +1043,7 @@ const PlanDetail = () => {
 
       {/* From other businesses — "More from" above already covers this one. */}
       <UpsellSection
-        title="Goes well with this"
+        title={tr("Goes well with this")}
         placement="plan"
         exclude={[planKey, plan.id, offer?.id]}
         excludeProviderId={plan.providerId}

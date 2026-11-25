@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Wallet } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * When a provider's money becomes withdrawable — one switch for the platform.
@@ -17,13 +18,13 @@ type Basis = "delivered" | "paid";
 const OPTIONS: Array<{ value: Basis; title: string; body: string }> = [
   {
     value: "delivered",
-    title: "As the service is delivered",
-    body: "A week paid today becomes withdrawable day by day over that week. If a customer cancels or is refunded, the provider has not already taken the money.",
+    title: tr("As the service is delivered"),
+    body: tr("A week paid today becomes withdrawable day by day over that week. If a customer cancels or is refunded, the provider has not already taken the money."),
   },
   {
     value: "paid",
-    title: "As soon as the customer pays",
-    body: "The whole amount is withdrawable the moment it is paid, renewals included. Faster for providers; a refund later comes out of the platform's pocket.",
+    title: tr("As soon as the customer pays"),
+    body: tr("The whole amount is withdrawable the moment it is paid, renewals included. Faster for providers; a refund later comes out of the platform's pocket."),
   },
 ];
 
@@ -45,22 +46,19 @@ export function PayoutBasisCard() {
       return next;
     },
     onSuccess: (next) => {
-      toast.success(next === "paid" ? "Providers can withdraw as soon as customers pay" : "Providers withdraw as the service is delivered");
+      toast.success(next === "paid" ? tr("Providers can withdraw as soon as customers pay") : tr("Providers withdraw as the service is delivered"));
       qc.invalidateQueries({ queryKey: ["finance-payout-basis"] });
       qc.invalidateQueries({ queryKey: ["provider-payout-available"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
 
   return (
     <section className="rounded-radius-md bg-card mt-space-4">
       <div className="flex flex-col gap-space-2 p-space-6">
         <h3 className="text-panel-title flex items-center gap-space-2">
-          <Wallet className="h-5 w-5" /> When providers can withdraw
-        </h3>
-        <p className="type-body text-muted-foreground">
-          Applies to every business. The Money tab's "Available to withdraw" and the withdrawal itself follow it.
-        </p>
+          <Wallet className="h-5 w-5" />{" "}{tr("When providers can withdraw")}</h3>
+        <p className="type-body text-muted-foreground">{tr("Applies to every business. The Money tab's \"Available to withdraw\" and the withdrawal itself follow it.")}</p>
       </div>
       <div className="p-space-6 pt-0 grid grid-cols-1 gap-space-3 md:grid-cols-2">
         {OPTIONS.map((o) => {
@@ -76,7 +74,7 @@ export function PayoutBasisCard() {
                 selected ? "bg-primary/15 ring-2 ring-primary" : "bg-muted/50 hover:bg-muted",
               )}
             >
-              <p className="font-semibold text-foreground">{o.title}{selected ? " · current" : ""}</p>
+              <p className="font-semibold text-foreground">{o.title}{selected ? tr(" · current") : ""}</p>
               <p className="mt-1 text-sm text-muted-foreground">{o.body}</p>
             </button>
           );

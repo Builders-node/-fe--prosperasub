@@ -8,6 +8,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { tr } from "@/lib/tr";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -158,10 +159,10 @@ function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
   }, [openAuthModal, redirectTo]);
 
   const isAccount = redirectTo.startsWith("/account");
-  const title = isAccount ? "Your account" : "Log in to see this page";
+  const title = isAccount ? tr("Your account") : tr("Log in to see this page");
   const subtitle = isAccount
-    ? "Log in to see your subscriptions, payments and settings."
-    : "It shows your own subscriptions, bookings and payments.";
+    ? tr("Log in to see your subscriptions, payments and settings.")
+    : tr("It shows your own subscriptions, bookings and payments.");
 
   return (
     <div className="min-h-screen bg-background pb-space-24 md:pb-space-8">
@@ -171,20 +172,18 @@ function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
           <p className="mt-1 text-meta text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex w-full max-w-[280px] flex-col gap-2">
-          <Button className="w-full" onClick={() => openAuthModal("login", redirectTo)}>Log in</Button>
-          <Button variant="secondary" className="w-full" onClick={() => openAuthModal("signup", redirectTo)}>
-            Create account
-          </Button>
+          <Button className="w-full" onClick={() => openAuthModal("login", redirectTo)}>{tr("Log in")}</Button>
+          <Button variant="secondary" className="w-full" onClick={() => openAuthModal("signup", redirectTo)}>{tr("Create account")}</Button>
         </div>
         {isAccount && (
           // What a visitor can still do here without an account.
           <nav className="mt-4 w-full max-w-md overflow-hidden rounded-radius-md bg-card text-left divide-y divide-border/60">
             {[
-              { to: "/how-it-works", label: "How it works" },
-              { to: "/support", label: "Support" },
-              { to: "/for-business", label: "EverySub for business" },
-              { to: "/terms", label: "Terms of Service" },
-              { to: "/privacy", label: "Privacy Policy" },
+              { to: "/how-it-works", label: tr("How it works") },
+              { to: "/support", label: tr("Support") },
+              { to: "/for-business", label: tr("EverySub for business") },
+              { to: "/terms", label: tr("Terms of Service") },
+              { to: "/privacy", label: tr("Privacy Policy") },
             ].map((l) => (
               <button
                 key={l.to}

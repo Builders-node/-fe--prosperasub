@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { KeyboardArrowLeftIcon } from "@/components/icons/FigmaIcons";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The top of a detail page that leads with a photograph.
@@ -59,7 +60,7 @@ export function DetailHeader({
         <div className="relative flex h-14 items-center justify-between p-2">
           <button
             type="button"
-            aria-label="Back"
+            aria-label={tr("Back")}
             onClick={onBack}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/10"
           >

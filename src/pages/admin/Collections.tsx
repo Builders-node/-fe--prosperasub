@@ -22,6 +22,7 @@ import { collectionHref, offersLabel } from "@/lib/collections";
 import { useTagDictionary } from "@/lib/tags";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
 import { DragHandle, useDragOrder } from "@/hooks/useDragOrder";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Collections — "Popular", "Date night", "For families". Each is a shelf on
@@ -77,8 +78,8 @@ export default function Collections() {
   const [title, setTitle] = useState("");
   const create = useMutation({
     mutationFn: () => call("/admin/collections", "POST", { title, isActive: false }) as Promise<{ id: string }>,
-    onSuccess: (r) => { setTitle(""); setOpen(r?.id ?? null); toast.success("Collection created — add offers, then switch it on"); refresh(); },
-    onError: (e: Error) => toast.error(e.message || "Could not create it"),
+    onSuccess: (r) => { setTitle(""); setOpen(r?.id ?? null); toast.success(tr("Collection created — add offers, then switch it on")); refresh(); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not create it")),
   });
 
   // Order: local while dragging, written once on drop — the Services pattern.
@@ -91,25 +92,21 @@ export default function Collections() {
       await Promise.all(ids.map((id, i) => byId.get(id)?.sortOrder === i ? null : call(`/admin/collections/${id}`, "PATCH", { sortOrder: i })));
     },
     onSuccess: refresh,
-    onError: (e: Error) => { toast.error(e.message || "Could not reorder"); refresh(); },
+    onError: (e: Error) => { toast.error(e.message || tr("Could not reorder")); refresh(); },
   });
   const drag = useDragOrder(order, setOrder, (ids) => saveOrder.mutate(ids), "rows");
 
   return (
     <SuperAdminLayout
-      title="Collections"
-      subtitle="Hand-picked offers. Each is a shelf on the home page and a page of its own. Drag to set the order."
-      actions={<Button size="sm" variant="secondary" asChild><Link to="/collections" target="_blank"><ExternalLink className="h-4 w-4" /> View on site</Link></Button>}
+      title={tr("Collections")}
+      subtitle={tr("Hand-picked offers. Each is a shelf on the home page and a page of its own. Drag to set the order.")}
+      actions={<Button size="sm" variant="secondary" asChild><Link to="/collections" target="_blank"><ExternalLink className="h-4 w-4" />{" "}{tr("View on site")}</Link></Button>}
     >
       {data && !data.enabled && (
-        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          Collections aren't available yet. Diagnostics shows what is missing.
-        </p>
+        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">{tr("Collections aren't available yet. Diagnostics shows what is missing.")}</p>
       )}
       {data?.enabled && data.pagesReady === false && (
-        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          Covers, descriptions and page addresses switch on once the collection_pages migration is applied. Shelves and their pages already work.
-        </p>
+        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">{tr("Covers, descriptions and page addresses switch on once the collection_pages migration is applied. Shelves and their pages already work.")}</p>
       )}
 
       <form
@@ -117,12 +114,11 @@ export default function Collections() {
         onSubmit={(e) => { e.preventDefault(); if (title.trim()) create.mutate(); }}
       >
         <div className="min-w-0 flex-1">
-          <Input inputSize="sm" label="New collection" placeholder="e.g. Popular, Date night, For families"
+          <Input inputSize="sm" label={tr("New collection")} placeholder={tr("e.g. Popular, Date night, For families")}
             value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} disabled={data?.enabled === false} />
         </div>
         <Button size="sm" type="submit" loading={create.isPending} disabled={!title.trim() || data?.enabled === false}>
-          <Plus className="h-4 w-4" /> Create
-        </Button>
+          <Plus className="h-4 w-4" />{" "}{tr("Create")}</Button>
       </form>
 
       {isLoading ? (
@@ -133,10 +129,8 @@ export default function Collections() {
         data?.enabled !== false && (
           <div className="rounded-radius-lg bg-card p-8 text-center">
             <LayoutGrid className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-            <p className="text-title font-semibold text-foreground">No collections yet</p>
-            <p className="mx-auto mt-1 max-w-sm text-body text-muted-foreground">
-              Create one above, add offers and a cover, then switch it on. It appears on the home page as a shelf and gets its own page.
-            </p>
+            <p className="text-title font-semibold text-foreground">{tr("No collections yet")}</p>
+            <p className="mx-auto mt-1 max-w-sm text-body text-muted-foreground">{tr("Create one above, add offers and a cover, then switch it on. It appears on the home page as a shelf and gets its own page.")}</p>
           </div>
         )
       ) : (
@@ -175,12 +169,12 @@ function ShelfRow({
   const patch = useMutation({
     mutationFn: (body: Record<string, unknown>) => call(`/admin/collections/${shelf.id}`, "PATCH", body),
     onSuccess: onChanged,
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
   const remove = useMutation({
     mutationFn: () => call(`/admin/collections/${shelf.id}`, "DELETE"),
-    onSuccess: () => { toast.success("Collection deleted"); onChanged(); },
-    onError: (e: Error) => toast.error(e.message || "Could not delete"),
+    onSuccess: () => { toast.success(tr("Collection deleted")); onChanged(); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not delete")),
   });
 
   return (
@@ -195,15 +189,15 @@ function ShelfRow({
             <span className="block truncate text-title font-semibold text-foreground">{shelf.title}</span>
             <span className="block truncate text-meta text-muted-foreground">
               {offersLabel(all.length)}
-              {shelf.tagKey ? " · fills from a tag" : ""}
-              {shelf.slug ? ` · /collections/${shelf.slug}` : ""}
+              {shelf.tagKey ? tr(" · fills from a tag") : ""}
+              {shelf.slug ? tr(" · /collections/{slug}", { slug: shelf.slug }) : ""}
             </span>
           </span>
           <ChevronDown className={cn("h-5 w-5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
         </button>
         <label className="flex shrink-0 items-center gap-2 text-meta text-muted-foreground">
-          <Switch checked={shelf.isActive} onCheckedChange={(v) => patch.mutate({ isActive: v })} aria-label="On site" />
-          <span className="hidden w-12 sm:inline">{shelf.isActive ? "On site" : "Hidden"}</span>
+          <Switch checked={shelf.isActive} onCheckedChange={(v) => patch.mutate({ isActive: v })} aria-label={tr("On site")} />
+          <span className="hidden w-12 sm:inline">{shelf.isActive ? tr("On site") : tr("Hidden")}</span>
         </label>
       </div>
 
@@ -218,18 +212,17 @@ function ShelfRow({
           <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
             {shelf.isActive ? (
               <Button size="sm" variant="secondary" asChild>
-                <Link to={collectionHref(shelf)} target="_blank"><ExternalLink className="h-4 w-4" /> Open page</Link>
+                <Link to={collectionHref(shelf)} target="_blank"><ExternalLink className="h-4 w-4" />{" "}{tr("Open page")}</Link>
               </Button>
             ) : (
-              <span className="text-meta text-muted-foreground">Hidden: not on the home page and its page does not open. Switch it on when it is ready.</span>
+              <span className="text-meta text-muted-foreground">{tr("Hidden: not on the home page and its page does not open. Switch it on when it is ready.")}</span>
             )}
             <span className="flex-1" />
             <Button size="sm" variant="secondary" loading={remove.isPending}
               onClick={async () => {
-                if (await confirm({ title: `Delete “${shelf.title}”?`, description: "The offers stay; only this collection and its page go.", confirmLabel: "Delete collection" })) remove.mutate();
+                if (await confirm({ title: tr("Delete “{title}”?", { title: shelf.title }), description: tr("The offers stay; only this collection and its page go."), confirmLabel: tr("Delete collection") })) remove.mutate();
               }}>
-              <Trash2 className="h-4 w-4" /> Delete
-            </Button>
+              <Trash2 className="h-4 w-4" />{" "}{tr("Delete")}</Button>
           </div>
         </div>
       )}
@@ -264,7 +257,7 @@ function Details({ shelf, pagesReady, saving, onSave }: {
     <div className={cn("grid gap-4", pagesReady && "md:grid-cols-[280px_1fr]")}>
       {pagesReady && (
         <ImageField
-          label="Cover"
+          label={tr("Cover")}
           value={shelf.coverUrl ?? ""}
           onChange={(url) => onSave({ coverUrl: url || null })}
           pathPrefix="collections"
@@ -273,25 +266,25 @@ function Details({ shelf, pagesReady, saving, onSave }: {
       )}
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input inputSize="sm" label="Title" value={f.title} maxLength={80} onChange={(e) => setF({ ...f, title: e.target.value })} />
-          <Input inputSize="sm" label="Line under the title (home page)" value={f.subtitle} maxLength={160}
-            placeholder="e.g. What everyone on the island signs up for" onChange={(e) => setF({ ...f, subtitle: e.target.value })} />
+          <Input inputSize="sm" label={tr("Title")} value={f.title} maxLength={80} onChange={(e) => setF({ ...f, title: e.target.value })} />
+          <Input inputSize="sm" label={tr("Line under the title (home page)")} value={f.subtitle} maxLength={160}
+            placeholder={tr("e.g. What everyone on the island signs up for")} onChange={(e) => setF({ ...f, subtitle: e.target.value })} />
         </div>
         {pagesReady && (
           <>
-            <Textarea label="About this collection (its page)" value={f.description} maxLength={600} rows={3} showCount
-              placeholder="A few sentences: who it is for and why these offers."
+            <Textarea label={tr("About this collection (its page)")} value={f.description} maxLength={600} rows={3} showCount
+              placeholder={tr("A few sentences: who it is for and why these offers.")}
               onChange={(e) => setF({ ...f, description: e.target.value })} />
-            <Input inputSize="sm" label="Page address" value={f.slug} maxLength={60}
-              leftIcon={<span className="text-meta text-muted-foreground">/collections/</span>}
+            <Input inputSize="sm" label={tr("Page address")} value={f.slug} maxLength={60}
+              leftIcon={<span className="text-meta text-muted-foreground">{tr("/collections/")}</span>}
               className="pl-[104px]"
               onChange={(e) => setF({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-") })} />
           </>
         )}
         {dirty && (
           <div className="flex gap-2">
-            <Button size="sm" loading={saving} disabled={!f.title.trim()} onClick={() => onSave(body)}>Save</Button>
-            <Button size="sm" variant="secondary" onClick={() => setF(init())}>Cancel</Button>
+            <Button size="sm" loading={saving} disabled={!f.title.trim()} onClick={() => onSave(body)}>{tr("Save")}</Button>
+            <Button size="sm" variant="secondary" onClick={() => setF(init())}>{tr("Cancel")}</Button>
           </div>
         )}
       </div>
@@ -306,21 +299,21 @@ function TagFill({ shelf, plans, onPick }: { shelf: Shelf; plans: HomePlan[]; on
     : 0;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-body text-foreground">Also add every plan tagged</span>
+      <span className="text-body text-foreground">{tr("Also add every plan tagged")}</span>
       <select
         className={cn(fieldClass, "w-auto min-w-[180px]")}
         value={shelf.tagKey ?? ""}
         onChange={(e) => onPick(e.target.value || null)}
-        aria-label="Fill with a tag"
+        aria-label={tr("Fill with a tag")}
       >
-        <option value="">— no tag, hand-picked only —</option>
+        <option value="">{tr("— no tag, hand-picked only —")}</option>
         {dict.groups.map((g) => (
           <optgroup key={g.key} label={g.label}>
             {g.tags.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
           </optgroup>
         ))}
       </select>
-      {shelf.tagKey && <span className="text-meta text-muted-foreground">+{autoCount} automatically, after the hand-picked ones</span>}
+      {shelf.tagKey && <span className="text-meta text-muted-foreground">{trx("+{autoCount} automatically, after the hand-picked ones", { autoCount })}</span>}
     </div>
   );
 }
@@ -336,7 +329,7 @@ function Offers({ shelf, plans, index, onChanged }: {
   const setPlans = useMutation({
     mutationFn: (planIds: string[]) => call(`/admin/collections/${shelf.id}/plans`, "PUT", { planIds }),
     onSuccess: onChanged,
-    onError: (e: Error) => toast.error(e.message || "Could not save the offers"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save the offers")),
   });
   const drag = useDragOrder(ids, setIds, (next) => setPlans.mutate(next), "rows");
   const needle = q.trim().toLowerCase();
@@ -348,11 +341,11 @@ function Offers({ shelf, plans, index, onChanged }: {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="space-y-2">
-        <p className="text-label text-foreground">In this collection <span className="text-muted-foreground">· {ids.length} of {MAX_PLANS} · drag to reorder · first 8 show on the home page</span></p>
+        <p className="text-label text-foreground">{tr("In this collection")}{" "}<span className="text-muted-foreground">{trx("· {length} of {MAX_PLANS} · drag to reorder · first 8 show on the home page", { length: ids.length, MAX_PLANS })}</span></p>
         <div ref={drag.listRef as React.RefObject<HTMLDivElement>} className="max-h-[420px] space-y-0.5 overflow-y-auto rounded-radius-md bg-background p-1">
           {ids.length === 0 && (
             <p className="p-3 text-meta text-muted-foreground">
-              {shelf.tagKey ? "No hand-picked offers — the tag fills it." : "Nothing yet. Pick offers on the right — a collection with none is not shown."}
+              {shelf.tagKey ? tr("No hand-picked offers — the tag fills it.") : tr("Nothing yet. Pick offers on the right — a collection with none is not shown.")}
             </p>
           )}
           {ids.map((id, i) => {
@@ -367,12 +360,12 @@ function Offers({ shelf, plans, index, onChanged }: {
                 <span className="w-5 shrink-0 text-meta tabular-nums text-muted-foreground">{i + 1}</span>
                 <Photo src={p ? planPhotos(p)[0] : null} className="h-9 w-9 shrink-0 rounded-radius-sm object-cover" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-body font-semibold text-foreground">{p?.name ?? "Offer no longer on sale"}</span>
+                  <span className="block truncate text-body font-semibold text-foreground">{p?.name ?? tr("Offer no longer on sale")}</span>
                   <span className="block truncate text-meta text-muted-foreground">
-                    {p ? [p.provider?.name, p.price_cents ? formatUSD(p.price_cents) : null].filter(Boolean).join(" · ") : "Hidden from the site until it is live again"}
+                    {p ? [p.provider?.name, p.price_cents ? formatUSD(p.price_cents) : null].filter(Boolean).join(" · ") : tr("Hidden from the site until it is live again")}
                   </span>
                 </span>
-                <IconBtn label="Remove" onClick={() => setPlans.mutate(ids.filter((x) => x !== id))}><X className="h-4 w-4" /></IconBtn>
+                <IconBtn label={tr("Remove")} onClick={() => setPlans.mutate(ids.filter((x) => x !== id))}><X className="h-4 w-4" /></IconBtn>
               </div>
             );
           })}
@@ -380,11 +373,11 @@ function Offers({ shelf, plans, index, onChanged }: {
       </div>
 
       <div className="space-y-2">
-        <p className="text-label text-foreground">Add offers</p>
-        <Input inputSize="sm" placeholder="Search by plan or business" value={q} onChange={(e) => setQ(e.target.value)}
-          leftIcon={<Search className="h-4 w-4" />} aria-label="Search offers" />
+        <p className="text-label text-foreground">{tr("Add offers")}</p>
+        <Input inputSize="sm" placeholder={tr("Search by plan or business")} value={q} onChange={(e) => setQ(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" />} aria-label={tr("Search offers")} />
         <div className="max-h-[372px] space-y-0.5 overflow-y-auto rounded-radius-md bg-background p-1">
-          {available.length === 0 && <p className="p-3 text-meta text-muted-foreground">{needle ? "Nothing matches." : "Every live offer is already here."}</p>}
+          {available.length === 0 && <p className="p-3 text-meta text-muted-foreground">{needle ? tr("Nothing matches.") : tr("Every live offer is already here.")}</p>}
           {available.map((p) => (
             <button
               key={p.id}

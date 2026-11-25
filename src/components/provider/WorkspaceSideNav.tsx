@@ -1,6 +1,7 @@
 import type { PortalTab } from "@/components/provider/portalTab";
 import { useTabParam } from "@/hooks/useTabParam";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The workspace's tabs as a rail, for a laptop.
@@ -20,7 +21,7 @@ export function WorkspaceSideNav({ tabs }: { tabs: PortalTab<unknown>[] }) {
   const [active, setActive] = useTabParam(tabs.map((t) => t.value));
 
   return (
-    <nav aria-label="Business sections" className="rounded-radius-lg bg-card p-2">
+    <nav aria-label={tr("Business sections")} className="rounded-radius-lg bg-card p-2">
       <ul className="space-y-0.5">
         {tabs.map((t) => {
           const Icon = t.icon;

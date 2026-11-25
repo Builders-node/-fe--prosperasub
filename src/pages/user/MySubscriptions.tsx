@@ -70,6 +70,7 @@ import { to12h as format12h } from "@/lib/booking/bookingSettings";
 import { carPath } from "@/features/vehicles";
 import { useBeachClubHome } from "@/legacy/beach";
 import { fetchMyUuid } from "@/lib/account/myUuid";
+import { tr, trx, dfLocale, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * Compute what the server-side renewal will land on: continuous period,
@@ -106,16 +107,16 @@ interface PendingRenewal {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const SCOPES = ["active", "past"] as const;
-const SCOPE_LABELS = { active: "Current", past: "Past" } as const;
+const SCOPE_LABELS = { active: tr("Current"), past: tr("Past") } as const;
 
 /** A membership the pause endpoints can act on. */
 interface PauseTarget { service: "beach" | "plan"; id: string; name: string; endsOn: string | null }
 
 /** The lengths the server accepts (AccountPauseService.PAUSE_OPTIONS_DAYS). */
 const PAUSE_OPTIONS = [
-  { days: 14, label: "2 weeks" },
-  { days: 30, label: "1 month" },
-  { days: 60, label: "2 months" },
+  { days: 14, label: tr("2 weeks") },
+  { days: 30, label: tr("1 month") },
+  { days: 60, label: tr("2 months") },
 ];
 
 const ENDED_STATUSES = ["expired", "cancelled", "canceled", "completed", "failed", "refunded"];
@@ -151,7 +152,7 @@ const isUuid = (v: unknown): v is string =>
   typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 const MySubscriptions = () => {
-  useSeo({ title: "My subscriptions" });
+  useSeo({ title: tr("My subscriptions") });
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   const [paymentDialog, setPaymentDialog] = useState<any>(null);
   // One shared preview dialog for all three services' Renew buttons — click a
@@ -240,7 +241,7 @@ const MySubscriptions = () => {
         id: r.source_subscription_id ?? r.id,
         access_id: r.id,
         plan_id: r.provider_plans?.source_plan_id ?? r.plan_id,
-        plan_name: r.metadata?.plan_name ?? "Beach Club Membership",
+        plan_name: r.metadata?.plan_name ?? tr("Beach Club Membership"),
         people: Number(r.metadata?.people) || 1,
         total_cents: r.price_cents ?? 0,
       }));
@@ -464,7 +465,7 @@ const MySubscriptions = () => {
       return data;
     },
     onSuccess: () => {
-      toast.success("Booking cancelled. Cleaning credit restored.");
+      toast.success(tr("Booking cancelled. Cleaning credit restored."));
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
     },
@@ -514,15 +515,15 @@ const MySubscriptions = () => {
 
   const rescheduleMutation = useMutation({
     mutationFn: async () => {
-      if (!rescheduleBooking || !rescheduleSlotId) throw new Error("Pick a new time slot.");
+      if (!rescheduleBooking || !rescheduleSlotId) throw new Error(tr("Pick a new time slot."));
       const { error } = await accountApi(
         `/account/cleaning/bookings/${rescheduleBooking.id}/reschedule`,
         { method: "POST", body: JSON.stringify({ slot_id: rescheduleSlotId }) },
       );
-      if (error) throw new Error(error.message || "Could not reschedule");
+      if (error) throw new Error(error.message || tr("Could not reschedule"));
     },
     onSuccess: () => {
-      toast.success("Cleaning rescheduled");
+      toast.success(tr("Cleaning rescheduled"));
       setRescheduleBooking(null);
       setRescheduleSlotId("");
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-bookings"] });
@@ -561,7 +562,7 @@ const MySubscriptions = () => {
       return data;
     },
     onSuccess: (_data, vars) => {
-      toast.success(vars.resume ? "Subscription resumed." : "Subscription won't renew.");
+      toast.success(vars.resume ? tr("Subscription resumed.") : tr("Subscription won't renew."));
       setCancelTarget(null);
       setCancelReason(null);
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
@@ -569,7 +570,7 @@ const MySubscriptions = () => {
       queryClient.invalidateQueries({ queryKey: ["my-beach-subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["my-universal-subscriptions"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not update the subscription."),
+    onError: (e: Error) => toast.error(e.message || tr("Could not update the subscription.")),
   });
 
   // ── Pause ──────────────────────────────────────────────────────────────────
@@ -616,13 +617,13 @@ const MySubscriptions = () => {
     },
     onSuccess: (data, vars) => {
       toast.success(vars.unpause
-        ? "Welcome back! Your subscription is active again."
-        : `Paused until ${data?.pause?.until ? formatDateHN(data.pause.until) : "later"}.`);
+        ? tr("Welcome back! Your subscription is active again.")
+        : tr("Paused until {value}.", { value: data?.pause?.until ? formatDateHN(data.pause.until) : "later" }));
       setPauseTarget(null);
       queryClient.invalidateQueries({ queryKey: ["my-beach-subs"] });
       queryClient.invalidateQueries({ queryKey: ["my-universal-subscriptions"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not update the subscription."),
+    onError: (e: Error) => toast.error(e.message || tr("Could not update the subscription.")),
   });
 
   /** Card actions for a membership: Pause when it can be, Resume when it is. */
@@ -630,7 +631,7 @@ const MySubscriptions = () => {
     if (ownPause(sub)) {
       return [{
         key: "unpause",
-        label: "Resume now",
+        label: tr("Resume now"),
         icon: PlayCircle,
         variant: "secondary" as const,
         onClick: () => pauseMutation.mutate({ target: pauseRef(service, sub, name), unpause: true }),
@@ -639,7 +640,7 @@ const MySubscriptions = () => {
     if (!canPause(sub)) return [];
     return [{
       key: "pause",
-      label: "Pause",
+      label: tr("Pause"),
       icon: PauseCircle,
       variant: "ghost" as const,
       onClick: () => { setPauseDays(30); setPauseTarget(pauseRef(service, sub, name)); },
@@ -650,7 +651,7 @@ const MySubscriptions = () => {
   const pausedBadge = (sub: any) => {
     const p = ownPause(sub);
     if (!p) return null;
-    return <StatusPill status="paused" label={`Paused until ${format(new Date(`${p.until}T00:00:00`), "MMM d")}`} />;
+    return <StatusPill status="paused" label={tr("Paused until {format}", { format: format(new Date(`${p.until}T00:00:00`), "MMM d", { locale: dfLocale }) })} />;
   };
 
   /**
@@ -663,7 +664,7 @@ const MySubscriptions = () => {
     if (cancelled) {
       return [{
         key: "resume",
-        label: "Resume",
+        label: tr("Resume"),
         icon: RefreshCw,
         variant: "secondary" as const,
         onClick: () => cancelMutation.mutate({ service, id: sub.id, resume: true }),
@@ -671,7 +672,7 @@ const MySubscriptions = () => {
     }
     return [{
       key: "cancel",
-      label: "Cancel",
+      label: tr("Cancel"),
       icon: X,
       // Nobody opens this page to cancel — it stays reachable, not prominent.
       variant: "ghost" as const,
@@ -698,12 +699,12 @@ const MySubscriptions = () => {
     const cancelled = Boolean(sub?.cancel_at_period_end);
     if (cancelled) {
       return {
-        label: "Resume subscription",
+        label: tr("Resume subscription"),
         onClick: () => { setDetail(null); cancelMutation.mutate({ service, id: sub.id, resume: true }); },
       };
     }
     return {
-      label: "Cancel subscription",
+      label: tr("Cancel subscription"),
       destructive: true,
       onClick: () => {
         setDetail(null);
@@ -728,7 +729,7 @@ const MySubscriptions = () => {
     if (!sub?.cancel_at_period_end || !endIso) return null;
     const end = String(endIso).slice(0, 10);
     if (end < todayHN()) return null;
-    return <StatusPill status="expiring_soon" label={`Ends ${format(new Date(`${end}T00:00:00`), "MMM d")}`} />;
+    return <StatusPill status="expiring_soon" label={tr("Ends {format}", { format: format(new Date(`${end}T00:00:00`), "MMM d", { locale: dfLocale }) })} />;
   };
 
   const payMutation = useMutation({
@@ -739,15 +740,15 @@ const MySubscriptions = () => {
     },
     onSuccess: (data: any) => {
       if (data?.status === "paid") {
-        toast.success("Subscription is already paid!");
+        toast.success(tr("Subscription is already paid!"));
         queryClient.invalidateQueries({ queryKey: ["my-linked-client-subscriptions"] });
       } else if (data?.payment_request) {
         setPaymentDialog(data);
       } else {
-        toast.info("Payment is not available yet. Please contact support.");
+        toast.info(tr("Payment is not available yet. Please contact support."));
       }
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to generate payment"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to generate payment")),
   });
 
   // ── Food renewal ───────────────────────────────────────────────────────────
@@ -920,7 +921,7 @@ const MySubscriptions = () => {
     );
     const dateOf = (b: any) => {
       const d = b.cleaning_available_slots?.date;
-      return d ? format(new Date(d + "T00:00:00"), "EEE, MMM d, yyyy") : "—";
+      return d ? format(new Date(d + "T00:00:00"), "EEE, MMM d, yyyy", { locale: dfLocale }) : "—";
     };
     const timeOf = (b: any) => {
       const slot = b.cleaning_available_slots;
@@ -933,8 +934,8 @@ const MySubscriptions = () => {
       onClick: () => { setDetail(null); setViewBooking(b); },
     });
     return [
-      { label: "Upcoming", items: mine.filter((b: any) => upcomingBookingIds.has(b.id)).map(toItem) },
-      { label: "History", items: mine.filter((b: any) => !upcomingBookingIds.has(b.id)).map(toItem) },
+      { label: tr("Upcoming"), items: mine.filter((b: any) => upcomingBookingIds.has(b.id)).map(toItem) },
+      { label: tr("History"), items: mine.filter((b: any) => !upcomingBookingIds.has(b.id)).map(toItem) },
     ];
   };
 
@@ -956,7 +957,7 @@ const MySubscriptions = () => {
   const hnDate = (iso: string) => new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Tegucigalpa", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date(iso));
-  const hnTime = (iso: string) => new Intl.DateTimeFormat("en-US", {
+  const hnTime = (iso: string) => new Intl.DateTimeFormat(DATE_LOCALE, {
     timeZone: "America/Tegucigalpa", hour: "numeric", minute: "2-digit",
   }).format(new Date(iso));
   const soonLimit = addDaysISO(todayHN(), 3);
@@ -968,7 +969,7 @@ const MySubscriptions = () => {
     nextUp.push({
       key: `clean:${b.id}`, at: `${slot.date}T${String(slot.start_time ?? "00:00").slice(0, 5)}`,
       time: slot.start_time ? format12h(slot.start_time) : null,
-      title: "Cleaning", detail: planNameForBooking(b) ?? "Tap to reschedule",
+      title: tr("Cleaning"), detail: planNameForBooking(b) ?? tr("Tap to reschedule"),
       icon: SparklesIcon, onClick: () => setViewBooking(b),
     });
   }
@@ -977,22 +978,22 @@ const MySubscriptions = () => {
     const day = hnDate(b.start_at);
     nextUp.push({
       key: `court:${b.id}`, at: `${day}T${new Intl.DateTimeFormat("en-GB", { timeZone: "America/Tegucigalpa", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(b.start_at))}`,
-      time: hnTime(b.start_at), title: b.resource_name ?? "Court booking", detail: "Tap to see or cancel",
+      time: hnTime(b.start_at), title: b.resource_name ?? tr("Court booking"), detail: tr("Tap to see or cancel"),
       icon: CalendarDays,
       onClick: () => b.provider_id && navigate(`/providers/${b.provider_id}/book?calendar=${b.resource_id}&date=${day}`),
     });
   }
   for (const r of rentalBookings as any[]) {
     if (String(r.status) === "cancelled") continue;
-    const name = r.rental_vehicles?.name ?? "Your car";
+    const name = r.rental_vehicles?.name ?? tr("Your car");
     const open = () => navigate(carPath(`booking/${r.id}`));
     if (r.status === "active" && String(r.end_date) >= todayHN()) {
-      nextUp.push({ key: `car-back:${r.id}`, at: String(r.end_date), time: "Return", title: name, detail: "Due back", icon: Car, onClick: open });
+      nextUp.push({ key: `car-back:${r.id}`, at: String(r.end_date), time: tr("Return"), title: name, detail: tr("Due back"), icon: Car, onClick: open });
     } else if (String(r.start_date) >= todayHN() && r.status !== "completed") {
       const unpaid = r.payment_status !== "paid";
       nextUp.push({
-        key: `car-out:${r.id}`, at: String(r.start_date), time: "Pickup", title: name,
-        detail: unpaid ? "Payment not finished" : r.delivery_address ? `Delivered to ${r.delivery_address}` : "Pick up at the office",
+        key: `car-out:${r.id}`, at: String(r.start_date), time: tr("Pickup"), title: name,
+        detail: unpaid ? tr("Payment not finished") : r.delivery_address ? tr("Delivered to {address}", { address: r.delivery_address }) : tr("Pick up at the office"),
         icon: Car, attention: unpaid, onClick: open,
       });
     }
@@ -1004,13 +1005,13 @@ const MySubscriptions = () => {
     if (!e || e < todayHN() || e > soonLimit || !renewTo) return;
     if (sub?.cancel_at_period_end || sub?.auto_renew) return;
     nextUp.push({
-      key: `ends:${sub.id}`, at: e, time: "Ends", title, detail: "Tap to renew",
+      key: `ends:${sub.id}`, at: e, time: tr("Ends"), title, detail: tr("Tap to renew"),
       icon: RefreshCw, attention: true, onClick: () => navigate(renewTo),
     });
   };
   for (const f of foodSubscriptions as any[]) {
     if (String(f.status) !== "active") continue;
-    endingSoon(f, foodEnd(f).toISOString().slice(0, 10), f.food_meal_plans?.name ?? "Meal plan",
+    endingSoon(f, foodEnd(f).toISOString().slice(0, 10), f.food_meal_plans?.name ?? tr("Meal plan"),
       f.meal_plan_id ? `/checkout/${f.meal_plan_id}?renew=${f.id}` : null);
   }
   for (const u of [...((universalSubs ?? []) as any[]), ...((beachSubs ?? []) as any[])]) {
@@ -1020,7 +1021,7 @@ const MySubscriptions = () => {
   }
   for (const c of cleaningSubscriptions ?? []) {
     if ((c as any).payment_status !== "paid" || effectiveCleaningStatus(c as any) !== "active") continue;
-    endingSoon(c, (c as any).end_date, (c as any).cleaning_packages?.name ?? "Cleaning plan",
+    endingSoon(c, (c as any).end_date, (c as any).cleaning_packages?.name ?? tr("Cleaning plan"),
       (c as any).package_id ? `/checkout/${(c as any).package_id}?renew=${(c as any).id}` : null);
   }
 
@@ -1044,7 +1045,7 @@ const MySubscriptions = () => {
 
   if (authLoading) {
     return (
-      <UserLayout title="My subscriptions">
+      <UserLayout title={tr("My subscriptions")}>
         <PageLoader />
       </UserLayout>
     );
@@ -1052,13 +1053,13 @@ const MySubscriptions = () => {
 
   if (!isAuthenticated) {
     return (
-      <UserLayout title="My subscriptions">
+      <UserLayout title={tr("My subscriptions")}>
         <div className="app-container pt-5">
           <YdEmptyState
             icon={CalendarDays}
-            title="Log in to see your bookings"
-            subtitle="Track your subscriptions, bookings and payments."
-            action={<Button onClick={() => openAuthModal("login", "/my-subscriptions")}>Log in</Button>}
+            title={tr("Log in to see your bookings")}
+            subtitle={tr("Track your subscriptions, bookings and payments.")}
+            action={<Button onClick={() => openAuthModal("login", "/my-subscriptions")}>{tr("Log in")}</Button>}
           />
         </div>
       </UserLayout>
@@ -1078,11 +1079,11 @@ const MySubscriptions = () => {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search subscriptions"
+          placeholder={tr("Search subscriptions")}
           className="min-w-0 flex-1 bg-transparent text-title text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         {query && (
-          <button type="button" aria-label="Clear search" onClick={() => setQuery("")}
+          <button type="button" aria-label={tr("Clear search")} onClick={() => setQuery("")}
             className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
@@ -1110,7 +1111,7 @@ const MySubscriptions = () => {
   );
 
   return (
-    <UserLayout title="My subscriptions" headerExtra={searchBar}>
+    <UserLayout title={tr("My subscriptions")} headerExtra={searchBar}>
       <PullToRefresh onRefresh={async () => {
         try {
           const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
@@ -1139,12 +1140,12 @@ const MySubscriptions = () => {
         {!anyLoading && !anyContent && !anyError && (
           <YdEmptyState
             icon={LayoutGrid}
-            title={query ? "Nothing matches your search"
-              : scope === "active" ? "No current subscriptions" : "No past subscriptions"}
-            subtitle={query ? "Try a different word, or clear the search."
-              : scope === "active" ? "Subscribe to a plan and it shows up here."
-              : "Plans that end or are cancelled show up here."}
-            action={query ? undefined : <Button onClick={() => navigate("/discovery")}>Browse services</Button>}
+            title={query ? tr("Nothing matches your search")
+              : scope === "active" ? tr("No current subscriptions") : tr("No past subscriptions")}
+            subtitle={query ? tr("Try a different word, or clear the search.")
+              : scope === "active" ? tr("Subscribe to a plan and it shows up here.")
+              : tr("Plans that end or are cancelled show up here.")}
+            action={query ? undefined : <Button onClick={() => navigate("/discovery")}>{tr("Browse services")}</Button>}
           />
         )}
 
@@ -1155,15 +1156,15 @@ const MySubscriptions = () => {
             {foodSubsLoading ? (
               <Skeleton rows={3} />
             ) : foodError ? (
-              <QueryError title="Couldn't load your meal plans" onRetry={() => refetchFood()} />
+              <QueryError title={tr("Couldn't load your meal plans")} onRetry={() => refetchFood()} />
             ) : visibleFood.length === 0 ? (
               <YdEmptyState
                 icon={ChefHat}
-                title={scope === "active" ? "No current meal plans" : "No past meal plans"}
+                title={scope === "active" ? tr("No current meal plans") : tr("No past meal plans")}
                 subtitle={scope === "active"
-                  ? "Subscribe to a weekly meal plan to see it here."
-                  : "Plans that end or are cancelled show up here."}
-                action={<Button onClick={() => navigate("/services/food")}>Browse Restaurants</Button>}
+                  ? tr("Subscribe to a weekly meal plan to see it here.")
+                  : tr("Plans that end or are cancelled show up here.")}
+                action={<Button onClick={() => navigate("/services/food")}>{tr("Browse Restaurants")}</Button>}
               />
             ) : (
               <SectionGroup>
@@ -1177,7 +1178,7 @@ const MySubscriptions = () => {
                     const preview = computeRenewPreview(endDate, { weeks: s.commitment_weeks || 1 });
                     if (preview) {
                       setPendingRenewal({
-                        title: `${s.customer_name ?? "Meal plan"} · ${s.commitment_weeks || 1} week${(s.commitment_weeks || 1) > 1 ? "s" : ""}`,
+                        title: ((s.commitment_weeks || 1) > 1 ? tr("{value} · {value2} weeks", { value: s.customer_name ?? tr("Meal plan"), value2: s.commitment_weeks || 1 }) : tr("{value} · {value2} week", { value: s.customer_name ?? tr("Meal plan"), value2: s.commitment_weeks || 1 })),
                         currentEndDate: endDate,
                         newStartDate: preview.newStart,
                         newEndDate: preview.newEnd,
@@ -1194,7 +1195,7 @@ const MySubscriptions = () => {
                       key={s.id}
                       icon={UtensilsCrossed}
                       image={photoFor(s.meal_plan_id)}
-                      title={s.food_meal_plans?.name ?? "Meal plan"}
+                      title={s.food_meal_plans?.name ?? tr("Meal plan")}
                       subtitle={s.started_at
                         ? formatRangeHN(s.started_at, foodEnd(s))
                         : undefined}
@@ -1205,7 +1206,7 @@ const MySubscriptions = () => {
                         noAccessQr: true,
                         paymentStatus: s.payment_status ?? null,
                         endsOn: s.cancel_at_period_end ? foodEnd(s).toISOString().slice(0, 10) : null,
-                        title: s.food_meal_plans?.name ?? "Meal plan",
+                        title: s.food_meal_plans?.name ?? tr("Meal plan"),
                         provider: s.food_providers?.name ?? null,
                         status: effectiveFoodStatus(s),
                         amountCents: (s.weekly_price_cents || 0) * (s.commitment_weeks || 1),
@@ -1215,8 +1216,8 @@ const MySubscriptions = () => {
                         paymentReference: s.payment_reference,
                         purchasedAt: s.created_at,
                         facts: [
-                          { label: "Commitment", value: `${s.commitment_weeks || 1} week${(s.commitment_weeks || 1) > 1 ? "s" : ""}` },
-                          ...(s.weekly_price_cents ? [{ label: "Per week", value: formatUSD(s.weekly_price_cents) }] : []),
+                          { label: tr("Commitment"), value: ((s.commitment_weeks || 1) > 1 ? tr("{value} weeks", { value: s.commitment_weeks || 1 }) : tr("{value} week", { value: s.commitment_weeks || 1 })) },
+                          ...(s.weekly_price_cents ? [{ label: tr("Per week"), value: formatUSD(s.weekly_price_cents) }] : []),
                         ],
                         cancel: cancelSheetAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
                         tip: { service: "food", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: s.food_providers?.name ?? null, customerName: s.customer_name ?? userData?.name ?? null },
@@ -1229,11 +1230,11 @@ const MySubscriptions = () => {
                         },
                         // The subscription's own page — this week's menu and
                         // which meals you get — not the storefront you bought from.
-                        action: { label: "Menu & my meals", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
+                        action: { label: tr("Menu & my meals"), onClick: () => navigate(`/services/food/subscription/${s.id}`) },
                       })}
                       actions={[
                         ...(foodCanRenew(s) ? [
-                          { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
+                          { key: "renew", label: scope === "past" ? tr("Order again") : tr("Renew"), icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                         ] : []),
                       ]}
                     />
@@ -1254,15 +1255,15 @@ const MySubscriptions = () => {
               {beachSubsLoading ? (
                 <Skeleton rows={3} />
               ) : beachError ? (
-                <QueryError title="Couldn't load your memberships" onRetry={() => refetchBeach()} />
+                <QueryError title={tr("Couldn't load your memberships")} onRetry={() => refetchBeach()} />
               ) : visibleBeach.length === 0 ? (
                 <YdEmptyState
                   icon={Waves}
-                  title={scope === "active" ? "No current memberships" : "No past memberships"}
+                  title={scope === "active" ? tr("No current memberships") : tr("No past memberships")}
                   subtitle={scope === "active"
-                    ? "Subscribe to the Beach Club to access the gym, pools and courts."
-                    : "Memberships that end or are cancelled show up here."}
-                  action={<Button onClick={() => navigate(beachHome)}>Browse Plans</Button>}
+                    ? tr("Subscribe to the Beach Club to access the gym, pools and courts.")
+                    : tr("Memberships that end or are cancelled show up here.")}
+                  action={<Button onClick={() => navigate(beachHome)}>{tr("Browse Plans")}</Button>}
                 />
               ) : (
                 <SectionGroup>
@@ -1282,7 +1283,7 @@ const MySubscriptions = () => {
                       const preview = computeRenewPreview(endIso, { days: durationDays });
                       if (preview) {
                         setPendingRenewal({
-                          title: `${s.plan_name || "Beach Club Membership"} · ${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}`,
+                          title: `${s.plan_name || tr("Beach Club Membership")} · ${(s.people || 1) === 1 ? tr("1 person") : tr("{n} people", { n: s.people || 1 })}`,
                           currentEndDate: endIso,
                           newStartDate: preview.newStart,
                           newEndDate: preview.newEnd,
@@ -1300,7 +1301,7 @@ const MySubscriptions = () => {
                         key={s.id}
                         icon={Waves}
                         image={photoFor(s.plan_id)}
-                        title={s.plan_name || "Beach Club Membership"}
+                        title={s.plan_name || tr("Beach Club Membership")}
                         subtitle={<>
                           {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
                           {s.start_date && s.end_date && ` · ${formatRangeHN(s.start_date, s.end_date)}`}
@@ -1310,8 +1311,8 @@ const MySubscriptions = () => {
                           accessId: s.access_id,
                           paymentStatus: s.payment_status ?? null,
                           endsOn: s.cancel_at_period_end ? s.end_date : null,
-                          title: s.plan_name || "Beach Club Membership",
-                          provider: "Beach Club",
+                          title: s.plan_name || tr("Beach Club Membership"),
+                          provider: tr("Beach Club"),
                           status: label,
                           amountCents: s.total_cents || 0,
                           periodStart: s.start_date,
@@ -1319,10 +1320,10 @@ const MySubscriptions = () => {
                           paymentMethod: s.payment_method,
                           paymentReference: s.payment_reference,
                           purchasedAt: s.created_at,
-                          facts: [{ label: "Guests", value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
-                          action: s.plan_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(s.plan_id))) } : undefined,
+                          facts: [{ label: tr("Guests"), value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
+                          action: s.plan_id ? { label: tr("View plan"), onClick: () => navigate(addr.planHref(String(s.plan_id))) } : undefined,
                           cancel: cancelSheetAction("beach", s, s.plan_name ?? "membership"),
-                          tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: "Beach Club", customerName: userData?.name ?? null },
+                          tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: tr("Beach Club"), customerName: userData?.name ?? null },
                           review: { service: "beach", itemId: s.plan_id, subscriptionId: String(s.id), customerName: userData?.name ?? null },
                         })}
                         statusBadge={pausedBadge(s) ?? endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
@@ -1332,10 +1333,10 @@ const MySubscriptions = () => {
                           // when any membership was active and said nothing
                           // about which one.
                           ...(st === "active" && !expired ? [
-                            { key: "court", label: "Book a court", icon: LandPlot, onClick: () => navigate(s.provider_id ? `/providers/${s.provider_id}/book` : beachHome), variant: "primary" as const },
+                            { key: "court", label: tr("Book a court"), icon: LandPlot, onClick: () => navigate(s.provider_id ? `/providers/${s.provider_id}/book` : beachHome), variant: "primary" as const },
                           ] : []),
                           ...(canRenew ? [
-                            { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
+                            { key: "renew", label: scope === "past" ? tr("Order again") : tr("Renew"), icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                           ] : []),
                           ...(scope === "active" ? pauseActions("beach", s, s.plan_name ?? "membership") : []),
                         ]}
@@ -1355,7 +1356,7 @@ const MySubscriptions = () => {
         {(universalError || visibleUniversal.length > 0) && (
           <div className="mt-4 space-y-5">
             {universalError ? (
-              <QueryError title="Couldn't load your subscriptions" onRetry={() => refetchUniversal()} />
+              <QueryError title={tr("Couldn't load your subscriptions")} onRetry={() => refetchUniversal()} />
             ) : (
               <SectionGroup>
                 {visibleUniversal.map((s: any) => {
@@ -1393,8 +1394,8 @@ const MySubscriptions = () => {
                         paymentMethod: s.payment_method,
                         paymentReference: s.payment_reference,
                         purchasedAt: s.created_at,
-                        facts: s.provider_plans?.period ? [{ label: "Billing", value: String(s.provider_plans.period) }] : [],
-                        action: s.plan_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(s.plan_id))) } : undefined,
+                        facts: s.provider_plans?.period ? [{ label: tr("Billing"), value: String(s.provider_plans.period) }] : [],
+                        action: s.plan_id ? { label: tr("View plan"), onClick: () => navigate(addr.planHref(String(s.plan_id))) } : undefined,
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                         tip: { service: "plan", subscriptionRef: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, providerName: providerName, customerName: userData?.name ?? null },
                         review: { service: "plan", subscriptionId: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, customerName: userData?.name ?? null },
@@ -1410,7 +1411,7 @@ const MySubscriptions = () => {
                       actions={st === "cancelled" ? [] : [
                         ...(s.plan_id ? [{
                           key: "renew",
-                          label: scope === "past" ? "Order again" : "Renew",
+                          label: scope === "past" ? tr("Order again") : tr("Renew"),
                           icon: RefreshCw,
                           variant: "secondary" as const,
                           onClick: () => navigate(`/checkout/${s.plan_id}?renew=${s.id}`),
@@ -1429,14 +1430,14 @@ const MySubscriptions = () => {
         {(rentalsError || visibleRentals.length > 0) && (
           <div className="mt-4 space-y-5">
             {rentalsError ? (
-              <QueryError title="Couldn't load your car rentals" onRetry={() => refetchRentals()} />
+              <QueryError title={tr("Couldn't load your car rentals")} onRetry={() => refetchRentals()} />
             ) : (
               <SectionGroup>
                 {visibleRentals.map((b: any) => {
                   const paid = b.payment_status === "paid";
                   const cancelled = String(b.status) === "cancelled";
                   const label = cancelled ? "cancelled" : paid ? "confirmed" : "pending";
-                  const carName = b.rental_vehicles?.name ?? "Car rental";
+                  const carName = b.rental_vehicles?.name ?? tr("Car rental");
                   // The car section is part of this app, so opening a rental
                   // is a route change — no reload, no lost scroll position.
                   const openBooking = () => navigate(carPath(`booking/${b.id}`));
@@ -1449,14 +1450,14 @@ const MySubscriptions = () => {
                       title={carName}
                       subtitle={<>
                         {formatRangeHN(b.start_date, b.end_date)}
-                        {` · ${b.rental_days} day${b.rental_days > 1 ? "s" : ""}`}
+                        {(b.rental_days > 1 ? tr(" · {rental_days} days", { rental_days: b.rental_days }) : tr(" · {rental_days} day", { rental_days: b.rental_days }))}
                       </>}
                       metadata={<span className="tabular-nums">{formatUSD(b.total_cents || 0)}</span>}
                       statusBadge={<StatusPill status={label} />}
                       onClick={openBooking}
                       actions={cancelled ? [] : paid ? [] : [{
                         key: "pay",
-                        label: "Complete payment",
+                        label: tr("Complete payment"),
                         variant: "primary" as const,
                         onClick: openBooking,
                       }]}
@@ -1481,13 +1482,13 @@ const MySubscriptions = () => {
             {cleaningSubsLoading ? (
               <Skeleton rows={3} />
             ) : cleaningError ? (
-              <QueryError title="Couldn't load your cleaning plans" onRetry={() => refetchCleaning()} />
+              <QueryError title={tr("Couldn't load your cleaning plans")} onRetry={() => refetchCleaning()} />
             ) : (
               <>
                 {/* ── Pending schedule alert ── */}
                 {pendingScheduleCleaningSubs.length > 0 && (
                   <section className="space-y-2">
-                    <SectionOverline label="Action needed" tone="warning" />
+                    <SectionOverline label={tr("Action needed")} tone="warning" />
                     {pendingScheduleCleaningSubs.map((sub) => (
                       <div
                         key={sub.id}
@@ -1497,17 +1498,13 @@ const MySubscriptions = () => {
                           <p className="text-sm font-bold text-foreground">
                             {(sub as any).cleaning_packages?.name}
                           </p>
-                          <p className="text-meta text-muted-foreground">
-                            Paid — set your weekly schedule to activate
-                          </p>
+                          <p className="text-meta text-muted-foreground">{tr("Paid — set your weekly schedule to activate")}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => navigate(`/services/cleaning/book?subscriptionId=${sub.id}`)}
                           className="shrink-0 rounded-full bg-foreground px-4 py-1.5 text-meta font-bold text-background"
-                        >
-                          Set schedule
-                        </button>
+                        >{tr("Set schedule")}</button>
                       </div>
                     ))}
                   </section>
@@ -1522,7 +1519,7 @@ const MySubscriptions = () => {
                     nine days. */}
                 {unpaidCleaningSubs.length > 0 && (
                   <section className="space-y-2">
-                    <SectionOverline label="Waiting for payment" tone="warning" />
+                    <SectionOverline label={tr("Waiting for payment")} tone="warning" />
                     {unpaidCleaningSubs.map((sub: any) => (
                       <div
                         key={sub.id}
@@ -1530,11 +1527,9 @@ const MySubscriptions = () => {
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-foreground">
-                            {sub.cleaning_packages?.name ?? "Cleaning plan"}
+                            {sub.cleaning_packages?.name ?? tr("Cleaning plan")}
                           </p>
-                          <p className="text-meta text-muted-foreground">
-                            Payment wasn't completed — nothing has been charged.
-                          </p>
+                          <p className="text-meta text-muted-foreground">{tr("Payment wasn't completed — nothing has been charged.")}</p>
                         </div>
                         <Button
                           size="sm"
@@ -1542,9 +1537,7 @@ const MySubscriptions = () => {
                           onClick={() => payMutation.mutate(sub.id)}
                           loading={payMutation.isPending && payMutation.variables === sub.id}
                         >
-                          <CreditCard className="h-3.5 w-3.5" />
-                          Finish payment
-                        </Button>
+                          <CreditCard className="h-3.5 w-3.5" />{tr("Finish payment")}</Button>
                       </div>
                     ))}
                   </section>
@@ -1561,7 +1554,7 @@ const MySubscriptions = () => {
                         });
                         if (preview) {
                           setPendingRenewal({
-                            title: `Cleaning plan · ${sub.billing_period_months || 1} month${(sub.billing_period_months || 1) > 1 ? "s" : ""}`,
+                            title: ((sub.billing_period_months || 1) > 1 ? tr("Cleaning plan · {value} months", { value: sub.billing_period_months || 1 }) : tr("Cleaning plan · {value} month", { value: sub.billing_period_months || 1 })),
                             currentEndDate: sub.end_date,
                             newStartDate: preview.newStart,
                             newEndDate: preview.newEnd,
@@ -1575,7 +1568,7 @@ const MySubscriptions = () => {
                       const actions: any[] = paused ? [] : [
                         {
                           key: "edit",
-                          label: "Edit Schedule",
+                          label: tr("Edit Schedule"),
                           icon: CalendarDays,
                           variant: "primary" as const,
                           onClick: () => navigate(`/services/cleaning/book?subscriptionId=${sub.id}`),
@@ -1583,7 +1576,7 @@ const MySubscriptions = () => {
                       ];
                       if (sub.package_id) actions.push({
                         key: "renew",
-                        label: scope === "past" ? "Order again" : "Renew",
+                        label: scope === "past" ? tr("Order again") : tr("Renew"),
                         icon: RefreshCw,
                         variant: "secondary" as const,
                         onClick: openRenewDialog,
@@ -1596,15 +1589,15 @@ const MySubscriptions = () => {
                           image={photoFor((sub as any).package_id)}
                           title={(sub as any).cleaning_packages?.name}
                           subtitle={paused
-                            ? "Paused"
+                            ? tr("Paused")
                             : (sub as any).recurring_day_of_week != null
-                            ? "Weekly schedule active"
-                            : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
+                            ? tr("Weekly schedule active")
+                            : tr("{value} cleanings remaining", { value: sub.cleanings_remaining ?? 0 })}
                           onClick={() => setDetail({
                             accessId: sub.id,
                             noAccessQr: true,
                             endsOn: (sub as any).cancel_at_period_end ? (sub as any).end_date : null,
-                            title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
+                            title: (sub as any).cleaning_packages?.name ?? tr("Cleaning plan"),
                             status: effectiveCleaningStatus(sub),
                             amountCents: sub.total_price_cents
                               ?? (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
@@ -1614,8 +1607,8 @@ const MySubscriptions = () => {
                             paymentReference: (sub as any).payment_reference,
                             purchasedAt: sub.created_at,
                             facts: [
-                              ...(sub.billing_period_months ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }] : []),
-                              ...(sub.cleanings_remaining != null ? [{ label: "Cleanings left", value: String(sub.cleanings_remaining) }] : []),
+                              ...(sub.billing_period_months ? [{ label: tr("Billing"), value: (sub.billing_period_months > 1 ? tr("{billing_period_months} months", { billing_period_months: sub.billing_period_months }) : tr("{billing_period_months} month", { billing_period_months: sub.billing_period_months })) }] : []),
+                              ...(sub.cleanings_remaining != null ? [{ label: tr("Cleanings left"), value: String(sub.cleanings_remaining) }] : []),
                             ],
                             cancel: cancelSheetAction("cleaning", sub, (sub as any).cleaning_packages?.name ?? "cleaning plan"),
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
@@ -1626,7 +1619,7 @@ const MySubscriptions = () => {
                               ownerUserId: sub.user_id ?? null,
                               current: sub.apartment_note ?? null,
                             },
-                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(sub.package_id))) } : undefined,
+                            action: sub.package_id ? { label: tr("View plan"), onClick: () => navigate(addr.planHref(String(sub.package_id))) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
                           statusBadge={endsBadge(sub, (sub as any).end_date) ?? ((sub as any).payment_method
@@ -1644,23 +1637,21 @@ const MySubscriptions = () => {
                           key={sub.id}
                           icon={SparklesIcon}
                           image={photoFor(sub.package_id)}
-                          title={sub.cleaning_packages?.name ?? "Cleaning plan"}
+                          title={sub.cleaning_packages?.name ?? tr("Cleaning plan")}
                           subtitle={sub.recurring_day_of_week != null
-                            ? "Weekly schedule active"
+                            ? tr("Weekly schedule active")
                             : isPending
-                              ? "Payment pending"
+                              ? tr("Payment pending")
                               : sub.cleanings_remaining != null
-                                ? `${sub.cleanings_remaining} cleanings remaining`
-                                : "Active plan"}
+                                ? tr("{cleanings_remaining} cleanings remaining", { cleanings_remaining: sub.cleanings_remaining })
+                                : tr("Active plan")}
                           statusBadge={isPending ? (
                             <Button
                               size="sm"
                               onClick={() => payMutation.mutate(sub.id)}
                               loading={payMutation.isPending && payMutation.variables === sub.id}
                             >
-                              <CreditCard className="h-3.5 w-3.5" />
-                              Pay now
-                            </Button>
+                              <CreditCard className="h-3.5 w-3.5" />{tr("Pay now")}</Button>
                           ) : undefined}
                         />
                       );
@@ -1684,7 +1675,7 @@ const MySubscriptions = () => {
                         });
                         if (preview) {
                           setPendingRenewal({
-                            title: `Cleaning plan · ${sub.billing_period_months || 1} month${(sub.billing_period_months || 1) > 1 ? "s" : ""}`,
+                            title: ((sub.billing_period_months || 1) > 1 ? tr("Cleaning plan · {value} months", { value: sub.billing_period_months || 1 }) : tr("Cleaning plan · {value} month", { value: sub.billing_period_months || 1 })),
                             currentEndDate: sub.end_date,
                             newStartDate: preview.newStart,
                             newEndDate: preview.newEnd,
@@ -1701,14 +1692,14 @@ const MySubscriptions = () => {
                           key={sub.id}
                           icon={SparklesIcon}
                           image={photoFor((sub as any).package_id)}
-                          title={(sub as any).cleaning_packages?.name ?? (sub.package_id ? "Cleaning plan" : "One-time cleaning")}
+                          title={(sub as any).cleaning_packages?.name ?? (sub.package_id ? tr("Cleaning plan") : tr("One-time cleaning"))}
                           subtitle={sub.service_start_date || sub.start_date
                             ? formatRangeHN(sub.service_start_date || sub.start_date, sub.service_end_date || sub.end_date)
                             : undefined}
                           statusBadge={<StatusPill status={pastStatus} />}
                           metadata={<span className="tabular-nums">{priceOrFree((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
                           onClick={() => setDetail({
-                            title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
+                            title: (sub as any).cleaning_packages?.name ?? tr("Cleaning plan"),
                             status: pastStatus,
                             amountCents: sub.total_price_cents
                               ?? (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
@@ -1718,9 +1709,9 @@ const MySubscriptions = () => {
                             paymentReference: (sub as any).payment_reference,
                             purchasedAt: sub.created_at,
                             facts: sub.billing_period_months
-                              ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }]
+                              ? [{ label: tr("Billing"), value: (sub.billing_period_months > 1 ? tr("{billing_period_months} months", { billing_period_months: sub.billing_period_months }) : tr("{billing_period_months} month", { billing_period_months: sub.billing_period_months })) }]
                               : [],
-                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(sub.package_id))) } : undefined,
+                            action: sub.package_id ? { label: tr("View plan"), onClick: () => navigate(addr.planHref(String(sub.package_id))) } : undefined,
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
                             review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
                             delivery: {
@@ -1732,7 +1723,7 @@ const MySubscriptions = () => {
                             sessions: bookingSessions(sub.id),
                           })}
                           actions={sub.package_id && pastStatus === "expired" ? [
-                            { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
+                            { key: "renew", label: scope === "past" ? tr("Order again") : tr("Renew"), icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
                           ] : []}
                         />
                       );
@@ -1747,9 +1738,7 @@ const MySubscriptions = () => {
                       <DoorOpen className="h-5 w-5 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-foreground">
-                        Cleaning day reminder
-                      </p>
+                      <p className="text-sm font-bold text-foreground">{tr("Cleaning day reminder")}</p>
                       {cleaningPrefs?.access_instructions ? (
                         // Custom instructions set by the user
                         <p className="mt-0.5 text-meta leading-relaxed text-muted-foreground">
@@ -1757,11 +1746,7 @@ const MySubscriptions = () => {
                         </p>
                       ) : (
                         // Generic fallback
-                        <p className="mt-0.5 text-meta leading-relaxed text-muted-foreground">
-                          On your cleaning day, please make sure the apartment door is{" "}
-                          <span className="font-semibold text-foreground">unlocked or accessible</span>{" "}
-                          so the cleaning team can enter.
-                        </p>
+                        <p className="mt-0.5 text-meta leading-relaxed text-muted-foreground">{tr("On your cleaning day, please make sure the apartment door is")}{" "}<span className="font-semibold text-foreground">{tr("unlocked or accessible")}</span>{" "}{tr("so the cleaning team can enter.")}</p>
                       )}
                     </div>
                   </div>
@@ -1771,9 +1756,9 @@ const MySubscriptions = () => {
                 {activeCleaningSubs.length === 0 && pausedCleaningSubs.length === 0 && pastCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && visibleLinkedClientSubs.length === 0 && (
                   <YdEmptyState
                     icon={SparklesIcon}
-                    title="No active cleaning plan"
-                    subtitle="Choose a cleaning plan to start booking weekly sessions."
-                    action={<Button onClick={() => navigate("/services/cleaning")}>View Cleaning Plans</Button>}
+                    title={tr("No active cleaning plan")}
+                    subtitle={tr("Choose a cleaning plan to start booking weekly sessions.")}
+                    action={<Button onClick={() => navigate("/services/cleaning")}>{tr("View Cleaning Plans")}</Button>}
                   />
                 )}
 
@@ -1789,20 +1774,20 @@ const MySubscriptions = () => {
       <ResponsiveDialog
         open={!!viewBooking}
         onOpenChange={(open) => { if (!open) { setViewBooking(null); setConfirmVisitCancel(false); } }}
-        title={<span className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Cleaning session</span>}
+        title={<span className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />{tr("Cleaning session")}</span>}
       >
         {viewBooking && (
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Date</span>
+              <span className="text-muted-foreground">{tr("Date")}</span>
               <span className="font-semibold text-foreground">
                 {viewBooking.cleaning_available_slots?.date
-                  ? format(new Date(viewBooking.cleaning_available_slots.date + "T00:00:00"), "EEEE, MMM d, yyyy")
+                  ? format(new Date(viewBooking.cleaning_available_slots.date + "T00:00:00"), "EEEE, MMM d, yyyy", { locale: dfLocale })
                   : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Time</span>
+              <span className="text-muted-foreground">{tr("Time")}</span>
               <span className="font-semibold text-foreground">
                 {viewBooking.cleaning_available_slots?.start_time
                   ? `${fmtTime(viewBooking.cleaning_available_slots.start_time)} – ${fmtTime(viewBooking.cleaning_available_slots.end_time)}`
@@ -1810,12 +1795,12 @@ const MySubscriptions = () => {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Status</span>
+              <span className="text-muted-foreground">{tr("Status")}</span>
               <StatusPill status={viewBooking.status} />
             </div>
             {viewBooking.notes && (
               <div className="rounded-radius-md bg-inset p-3">
-                <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">{tr("Notes")}</p>
                 <p className="mt-1 whitespace-pre-wrap text-foreground">{viewBooking.notes}</p>
               </div>
             )}
@@ -1824,9 +1809,7 @@ const MySubscriptions = () => {
                 className="w-full"
                 onClick={() => { const b = viewBooking; setViewBooking(null); openReschedule(b); }}
               >
-                <CalendarClock className="h-4 w-4" />
-                Reschedule this cleaning
-              </Button>
+                <CalendarClock className="h-4 w-4" />{tr("Reschedule this cleaning")}</Button>
             )}
             {viewBooking.status === "booked" && hoursUntilVisit(viewBooking) > 0 && (
               hoursUntilVisit(viewBooking) >= 24 ? (
@@ -1841,12 +1824,10 @@ const MySubscriptions = () => {
                     });
                   }}
                 >
-                  {confirmVisitCancel ? "Tap again to cancel — the cleaning goes back to your plan" : "Cancel this visit"}
+                  {confirmVisitCancel ? tr("Tap again to cancel — the cleaning goes back to your plan") : tr("Cancel this visit")}
                 </Button>
               ) : (
-                <p className="text-center text-meta text-muted-foreground">
-                  Less than a day to go — to change it now, message the business.
-                </p>
+                <p className="text-center text-meta text-muted-foreground">{tr("Less than a day to go — to change it now, message the business.")}</p>
               )
             )}
             {viewBooking.status === "completed" && (
@@ -1867,40 +1848,32 @@ const MySubscriptions = () => {
       <ResponsiveDialog
         open={!!cancelTarget}
         onOpenChange={(open) => { if (!open) { setCancelTarget(null); setCancelReason(null); } }}
-        title={<span className="flex items-center gap-2"><X className="h-5 w-5 text-destructive" />Cancel {cancelTarget?.name}?</span>}
+        title={<span className="flex items-center gap-2"><X className="h-5 w-5 text-destructive" />{trx("Cancel {name}?", { name: cancelTarget?.name })}</span>}
         description={
           cancelTarget?.endsOn
-            ? `It won't renew. You keep everything until ${formatDateHN(cancelTarget.endsOn)}, and you can undo this at any time before then.`
-            : "It won't renew. You can undo this at any time before it ends."
+            ? tr("It won't renew. You keep everything until {endsOn}, and you can undo this at any time before then.", { endsOn: formatDateHN(cancelTarget.endsOn) })
+            : tr("It won't renew. You can undo this at any time before it ends.")
         }
         footer={
           <div className="flex w-full gap-2">
-            <Button variant="ghost" className="flex-1" onClick={() => setCancelTarget(null)}>
-              Keep it
-            </Button>
+            <Button variant="ghost" className="flex-1" onClick={() => setCancelTarget(null)}>{tr("Keep it")}</Button>
             <Button
               variant="destructive"
               className="flex-1"
               disabled={cancelMutation.isPending}
               onClick={() => cancelTarget && cancelMutation.mutate({ service: cancelTarget.service, id: cancelTarget.id, reason: cancelReason })}
             >
-              {cancelMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              Cancel subscription
-            </Button>
+              {cancelMutation.isPending && <Spinner size="sm" className="mr-2" />}{tr("Cancel subscription")}</Button>
           </div>
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Nothing is charged again and nothing is refunded — this simply stops the next period.
-          </p>
+          <p className="text-sm text-muted-foreground">{tr("Nothing is charged again and nothing is refunded — this simply stops the next period.")}</p>
           {/* A break is what many people who press Cancel actually want. */}
           {cancelTarget?.pause && (
             <div className="rounded-xl bg-muted p-3 space-y-2">
-              <p className="text-label text-foreground">Need a break instead?</p>
-              <p className="text-sm text-muted-foreground">
-                Pause for 2 weeks to 2 months. Your paid days wait for you, and nothing is charged.
-              </p>
+              <p className="text-label text-foreground">{tr("Need a break instead?")}</p>
+              <p className="text-sm text-muted-foreground">{tr("Pause for 2 weeks to 2 months. Your paid days wait for you, and nothing is charged.")}</p>
               <Button
                 variant="secondary"
                 size="sm"
@@ -1912,14 +1885,12 @@ const MySubscriptions = () => {
                   setPauseTarget(target);
                 }}
               >
-                <PauseCircle className="mr-2 h-4 w-4" />
-                Pause instead
-              </Button>
+                <PauseCircle className="mr-2 h-4 w-4" />{tr("Pause instead")}</Button>
             </div>
           )}
           {/* One optional question. It never blocks the cancel button. */}
           <div className="space-y-2">
-            <p className="text-label text-foreground">Mind telling us why? <span className="text-muted-foreground">Optional</span></p>
+            <p className="text-label text-foreground">{tr("Mind telling us why?")}{" "}<span className="text-muted-foreground">{tr("Optional")}</span></p>
             <div className="flex flex-wrap gap-2">
               {LEAVE_REASONS.map((r) => (
                 <button
@@ -1947,21 +1918,17 @@ const MySubscriptions = () => {
       <ResponsiveDialog
         open={!!pauseTarget}
         onOpenChange={(open) => { if (!open) setPauseTarget(null); }}
-        title={<span className="flex items-center gap-2"><PauseCircle className="h-5 w-5 text-primary" />Pause {pauseTarget?.name}?</span>}
-        description="Access stops today and comes back on its own. Nothing is charged or refunded."
+        title={<span className="flex items-center gap-2"><PauseCircle className="h-5 w-5 text-primary" />{trx("Pause {name}?", { name: pauseTarget?.name })}</span>}
+        description={tr("Access stops today and comes back on its own. Nothing is charged or refunded.")}
         footer={
           <div className="flex w-full gap-2">
-            <Button variant="ghost" className="flex-1" onClick={() => setPauseTarget(null)}>
-              Not now
-            </Button>
+            <Button variant="ghost" className="flex-1" onClick={() => setPauseTarget(null)}>{tr("Not now")}</Button>
             <Button
               className="flex-1"
               disabled={pauseMutation.isPending}
               onClick={() => pauseTarget && pauseMutation.mutate({ target: pauseTarget, days: pauseDays })}
             >
-              {pauseMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              Pause
-            </Button>
+              {pauseMutation.isPending && <Spinner size="sm" className="mr-2" />}{tr("Pause")}</Button>
           </div>
         }
       >
@@ -1982,15 +1949,11 @@ const MySubscriptions = () => {
               </button>
             ))}
           </div>
-          <p className="text-sm text-muted-foreground">
-            Back on <span className="font-medium text-foreground">{formatDateHN(addDaysISO(todayHN(), pauseDays))}</span>
+          <p className="text-sm text-muted-foreground">{tr("Back on")}{" "}<span className="font-medium text-foreground">{formatDateHN(addDaysISO(todayHN(), pauseDays))}</span>
             {pauseTarget?.endsOn && (
-              <> · your plan then runs until{" "}
-                <span className="font-medium text-foreground">{formatDateHN(addDaysISO(String(pauseTarget.endsOn).slice(0, 10), pauseDays))}</span>
+              <>{" "}{tr("· your plan then runs until")}{" "}<span className="font-medium text-foreground">{formatDateHN(addDaysISO(String(pauseTarget.endsOn).slice(0, 10), pauseDays))}</span>
               </>
-            )}
-            . You can resume earlier at any time.
-          </p>
+            )}{tr(". You can resume earlier at any time.")}</p>
         </div>
       </ResponsiveDialog>
 
@@ -1998,22 +1961,20 @@ const MySubscriptions = () => {
       <ResponsiveDialog
         open={!!rescheduleBooking}
         onOpenChange={(open) => { if (!open) { setRescheduleBooking(null); setRescheduleSlotId(""); } }}
-        title={<span className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-primary" />Reschedule cleaning</span>}
-        description="Pick a new date and an available time slot. Your cleaning credit and calendar update automatically."
+        title={<span className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-primary" />{tr("Reschedule cleaning")}</span>}
+        description={tr("Pick a new date and an available time slot. Your cleaning credit and calendar update automatically.")}
         footer={
           <Button
             className="w-full"
             disabled={!rescheduleSlotId || rescheduleMutation.isPending}
             onClick={() => rescheduleMutation.mutate()}
           >
-            {rescheduleMutation.isPending && <Spinner size="sm" className="mr-2" />}
-            Confirm reschedule
-          </Button>
+            {rescheduleMutation.isPending && <Spinner size="sm" className="mr-2" />}{tr("Confirm reschedule")}</Button>
         }
       >
         <div className="space-y-4">
           <div>
-            <label className="text-meta font-semibold text-muted-foreground">Date</label>
+            <label className="text-meta font-semibold text-muted-foreground">{tr("Date")}</label>
             <input
               type="date"
               value={rescheduleDate}
@@ -2023,12 +1984,12 @@ const MySubscriptions = () => {
             />
           </div>
           <div>
-            <label className="text-meta font-semibold text-muted-foreground">Available time slots</label>
+            <label className="text-meta font-semibold text-muted-foreground">{tr("Available time slots")}</label>
             {rescheduleSlotsLoading ? (
               <div className="mt-2"><Spinner size="sm" /></div>
             ) : rescheduleSlots.length === 0 ? (
               <p className="mt-2 rounded-radius-md bg-inset px-3 py-4 text-center text-sm text-muted-foreground">
-                {rescheduleDate ? "No open slots on this date." : "Choose a date to see slots."}
+                {rescheduleDate ? tr("No open slots on this date.") : tr("Choose a date to see slots.")}
               </p>
             ) : (
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -2049,7 +2010,7 @@ const MySubscriptions = () => {
                       )}
                     >
                       {fmtTime(slot.start_time)}
-                      {current && <span className="block text-meta font-normal text-muted-foreground">current</span>}
+                      {current && <span className="block text-meta font-normal text-muted-foreground">{tr("current")}</span>}
                     </button>
                   );
                 })}
@@ -2064,12 +2025,8 @@ const MySubscriptions = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-primary" />
-              Pay with Lightning
-            </DialogTitle>
-            <DialogDescription>
-              Scan the QR code or copy the invoice to pay with any Bitcoin Lightning wallet.
-            </DialogDescription>
+              <CreditCard className="h-5 w-5 text-primary" />{tr("Pay with Lightning")}</DialogTitle>
+            <DialogDescription>{tr("Scan the QR code or copy the invoice to pay with any Bitcoin Lightning wallet.")}</DialogDescription>
           </DialogHeader>
           {paymentDialog && (
             <div className="space-y-4">
@@ -2078,7 +2035,7 @@ const MySubscriptions = () => {
               </div>
               <div className="space-y-2 text-center">
                 <p className="text-sm font-semibold text-foreground">
-                  {paymentDialog.plan_name ?? "Cleaning plan"}
+                  {paymentDialog.plan_name ?? tr("Cleaning plan")}
                 </p>
                 <p className="text-meta text-muted-foreground">
                   {paymentDialog.amount_cents != null
@@ -2093,11 +2050,9 @@ const MySubscriptions = () => {
                 className="w-full"
                 onClick={() => {
                   navigator.clipboard.writeText(paymentDialog.payment_request);
-                  toast.success("Invoice copied to clipboard");
+                  toast.success(tr("Invoice copied to clipboard"));
                 }}
-              >
-                Copy invoice
-              </Button>
+              >{tr("Copy invoice")}</Button>
             </div>
           )}
         </DialogContent>

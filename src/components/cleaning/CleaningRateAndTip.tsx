@@ -11,6 +11,7 @@ import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { toast } from "sonner";
 import { publicSiteUrl } from "@/integrations/supabase/config";
+import { tr } from "@/lib/tr";
 
 interface Props {
   /** The subscription this visit belongs to, recorded with the review. */
@@ -41,8 +42,7 @@ export function CleaningRateAndTip({ bookingId, subscriptionId, customerName }: 
   return (
     <div className="mt-3 space-y-3 rounded-radius-md border border-border bg-muted/20 p-3">
       <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-        <Star className="h-4 w-4 text-attention" /> Rate & tip this cleaning
-      </p>
+        <Star className="h-4 w-4 text-attention" />{" "}{tr("Rate & tip this cleaning")}</p>
 
       <RateProviderButton
         service="cleaning_booking"
@@ -55,13 +55,13 @@ export function CleaningRateAndTip({ bookingId, subscriptionId, customerName }: 
 
       {/* Tip */}
       <TipPayment
-        serviceName="Cleaning Tip"
+        serviceName={tr("Cleaning Tip")}
         context="cleaning_tip"
         externalIdPrefix={`cleaning-tip-${bookingId}`}
         adminUrl={`${publicSiteUrl()}/admin/marketplace/subscriptions`}
         customerName={customerName}
         tippedCents={tippedCents}
-        heading="Tip the cleaner"
+        heading={tr("Tip the cleaner")}
         onRecord={async ({ amountCents, method, paymentRef, pending }) => {
           const { error } = await supabaseDb.from("cleaning_tips").insert({
             user_id: userUuid, booking_id: bookingId, customer_name: customerName ?? null,

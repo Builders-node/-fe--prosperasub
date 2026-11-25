@@ -30,6 +30,7 @@ import {
 import { useTabParam } from "@/hooks/useTabParam";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -46,7 +47,7 @@ import { useConfirm } from "@/components/patterns/ConfirmDialog";
 const STAGES = ["pending", "confirmed", "active", "completed", "cancelled"] as const;
 
 
-const day = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), "MMM d") : "—");
+const day = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), "MMM d", { locale: dfLocale }) : "—");
 
 /**
  * Bookings and fleet for car rentals.
@@ -112,10 +113,10 @@ export default function CarRentals({ embedded = false, providerId, section }: {
   const [newSeed, setNewSeed] = useState<NewRentalSeed | null>(null);
   const [termsProvider, setTermsProvider] = useState<string>(providerId ?? "");
   const removeBlock = async (id: string, label: string) => {
-    if (!(await confirm({ title: `Unblock ${label}?`, description: "Customers can book those days again.", confirmLabel: "Unblock", destructive: false }))) return;
+    if (!(await confirm({ title: tr("Unblock {label}?", { label }), description: tr("Customers can book those days again."), confirmLabel: tr("Unblock"), destructive: false }))) return;
     const { error } = await adminApi(`/admin/rentals/blocks/${id}`, { method: "DELETE" });
     if (error) { toast.error(error.message); return; }
-    toast.success("Unblocked");
+    toast.success(tr("Unblocked"));
     void qc.invalidateQueries({ queryKey: [FLEET_KEY] });
   };
   const [search, setSearch] = useState("");
@@ -216,7 +217,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
     if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["admin-rental-vehicles"] });
     void qc.invalidateQueries({ queryKey: [FLEET_KEY] });
-    toast.success(next === "public" ? "Car is listed" : "Car is hidden");
+    toast.success(next === "public" ? tr("Car is listed") : tr("Car is hidden"));
   };
 
   const body = (
@@ -225,9 +226,9 @@ export default function CarRentals({ embedded = false, providerId, section }: {
       <div className="flex items-center justify-between gap-2">
         {!section && <div className="min-w-0"><TabPills
           tabs={[
-            { value: "schedule", label: "Schedule" },
-            { value: "bookings", label: "Bookings" },
-            { value: "fleet", label: "Fleet" },
+            { value: "schedule", label: tr("Schedule") },
+            { value: "bookings", label: tr("Bookings") },
+            { value: "fleet", label: tr("Fleet") },
           ]}
           value={tab}
           onChange={setTab}
@@ -235,19 +236,18 @@ export default function CarRentals({ embedded = false, providerId, section }: {
         {tab !== "fleet" && (
           <>
             {/* Icon-only on a phone, so the three tabs keep their line. */}
-            <Button size="icon" className="ml-auto shrink-0 sm:hidden" aria-label="New booking" onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
+            <Button size="icon" className="ml-auto shrink-0 sm:hidden" aria-label={tr("New booking")} onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
               <Plus />
             </Button>
             <Button className="ml-auto hidden shrink-0 gap-2 sm:inline-flex" onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
-              <Plus className="h-4 w-4" /> New booking
-            </Button>
+              <Plus className="h-4 w-4" />{" "}{tr("New booking")}</Button>
           </>
         )}
       </div>
 
       {tab === "schedule" && (
         fleetQ.isLoading ? <div className="h-64 animate-pulse rounded-radius-lg bg-card" />
-        : fleetQ.isError ? <p className="rounded-radius-lg bg-card p-4 text-body text-negative">Couldn't load the fleet: {(fleetQ.error as Error)?.message}</p>
+        : fleetQ.isError ? <p className="rounded-radius-lg bg-card p-4 text-body text-negative">{trx("Couldn't load the fleet: {message}", { message: (fleetQ.error as Error)?.message })}</p>
         : (
           <>
             <FleetPulse vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks} onOpenBooking={(b) => setOpenBookingId(b.id)} />
@@ -268,8 +268,8 @@ export default function CarRentals({ embedded = false, providerId, section }: {
           {([
             ["vehicles", "Vehicles"],
             ...(providerId ? [] : [["types", "Types"]]),
-            ["terms", "Insurance & extras"],
-            ...(providerId ? [] : [["companies", "Rental companies"]]),
+            ["terms", tr("Insurance & extras")],
+            ...(providerId ? [] : [["companies", tr("Rental companies")]]),
           ] as Array<[FleetPart, string]>).map(([value, label]) => (
             <button key={value} type="button" onClick={() => setPart(value)} aria-pressed={part === value}
               className={cn("h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold transition-colors",
@@ -283,15 +283,15 @@ export default function CarRentals({ embedded = false, providerId, section }: {
       {tab === "fleet" && part === "terms" && (
         <div className="space-y-3">
           {!providerId && (
-            <select value={termsProvider} onChange={(e) => setTermsProvider(e.target.value)} aria-label="Rental company"
+            <select value={termsProvider} onChange={(e) => setTermsProvider(e.target.value)} aria-label={tr("Rental company")}
               className="h-11 w-full max-w-sm rounded-radius-md bg-card px-3 text-body text-foreground">
-              <option value="">Choose a rental company…</option>
+              <option value="">{tr("Choose a rental company…")}</option>
               {(companiesQ.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
           {termsProvider
             ? <RentalTermsTab providerId={termsProvider} canManage />
-            : <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">Each rental company has its own insurance, extras and delivery zones — choose one.</p>}
+            : <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">{tr("Each rental company has its own insurance, extras and delivery zones — choose one.")}</p>}
         </div>
       )}
 
@@ -299,10 +299,10 @@ export default function CarRentals({ embedded = false, providerId, section }: {
         <>
           {/* Money first: what has been collected, and what is still owed. */}
           <div className="grid grid-cols-3 gap-1 md:gap-space-3">
-            <Stat label="Bookings" value={String(filtered.length)} />
-            <Stat label="Collected" value={formatUSD(totals.paidCents)} />
+            <Stat label={tr("Bookings")} value={String(filtered.length)} />
+            <Stat label={tr("Collected")} value={formatUSD(totals.paidCents)} />
             <Stat
-              label={totals.owedCount ? `Unpaid · ${totals.owedCount}` : "Unpaid"}
+              label={totals.owedCount ? tr("Unpaid · {owedCount}", { owedCount: totals.owedCount }) : tr("Unpaid")}
               value={formatUSD(totals.owedCents)}
               tone={totals.owedCents > 0 ? "text-attention" : undefined}
             />
@@ -311,19 +311,19 @@ export default function CarRentals({ embedded = false, providerId, section }: {
           <AdminListShell
             search={search}
             onSearch={setSearch}
-            searchPlaceholder="Search customer, car, phone…"
+            searchPlaceholder={tr("Search customer, car, phone…")}
             filters={
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger inputSize="sm" className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="all">{tr("All statuses")}</SelectItem>
                   {STAGES.map((s) => <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>)}
                 </SelectContent>
               </Select>
             }
             actions={
               <Button variant="secondary" size="sm" className="gap-2" asChild>
-                <Link to={carPath()}><ArrowUpRight className="h-4 w-4" /> Storefront</Link>
+                <Link to={carPath()}><ArrowUpRight className="h-4 w-4" />{" "}{tr("Storefront")}</Link>
               </Button>
             }
             isLoading={bookingsQ.isLoading}
@@ -334,8 +334,8 @@ export default function CarRentals({ embedded = false, providerId, section }: {
             isNoResults={bookings.length > 0 && filtered.length === 0}
             onClearFilters={() => { setSearch(""); setStatus("all"); }}
             count={filtered.length}
-            emptyTitle="No car bookings yet"
-            emptySubtitle="Rentals booked in the car storefront land here."
+            emptyTitle={tr("No car bookings yet")}
+            emptySubtitle={tr("Rentals booked in the car storefront land here.")}
           >
             {/* One compact row per booking; the actions live in its menu so
                 nothing wraps under the card on a phone. */}
@@ -351,8 +351,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
                       <p className="min-w-0 truncate text-title font-semibold text-foreground">{b.customer}</p>
                       <StatusPill status={b.payment_status !== "paid" && b.status !== "cancelled" ? "unpaid" : b.status} className="shrink-0" />
                     </div>
-                    <p className="truncate text-meta text-muted-foreground">
-                      {b.rental_vehicles?.name ?? "Car"} · {day(b.start_date)} → {day(b.end_date)} · {b.rental_days} day{b.rental_days === 1 ? "" : "s"}
+                    <p className="truncate text-meta text-muted-foreground">{b.rental_days === 1 ? trx("{value} · {day} → {day2} · {rental_days} day", { value: b.rental_vehicles?.name ?? tr("Car"), day: day(b.start_date), day2: day(b.end_date), rental_days: b.rental_days }) : trx("{value} · {day} → {day2} · {rental_days} days", { value: b.rental_vehicles?.name ?? tr("Car"), day: day(b.start_date), day2: day(b.end_date), rental_days: b.rental_days })}
                     </p>
                     <p className="truncate text-meta text-muted-foreground">
                       {[b.email, b.customer_whatsapp, b.delivery_address].filter(Boolean).join(" · ") || "—"}
@@ -375,12 +374,11 @@ export default function CarRentals({ embedded = false, providerId, section }: {
           onRetry={() => vehiclesQ.refetch()}
           isEmpty={!vehiclesQ.isLoading && (vehiclesQ.data ?? []).length === 0}
           count={(vehiclesQ.data ?? []).length}
-          emptyTitle="No vehicles yet"
-          emptySubtitle="Add the first one and it appears in the storefront."
+          emptyTitle={tr("No vehicles yet")}
+          emptySubtitle={tr("Add the first one and it appears in the storefront.")}
           actions={
             <Button className="gap-2" onClick={() => setEditing("new")}>
-              <Plus className="h-4 w-4" /> Add vehicle
-            </Button>
+              <Plus className="h-4 w-4" />{" "}{tr("Add vehicle")}</Button>
           }
         >
           {providerId ? (
@@ -399,25 +397,25 @@ export default function CarRentals({ embedded = false, providerId, section }: {
                     <button type="button" onClick={() => setEditing(v)} className="min-w-0 flex-1 text-left">
                       <span className="flex items-center gap-2">
                         <span className="truncate text-title font-semibold text-foreground">{v.name}</span>
-                        {v.status !== "public" && <StatusPill status="private" label="Hidden" />}
+                        {v.status !== "public" && <StatusPill status="private" label={tr("Hidden")} />}
                       </span>
                       <span className="mt-0.5 block truncate text-meta text-muted-foreground">
                         {[typeLabel(v.category_key), `${v.seats} seats`].filter(Boolean).join(" · ")}
                       </span>
                       <span className="mt-1 block text-body font-semibold tabular-nums text-foreground">
-                        {formatUSD(v.daily_price_cents)}<span className="font-normal text-muted-foreground"> / day</span>
+                        {formatUSD(v.daily_price_cents)}<span className="font-normal text-muted-foreground">{" "}{tr("/ day")}</span>
                       </span>
                     </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Actions for ${v.name}`}>
+                        <Button size="icon" variant="ghost" className="shrink-0" aria-label={tr("Actions for {name}", { name: v.name })}>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setEditing(v)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setEditing(v)}><Pencil className="mr-2 h-3.5 w-3.5" />{" "}{tr("Edit")}</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => toggleVehicle(v)}>
-                          {v.status === "public" ? "Hide from the storefront" : "Show in the storefront"}
+                          {v.status === "public" ? tr("Hide from the storefront") : tr("Show in the storefront")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -440,20 +438,20 @@ export default function CarRentals({ embedded = false, providerId, section }: {
                     </span>
                     {/* A car with no business behind it earns nobody anything. */}
                     <span className={cn("block truncate text-meta", v.provider?.name ? "text-muted-foreground" : "font-semibold text-attention")}>
-                      {v.provider?.name ?? "No business assigned"}{v.status !== "public" ? " · hidden" : ""}
+                      {v.provider?.name ?? tr("No business assigned")}{v.status !== "public" ? tr(" · hidden") : ""}
                     </span>
                   </span>
                 </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Actions for ${v.name}`}>
+                    <Button size="icon" variant="ghost" className="shrink-0" aria-label={tr("Actions for {name}", { name: v.name })}>
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setEditing(v)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setEditing(v)}><Pencil className="mr-2 h-3.5 w-3.5" />{" "}{tr("Edit")}</DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => toggleVehicle(v)}>
-                      {v.status === "public" ? "Hide from the storefront" : "Show in the storefront"}
+                      {v.status === "public" ? tr("Hide from the storefront") : tr("Show in the storefront")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -476,8 +474,8 @@ export default function CarRentals({ embedded = false, providerId, section }: {
           onRetry={() => companiesQ.refetch()}
           isEmpty={!companiesQ.isLoading && (companiesQ.data ?? []).length === 0}
           count={(companiesQ.data ?? []).length}
-          emptyTitle="No rental companies yet"
-          emptySubtitle="Approve an application, or add one from Businesses → New business."
+          emptyTitle={tr("No rental companies yet")}
+          emptySubtitle={tr("Approve an application, or add one from Businesses → New business.")}
         >
           <div className="space-y-space-2">
             {(companiesQ.data ?? []).map((c) => (
@@ -494,7 +492,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
                   {/* A business nobody owns cannot be paid, and nobody can open
                       its workspace — worth saying here rather than at payout time. */}
                   <p className={cn("truncate text-xs", c.admin_user_id ? "text-muted-foreground" : "text-attention")}>
-                    {(c.status === "active" || c.status === "approved" ? "Live" : c.status === "inactive" ? "Hidden" : "Draft") + (c.admin_user_id ? "" : " · no owner")}
+                    {(c.status === "active" || c.status === "approved" ? "Live" : c.status === "inactive" ? "Hidden" : "Draft") + (c.admin_user_id ? "" : tr(" · no owner"))}
                   </p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -528,7 +526,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Vehicles" subtitle="Which car is free when, the bookings, and the fleet itself">
+    <SuperAdminLayout title={tr("Vehicles")} subtitle={tr("Which car is free when, the bookings, and the fleet itself")}>
       {body}
     </SuperAdminLayout>
   );

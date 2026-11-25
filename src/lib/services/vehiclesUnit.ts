@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * Vehicles — a unit of its own, and ONE word for it.
  *
@@ -29,7 +30,7 @@ export const VEHICLES_UNIT = "vehicles";
 export const MARKETPLACE_UNIT = "marketplace";
 
 /** The word on every surface: tab, sidebar, header, crumb, heading. */
-export const VEHICLES_LABEL = "Vehicles";
+export const VEHICLES_LABEL = tr("Vehicles");
 
 /** Where the unit's own storefront lives. */
 export const VEHICLES_STOREFRONT = "/vehicles";

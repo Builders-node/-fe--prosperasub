@@ -9,6 +9,7 @@ import { useMyRestaurants, type MyRestaurant } from "@/hooks/useMyRestaurants";
 import type { MyProviderRow } from "@/hooks/useMyProviders";
 import { useMyProviders } from "@/hooks/useMyProviders";
 import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
+import { tr } from "@/lib/tr";
 
 // Identity/bridge lives in one place — re-exported here so portal code has a
 // single import surface. See lib/services/providerBridge.ts for the id-space docs.
@@ -66,10 +67,8 @@ function useAdminLegacyRow<T>(table: string, legacyId: string, enabled: boolean)
 function AccessRevokedPanel() {
   return (
     <div className="rounded-radius-lg bg-card p-8 text-center">
-      <p className="font-semibold text-foreground">Access to this workspace was removed</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        The owner may have revoked your manager role. Refresh or head back to My business.
-      </p>
+      <p className="font-semibold text-foreground">{tr("Access to this workspace was removed")}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{tr("The owner may have revoked your manager role. Refresh or head back to My business.")}</p>
     </div>
   );
 }

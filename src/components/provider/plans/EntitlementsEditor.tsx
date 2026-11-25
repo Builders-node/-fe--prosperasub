@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PLAN_PERIODS, type PlanPeriod } from "@/lib/services/planPeriod";
 import { ACCESS_UNIT, type Entitlement } from "@/lib/plans/entitlements";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Everything else the plan includes.
@@ -29,26 +30,22 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <Label>Also includes</Label>
+        <Label>{tr("Also includes")}</Label>
         <Button
           type="button" size="sm" variant="secondary" className="gap-1"
           onClick={() => onChange([...value, { unit: "", quantity: null, period: null, resourceIds: [] }])}
         >
-          <Plus className="h-3.5 w-3.5" /> Add
-        </Button>
+          <Plus className="h-3.5 w-3.5" />{" "}{tr("Add")}</Button>
       </div>
 
       {value.length === 0 ? (
-        <p className="mt-1.5 text-[14px] leading-[18px] text-muted-foreground">
-          Nothing beyond what's above. Add a line to bundle something else into
-          this plan — court hours, a deep clean, a session.
-        </p>
+        <p className="mt-1.5 text-[14px] leading-[18px] text-muted-foreground">{tr("Nothing beyond what's above. Add a line to bundle something else into this plan — court hours, a deep clean, a session.")}</p>
       ) : (
         <div className="mt-2 space-y-2">
           {value.map((e, i) => (
             <div key={i} className="flex items-end gap-2">
               <div className="w-24">
-                <span className="text-[14px] text-muted-foreground">How many</span>
+                <span className="text-[14px] text-muted-foreground">{tr("How many")}</span>
                 <Input
                   type="number" min={1} inputMode="numeric" placeholder="∞"
                   value={e.quantity ?? ""}
@@ -59,38 +56,34 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
                 />
               </div>
               <div className="flex-1">
-                <span className="text-[14px] text-muted-foreground">Of what</span>
+                <span className="text-[14px] text-muted-foreground">{tr("Of what")}</span>
                 <Input
                   value={e.unit}
                   onChange={(ev) => patch(i, { unit: ev.target.value })}
-                  placeholder="hour, deep clean, session"
+                  placeholder={tr("hour, deep clean, session")}
                 />
               </div>
               <div className="w-32">
-                <span className="text-[14px] text-muted-foreground">How often</span>
+                <span className="text-[14px] text-muted-foreground">{tr("How often")}</span>
                 <select
                   className={fieldClass}
                   value={e.period ?? ""}
                   onChange={(ev) => patch(i, { period: (ev.target.value || null) as PlanPeriod | null })}
                 >
-                  <option value="">Same as plan</option>
+                  <option value="">{tr("Same as plan")}</option>
                   {PLAN_PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <Button
                 type="button" size="icon" variant="ghost" className="shrink-0"
-                aria-label="Remove line"
+                aria-label={tr("Remove line")}
                 onClick={() => onChange(value.filter((_, idx) => idx !== i))}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>
           ))}
-          <p className="text-[14px] leading-[18px] text-muted-foreground">
-            Empty count = unlimited. Use <code className="font-mono">{ACCESS_UNIT}</code> as
-            the unit for plain entry with nothing to count. Lines refresh every{" "}
-            {planPeriod.replace("ly", "")} unless you say otherwise.
-          </p>
+          <p className="text-[14px] leading-[18px] text-muted-foreground">{tr("Empty count = unlimited. Use")}{" "}<code className="font-mono">{ACCESS_UNIT}</code>{" "}{trx("as the unit for plain entry with nothing to count. Lines refresh every {replace} unless you say otherwise.", { replace: planPeriod.replace("ly", "") })}</p>
         </div>
       )}
     </div>

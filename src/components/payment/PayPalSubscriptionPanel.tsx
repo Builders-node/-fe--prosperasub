@@ -3,6 +3,7 @@ import { AlertCircle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { accountApi } from "@/integrations/supabase/client";
 import { apiUrlFor } from "@/integrations/supabase/config";
+import { tr } from "@/lib/tr";
 
 /**
  * PayPal with automatic renewal (PayPal Subscriptions).
@@ -31,7 +32,7 @@ function loadSdk(clientId: string): Promise<void> {
     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription&currency=USD`;
     s.setAttribute("data-namespace", "paypalSubscriptions");
     s.onload = () => resolve();
-    s.onerror = () => { sdkPromise = null; reject(new Error("Failed to load PayPal SDK")); };
+    s.onerror = () => { sdkPromise = null; reject(new Error(tr("Failed to load PayPal SDK"))); };
     document.head.appendChild(s);
   });
   sdkPromise = { clientId, p };
@@ -70,14 +71,14 @@ export function PayPalSubscriptionPanel({ getRowId, service, onPaid }: Props) {
             createSubscription: async () => {
               setMessage(null);
               const rowId = rowRef.current();
-              if (!rowId) throw new Error("Checkout is not ready yet — try again in a second.");
+              if (!rowId) throw new Error(tr("Checkout is not ready yet — try again in a second."));
               const { data, error } = await accountApi("/payments/paypal/subscriptions", {
                 method: "POST",
                 body: JSON.stringify({ row_id: rowId, service }),
               });
               if (error || !data?.id) {
-                setMessage(error?.message || "Could not start PayPal.");
-                throw error || new Error("no subscription id");
+                setMessage(error?.message || tr("Could not start PayPal."));
+                throw error || new Error(tr("no subscription id"));
               }
               return data.id as string;
             },
@@ -92,11 +93,11 @@ export function PayPalSubscriptionPanel({ getRowId, service, onPaid }: Props) {
                 if (r?.paid) { onPaidRef.current(data.subscriptionID); return; }
                 await new Promise((res) => setTimeout(res, 2000));
               }
-              setMessage("PayPal has your approval and is finishing the first payment. Your membership switches on as soon as it lands — check My subscriptions in a minute.");
+              setMessage(tr("PayPal has your approval and is finishing the first payment. Your membership switches on as soon as it lands — check My subscriptions in a minute."));
             },
             onError: (err: unknown) => {
               console.error("PayPal subscription error:", err);
-              setMessage((m) => m ?? "PayPal could not complete this. Please try again or use another method.");
+              setMessage((m) => m ?? tr("PayPal could not complete this. Please try again or use another method."));
             },
           })
           .render(ref.current);
@@ -109,15 +110,15 @@ export function PayPalSubscriptionPanel({ getRowId, service, onPaid }: Props) {
     return () => { cancelled = true; };
   }, []);
 
-  if (status === "unconfigured") return <Notice>PayPal is not configured yet. Please use another method.</Notice>;
-  if (status === "error") return <Notice>PayPal is unavailable right now. Please use another method.</Notice>;
+  if (status === "unconfigured") return <Notice>{tr("PayPal is not configured yet. Please use another method.")}</Notice>;
+  if (status === "error") return <Notice>{tr("PayPal is unavailable right now. Please use another method.")}</Notice>;
 
   return (
     <div className="space-y-3">
       {(status === "loading" || status === "settling") && (
         <div className="flex items-center justify-center gap-2 p-4 text-sm text-muted-foreground">
           <Spinner size="md" className="text-[#0070ba]" />
-          {status === "settling" && <span>Confirming your first payment…</span>}
+          {status === "settling" && <span>{tr("Confirming your first payment…")}</span>}
         </div>
       )}
       {message && <Notice>{message}</Notice>}

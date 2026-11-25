@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * Where on the island — search a place by name, and name a point.
  *
@@ -33,7 +34,7 @@ interface PhotonFeature {
 
 function describe(p: PhotonFeature["properties"]): { title: string; subtitle: string } {
   const street = [p.street, p.housenumber].filter(Boolean).join(" ");
-  const title = p.name || street || p.district || p.city || "Dropped pin";
+  const title = p.name || street || p.district || p.city || tr("Dropped pin");
   const subtitle = [p.name ? street : null, p.district, p.city ?? p.county, p.state]
     .filter((x, i, a) => x && x !== title && a.indexOf(x) === i)
     .join(", ");

@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 export type VehicleStatus = "public" | "private" | "archived";
 export type Transmission = "automatic" | "manual";
 export type FuelType = "gasoline" | "diesel" | "electric" | "hybrid";
@@ -135,14 +136,14 @@ export function rentalDaysBetween(startISO: string, endISO: string): number {
 }
 
 export const QUICK_DURATIONS = [
-  { label: "1 Day", days: 1 },
-  { label: "3 Days", days: 3 },
-  { label: "1 Week", days: 7 },
-  { label: "1 Month", days: 30 },
+  { label: tr("1 Day"), days: 1 },
+  { label: tr("3 Days"), days: 3 },
+  { label: tr("1 Week"), days: 7 },
+  { label: tr("1 Month"), days: 30 },
 ] as const;
 
 export const FUEL_LABEL: Record<FuelType, string> = {
-  gasoline: "Gasoline", diesel: "Diesel", electric: "Electric", hybrid: "Hybrid",
+  gasoline: tr("Gasoline"), diesel: tr("Diesel"), electric: tr("Electric"), hybrid: tr("Hybrid"),
 };
 
 // ── Booking add-ons (Atlantis price sheet) ──────────────────────────────────

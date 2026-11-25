@@ -35,6 +35,7 @@ import { useOfferFacts } from "@/lib/services/serviceAreas";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { tagIcon, useTagDictionary } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * The listing for a service that has no bespoke page of its own.
@@ -261,8 +262,7 @@ const ServicePage = () => {
   });
   const hiddenNotice = isFiltering && hiddenHere > 0 ? (
     <p className="text-[14px] text-muted-foreground">
-      {hiddenHere} {hiddenHere === 1 ? "plan isn't" : "plans aren't"} available in {residence}
-    </p>
+      {hiddenHere === 1 ? trx("{n} plan isn't available in {residence}", { n: hiddenHere, residence }) : trx("{n} plans aren't available in {residence}", { n: hiddenHere, residence })}</p>
   ) : null;
 
   const search = useListingSearch(visiblePlans, {
@@ -314,12 +314,12 @@ const ServicePage = () => {
   if (!archetype) {
     return (
       <BrowseLayout>
-        <HomeHeader title="Not found" showBackButton onBack={goBack} />
+        <HomeHeader title={tr("Not found")} showBackButton onBack={goBack} />
         <main className="app-container py-space-8">
           <YdEmptyState
             icon={SearchX}
-            title="No such service"
-            subtitle="This service isn't on the platform. Browse what is."
+            title={tr("No such service")}
+            subtitle={tr("This service isn't on the platform. Browse what is.")}
           />
         </main>
       </BrowseLayout>
@@ -340,7 +340,7 @@ const ServicePage = () => {
 
   return (
     <BrowseLayout beforeFooter={seoCopy ? (
-      <div className="app-container pb-space-6"><ServiceFaq faq={seoCopy.faq} title={seoLang === "es" ? "Preguntas frecuentes" : undefined} /></div>
+      <div className="app-container pb-space-6"><ServiceFaq faq={seoCopy.faq} title={seoLang === "es" ? tr("Preguntas frecuentes") : undefined} /></div>
     ) : undefined}>
       {/* The archetype's own label — the same word the tile used and the same
           one the admin typed. */}
@@ -349,7 +349,7 @@ const ServicePage = () => {
         onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
-        placeholder={`Search ${archetype.label}`}
+        placeholder={tr("Search {label}", { label: archetype.label })}
         sort={search.sort}
         onSortChange={search.setSort}
         sorts={search.availableSorts}
@@ -381,15 +381,15 @@ const ServicePage = () => {
         notice={hiddenNotice}
         empty={plansQ.isError ? (
           <QueryError
-            title="Couldn't load plans"
+            title={tr("Couldn't load plans")}
             error={plansQ.error instanceof Error ? plansQ.error.message : undefined}
             onRetry={() => plansQ.refetch()}
             retrying={plansQ.isFetching}
           />
         ) : (visiblePlans.length === 0 ? (
           isFiltering && hiddenHere > 0
-            ? <YdEmptyState icon={Icon} title={`Nothing in ${residence} yet`} subtitle="Try another location or check back soon." />
-            : <YdEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+            ? <YdEmptyState icon={Icon} title={tr("Nothing in {residence} yet", { residence })} subtitle={tr("Try another location or check back soon.")} />
+            : <YdEmptyState icon={Icon} title={tr("No plans yet")} subtitle={tr("We're setting things up. Check back soon.")} />
         ) : undefined)}
       />
 
@@ -402,7 +402,7 @@ const ServicePage = () => {
           </div>
         ) : providersQ.isError ? (
           <QueryError
-            title="Couldn't load businesses"
+            title={tr("Couldn't load businesses")}
             error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
             onRetry={() => providersQ.refetch()}
             retrying={providersQ.isFetching}
@@ -410,20 +410,20 @@ const ServicePage = () => {
         ) : providerGroups.length === 0 ? (
           <YdEmptyState
             icon={Icon}
-            title="No businesses yet"
-            subtitle="We're setting things up. Check back soon."
+            title={tr("No businesses yet")}
+            subtitle={tr("We're setting things up. Check back soon.")}
           />
         ) : (
           <div className="space-y-4">
             {chips.length > 1 && (
               <CategoryChips categories={chips} value={activeCategory} onChange={setActiveCategory} />
             )}
-            <ProviderRail providers={rail} icon={Icon!} label="Businesses" onOpen={openProvider} />
+            <ProviderRail providers={rail} icon={Icon!} label={tr("Businesses")} onOpen={openProvider} />
           </div>
         )}
 
         <section id="plans" className="mt-space-6 scroll-mt-4">
-          <YdSectionHeading title="Plans" count={plansQ.isLoading || plansQ.isError ? null : search.results.length} />
+          <YdSectionHeading title={tr("Plans")} count={plansQ.isLoading || plansQ.isError ? null : search.results.length} />
           {tagGroups.length > 0 && (
             <div className="-mx-space-4 mb-3 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {tagChips(tagGroups.flatMap((g) => g.tags), "sm")}
@@ -432,9 +432,7 @@ const ServicePage = () => {
                   type="button"
                   onClick={() => setParams((prev) => { const out = new URLSearchParams(prev); out.delete("tags"); return out; }, { replace: true })}
                   className="inline-flex h-8 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Clear
-                </button>
+                >{tr("Clear")}</button>
               )}
             </div>
           )}
@@ -446,7 +444,7 @@ const ServicePage = () => {
             </div>
           ) : plansQ.isError ? (
             <QueryError
-              title="Couldn't load plans"
+              title={tr("Couldn't load plans")}
               error={plansQ.error instanceof Error ? plansQ.error.message : undefined}
               onRetry={() => plansQ.refetch()}
               retrying={plansQ.isFetching}
@@ -454,7 +452,7 @@ const ServicePage = () => {
           ) : visiblePlans.length > 0 ? (
             <>
               {search.results.length === 0 ? (
-                <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
+                <YdEmptyState icon={SearchX} title={tr("No plans match")} subtitle={tr("Try a different word, or clear the search.")} />
               ) : (
                 <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3">
                   {ordered.map((plan: any) => (
@@ -462,7 +460,7 @@ const ServicePage = () => {
                       key={plan.id}
                       plan={plan}
                       featured={!!promotionOf(plan)}
-                      featuredLabel="Featured"
+                      featuredLabel={tr("Featured")}
                       tags={dict.labelsOf(tagsOf(plan), 2)}
                       rating={ratings[plan.provider_id]}
                       photos={providerMedia[plan.provider_id]}
@@ -475,8 +473,8 @@ const ServicePage = () => {
           ) : (
             <YdEmptyState
               icon={Icon}
-              title="No plans yet"
-              subtitle="We're setting things up. Check back soon."
+              title={tr("No plans yet")}
+              subtitle={tr("We're setting things up. Check back soon.")}
             />
           )}
         </section>

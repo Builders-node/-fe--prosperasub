@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { PROVIDER_ITEMS_KEY, useProviderItems, type ProviderItem } from "@/lib/services/providerItems";
+import { tr } from "@/lib/tr";
 
 /**
  * What this business delivers within a day, in its own words.
@@ -72,7 +73,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
 
       const seen = new Set<string>();
       for (const r of rows) {
-        if (seen.has(r.key)) throw new Error(`Two of these come out as "${r.key}" — give one a different name.`);
+        if (seen.has(r.key)) throw new Error(tr("Two of these come out as \"{key}\" — give one a different name.", { key: r.key }));
         seen.add(r.key);
       }
 
@@ -97,10 +98,10 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
       }
     },
     onSuccess: () => {
-      toast.success("Saved");
+      toast.success(tr("Saved"));
       qc.invalidateQueries({ queryKey: PROVIDER_ITEMS_KEY(providerId) });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
 
   const patch = (i: number, next: Partial<Draft>) =>
@@ -109,11 +110,8 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
   return (
     <section className="space-y-4 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div>
-        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">The day</h2>
-        <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
-          What you deliver within a day, in order. Customers pick from this list, your day's work is
-          titled with it, and deliveries are scheduled for it.
-        </p>
+        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">{tr("The day")}</h2>
+        <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">{tr("What you deliver within a day, in order. Customers pick from this list, your day's work is titled with it, and deliveries are scheduled for it.")}</p>
       </div>
 
       {isLoading ? (
@@ -123,16 +121,16 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
           {drafts.map((d, i) => (
             <div key={d.isNew ? `new-${i}` : d.key} className="flex flex-wrap items-end gap-2 rounded-radius-md bg-inset p-3">
               <div className="min-w-[10rem] flex-1">
-                <span className="text-[14px] text-muted-foreground">Name</span>
+                <span className="text-[14px] text-muted-foreground">{tr("Name")}</span>
                 <Input
                   inputSize="sm" className="mt-1"
                   value={d.label}
-                  placeholder="Brunch"
+                  placeholder={tr("Brunch")}
                   onChange={(e) => patch(i, { label: e.target.value })}
                 />
               </div>
               <div className="w-32">
-                <span className="text-[14px] text-muted-foreground">Usually at</span>
+                <span className="text-[14px] text-muted-foreground">{tr("Usually at")}</span>
                 <Input
                   type="time"
                   inputSize="sm" className="mt-1"
@@ -141,7 +139,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
                 />
               </div>
               <div className="w-28">
-                <span className="text-[14px] text-muted-foreground">Key</span>
+                <span className="text-[14px] text-muted-foreground">{tr("Key")}</span>
                 <p className="mt-1 flex h-9 items-center truncate text-[14px] text-muted-foreground">
                   {d.isNew ? keyFrom(d.label) || "—" : d.key}
                 </p>
@@ -149,7 +147,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
               <Button
                 variant="ghost" size="icon"
                 className="text-muted-foreground hover:text-destructive"
-                aria-label={`Remove ${d.label || "item"}`}
+                aria-label={tr("Remove {value}", { value: d.label || "item" })}
                 onClick={() => setDrafts((rows) => rows.filter((_, idx) => idx !== i))}
               >
                 <Trash2 className="h-4 w-4" />
@@ -158,10 +156,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
           ))}
 
           {drafts.length === 0 && (
-            <p className="rounded-radius-md bg-inset p-4 text-[16px] leading-[22px] text-muted-foreground">
-              Nothing yet — this business falls back to Breakfast, Lunch and Dinner. Add a row to say
-              what your day actually looks like.
-            </p>
+            <p className="rounded-radius-md bg-inset p-4 text-[16px] leading-[22px] text-muted-foreground">{tr("Nothing yet — this business falls back to Breakfast, Lunch and Dinner. Add a row to say what your day actually looks like.")}</p>
           )}
         </div>
       )}
@@ -171,14 +166,13 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
           variant="secondary" size="sm" className="gap-1.5"
           onClick={() => setDrafts((d) => [...d, { key: "", label: "", time: "", isNew: true }])}
         >
-          <Plus className="h-3.5 w-3.5" /> Add
-        </Button>
+          <Plus className="h-3.5 w-3.5" />{" "}{tr("Add")}</Button>
         <Button
           size="sm"
           disabled={save.isPending}
           onClick={() => save.mutate()}
         >
-          {save.isPending ? "Saving…" : "Save the day"}
+          {save.isPending ? tr("Saving…") : tr("Save the day")}
         </Button>
       </div>
     </section>

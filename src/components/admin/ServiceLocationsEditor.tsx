@@ -5,6 +5,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 import { useResidences } from "@/hooks/useResidences";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 interface Props {
   /** Join table name, e.g. "rental_vehicle_residences". */
@@ -25,8 +26,8 @@ interface Props {
  */
 export function ServiceLocationsEditor({
   table, itemColumn, itemId,
-  title = "Service locations",
-  description = "Pick where this is available. Leave empty to offer it everywhere.",
+  title = tr("Service locations"),
+  description = tr("Pick where this is available. Leave empty to offer it everywhere."),
 }: Props) {
   const qc = useQueryClient();
   const { data: residences = [], isLoading: resLoading } = useResidences();
@@ -60,7 +61,7 @@ export function ServiceLocationsEditor({
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
-    onError: (e: any) => toast.error(e?.message || "Could not update"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not update")),
     onSettled: () => setPendingId(null),
   });
 
@@ -92,7 +93,7 @@ export function ServiceLocationsEditor({
             })}
           </div>
           <p className="mt-1.5 text-xs text-muted-foreground">
-            {links.length === 0 ? "Available everywhere" : `Limited to ${links.length} location${links.length > 1 ? "s" : ""}`}
+            {links.length === 0 ? tr("Available everywhere") : (links.length > 1 ? tr("Limited to {length} locations", { length: links.length }) : tr("Limited to {length} location", { length: links.length }))}
           </p>
         </>
       )}

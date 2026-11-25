@@ -17,6 +17,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 import { useVehicleTypes } from "../hooks/useVehicleTypes";
 import type { RentalVehicle } from "../types/carRental";
+import { tr } from "@/lib/tr";
 
 /**
  * Add or edit one car.
@@ -119,8 +120,8 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
   const set = (patch: Partial<RentalVehicle>) => setEditing((e) => ({ ...(e ?? {}), ...patch }));
 
   const save = async () => {
-    if (!editing?.name?.trim()) { toast.error("Name is required."); return; }
-    if (!editing.provider_id) { toast.error("Pick the business this car belongs to."); return; }
+    if (!editing?.name?.trim()) { toast.error(tr("Name is required.")); return; }
+    if (!editing.provider_id) { toast.error(tr("Pick the business this car belongs to.")); return; }
     setSaving(true);
     try {
       const row = {
@@ -138,7 +139,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
         ? await fleetWrite("rental_vehicles", "update", { id: editing.id, row })
         : await fleetWrite("rental_vehicles", "insert", { row });
       if (res.error) throw res.error;
-      toast.success(editing.id ? "Vehicle updated" : "Vehicle added");
+      toast.success(editing.id ? tr("Vehicle updated") : tr("Vehicle added"));
       onSaved();
       onClose();
     } catch (e) {
@@ -151,35 +152,33 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
   return (
     <Dialog open={!!vehicle} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-lg" blocks={false}>
-        <DialogHeader><DialogTitle>{editing?.id ? "Edit vehicle" : "Add vehicle"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{editing?.id ? tr("Edit vehicle") : tr("Add vehicle")}</DialogTitle></DialogHeader>
         {editing && (
           <>
             {/* Who rents it out, and what kind of thing it is. */}
-            <DialogBlock title="The car">
+            <DialogBlock title={tr("The car")}>
               {!lockedProviderId && (
                 <div className="space-y-1.5">
-                  <Label>Business</Label>
+                  <Label>{tr("Business")}</Label>
                   <Select value={editing.provider_id ?? undefined} onValueChange={(v) => set({ provider_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Who rents this car out?" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tr("Who rents this car out?")} /></SelectTrigger>
                     <SelectContent>
                       {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {providersError ? (
-                    <button type="button" onClick={() => void refetchProviders()} className="text-meta font-semibold text-negative underline">
-                      Couldn't load the businesses — retry
-                    </button>
+                    <button type="button" onClick={() => void refetchProviders()} className="text-meta font-semibold text-negative underline">{tr("Couldn't load the businesses — retry")}</button>
                   ) : (
-                    <p className="text-meta text-muted-foreground">Its earnings and payouts are counted for this business.</p>
+                    <p className="text-meta text-muted-foreground">{tr("Its earnings and payouts are counted for this business.")}</p>
                   )}
                 </div>
               )}
-              <Input label="Name" value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" />
+              <Input label={tr("Name")} value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder={tr("Toyota Hilux 2024")} />
               {types.length > 0 && (
                 <div className="space-y-1.5">
-                  <Label>Type</Label>
+                  <Label>{tr("Type")}</Label>
                   <Select value={editing.category_key ?? undefined} onValueChange={(v) => set({ category_key: v })}>
-                    <SelectTrigger><SelectValue placeholder="Car, motorbike…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tr("Car, motorbike…")} /></SelectTrigger>
                     <SelectContent>
                       {types.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
                     </SelectContent>
@@ -187,72 +186,70 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
                 </div>
               )}
               <div className="grid grid-cols-3 gap-2">
-                <Input label="Brand" value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} />
-                <Input label="Model" value={editing.model ?? ""} onChange={(e) => set({ model: e.target.value })} />
-                <Input label="Year" type="number" value={editing.year ?? 2024} onChange={(e) => set({ year: parseInt(e.target.value || "2024", 10) })} />
+                <Input label={tr("Brand")} value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} />
+                <Input label={tr("Model")} value={editing.model ?? ""} onChange={(e) => set({ model: e.target.value })} />
+                <Input label={tr("Year")} type="number" value={editing.year ?? 2024} onChange={(e) => set({ year: parseInt(e.target.value || "2024", 10) })} />
               </div>
             </DialogBlock>
 
-            <DialogBlock title="What it has">
+            <DialogBlock title={tr("What it has")}>
               <div className="grid grid-cols-2 gap-2">
-                <Input label="Seats" type="number" value={editing.seats ?? 5} onChange={(e) => set({ seats: parseInt(e.target.value || "5", 10) })} />
-                <Input label="Bags" type="number" value={editing.luggage_capacity ?? 2} onChange={(e) => set({ luggage_capacity: parseInt(e.target.value || "2", 10) })} />
+                <Input label={tr("Seats")} type="number" value={editing.seats ?? 5} onChange={(e) => set({ seats: parseInt(e.target.value || "5", 10) })} />
+                <Input label={tr("Bags")} type="number" value={editing.luggage_capacity ?? 2} onChange={(e) => set({ luggage_capacity: parseInt(e.target.value || "2", 10) })} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
-                  <Label>Gearbox</Label>
+                  <Label>{tr("Gearbox")}</Label>
                   <Select value={editing.transmission} onValueChange={(v) => set({ transmission: v as RentalVehicle["transmission"] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="automatic">Automatic</SelectItem><SelectItem value="manual">Manual</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="automatic">{tr("Automatic")}</SelectItem><SelectItem value="manual">{tr("Manual")}</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Fuel</Label>
+                  <Label>{tr("Fuel")}</Label>
                   <Select value={editing.fuel_type} onValueChange={(v) => set({ fuel_type: v as RentalVehicle["fuel_type"] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gasoline">Gasoline</SelectItem><SelectItem value="diesel">Diesel</SelectItem>
-                      <SelectItem value="electric">Electric</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem>
+                      <SelectItem value="gasoline">{tr("Gasoline")}</SelectItem><SelectItem value="diesel">{tr("Diesel")}</SelectItem>
+                      <SelectItem value="electric">{tr("Electric")}</SelectItem><SelectItem value="hybrid">{tr("Hybrid")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <label className="flex items-center justify-between gap-3">
-                <span className="text-body text-foreground">Air conditioning</span>
+                <span className="text-body text-foreground">{tr("Air conditioning")}</span>
                 <Switch checked={editing.air_conditioning ?? true} onCheckedChange={(on) => set({ air_conditioning: on })} />
               </label>
             </DialogBlock>
 
             {/* A week or a month is a cap, never a surcharge. */}
-            <DialogBlock title="Prices">
+            <DialogBlock title={tr("Prices")}>
               <div className="grid grid-cols-3 gap-2">
-                <Input label="Per day" type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
+                <Input label={tr("Per day")} type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
                   value={dollars(editing.daily_price_cents)} onChange={(e) => set({ daily_price_cents: cents(e.target.value) })} />
-                <Input label="Per week" type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
+                <Input label={tr("Per week")} type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
                   value={dollars(editing.weekly_price_cents)} onChange={(e) => set({ weekly_price_cents: cents(e.target.value) })} />
-                <Input label="Per month" type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
+                <Input label={tr("Per month")} type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
                   value={dollars(editing.monthly_price_cents)} onChange={(e) => set({ monthly_price_cents: cents(e.target.value) })} />
               </div>
-              <p className="text-meta text-muted-foreground">
-                Week and month are caps: leave 0 to charge the daily rate. A week is never charged more than 7 days.
-              </p>
+              <p className="text-meta text-muted-foreground">{tr("Week and month are caps: leave 0 to charge the daily rate. A week is never charged more than 7 days.")}</p>
             </DialogBlock>
 
-            <DialogBlock title="Photos">
+            <DialogBlock title={tr("Photos")}>
               {/* The first photo is the one on every card. */}
               <GalleryField
-                label="Photos"
+                label={tr("Photos")}
                 pathPrefix="vehicles"
                 value={[editing.image_url, ...(editing.gallery_urls ?? [])].filter(Boolean) as string[]}
                 onChange={(urls: string[]) => set({ image_url: urls[0] ?? null, gallery_urls: urls.slice(1) })}
               />
-              <Textarea label="Description" rows={3} value={editing.description ?? ""} onChange={(e) => set({ description: e.target.value })}
-                placeholder="What it's good for, what's included…" />
+              <Textarea label={tr("Description")} rows={3} value={editing.description ?? ""} onChange={(e) => set({ description: e.target.value })}
+                placeholder={tr("What it's good for, what's included…")} />
             </DialogBlock>
 
-            <DialogBlock title="Availability">
+            <DialogBlock title={tr("Availability")}>
               <div className="flex rounded-full bg-inset p-1">
-                {([["public", "In the storefront"], ["private", "Hidden"], ["archived", "Retired"]] as const).map(([val, lbl]) => (
+                {([["public", tr("In the storefront")], ["private", "Hidden"], ["archived", "Retired"]] as const).map(([val, lbl]) => (
                   <button key={val} type="button" onClick={() => set({ status: val as RentalVehicle["status"] })}
                     className={cn("h-9 flex-1 rounded-full text-body font-semibold transition-colors",
                       editing.status === val ? "bg-foreground text-background" : "text-muted-foreground")}>
@@ -264,8 +261,8 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
           </>
         )}
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} loading={saving}>Save</Button>
+          <Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button onClick={save} loading={saving}>{tr("Save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { differenceInCalendarDays, eachDayOfInterval, format, startOfToday } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { fetchHeldRanges, overlapsHeld, type HeldRange } from "../lib/availability";
+import { tr } from "@/lib/tr";
 
 export const toISO = (d: Date) => format(d, "yyyy-MM-dd");
 
@@ -46,11 +47,11 @@ export function DateRangePicker({
   const handleSelect = (r: DateRange | undefined) => {
     if (r?.from && r?.to) {
       if (differenceInCalendarDays(r.to, r.from) + 1 > maxDays) {
-        toast.error(`Bookings are limited to ${maxDays} days.`);
+        toast.error(tr("Bookings are limited to {maxDays} days.", { maxDays }));
         return;
       }
       if (overlaps(r.from, r.to)) {
-        toast.error("This car is already booked for part of that period.");
+        toast.error(tr("This car is already booked for part of that period."));
         onChange({ from: r.from, to: undefined });
         return;
       }

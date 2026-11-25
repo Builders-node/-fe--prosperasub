@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * Turning "Cannot POST /admin/orders/…" into a sentence.
  *
@@ -12,7 +13,7 @@
 export function adminApiMessage(error: unknown, fallback: string): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
   if (/^Cannot (POST|GET|PATCH|PUT|DELETE) /i.test(raw) || /\bNot Found\b/i.test(raw)) {
-    return "The server does not have this yet — it needs deploying. Nothing was changed.";
+    return tr("The server does not have this yet — it needs deploying. Nothing was changed.");
   }
   return raw || fallback;
 }

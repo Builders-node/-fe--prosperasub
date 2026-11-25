@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { NotificationFilter } from "@/lib/notifications/present";
 import { cn } from "@/lib/utils";
 import { FilterPills, NotificationList, useNotificationFeed } from "./NotificationFeed";
+import { tr } from "@/lib/tr";
 
 /** How many stories the panel shows before "See all". */
 const PANEL_LIMIT = 8;
@@ -54,7 +55,7 @@ function Panel({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
-        <h2 className="text-heading font-bold text-foreground">Notifications</h2>
+        <h2 className="text-heading font-bold text-foreground">{tr("Notifications")}</h2>
         {feed.unreadCount > 0 && (
           <button
             type="button"
@@ -62,8 +63,7 @@ function Panel({ onClose }: { onClose: () => void }) {
             disabled={feed.markAllRead.isPending}
             className="-mr-2 inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-inset hover:text-foreground disabled:opacity-50"
           >
-            <CheckCheck className="h-4 w-4" /> Mark all read
-          </button>
+            <CheckCheck className="h-4 w-4" />{" "}{tr("Mark all read")}</button>
         )}
       </div>
       <div className="px-4 pb-3">
@@ -74,14 +74,12 @@ function Panel({ onClose }: { onClose: () => void }) {
         {feed.isLoading ? (
           <div className="flex justify-center py-10"><Spinner className="text-primary" /></div>
         ) : feed.isError ? (
-          <p className="px-3 py-8 text-center text-[14px] text-muted-foreground">
-            Couldn't load notifications.{" "}
-            <button type="button" className="font-semibold text-foreground underline" onClick={() => feed.refetch()}>Retry</button>
+          <p className="px-3 py-8 text-center text-[14px] text-muted-foreground">{tr("Couldn't load notifications.")}{" "}<button type="button" className="font-semibold text-foreground underline" onClick={() => feed.refetch()}>{tr("Retry")}</button>
           </p>
         ) : feed.groups.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-inset text-muted-foreground"><Bell className="h-6 w-6" /></span>
-            <p className="text-title font-semibold text-foreground">{filter === "unread" ? "You're all caught up" : "No notifications yet"}</p>
+            <p className="text-title font-semibold text-foreground">{filter === "unread" ? tr("You're all caught up") : tr("No notifications yet")}</p>
           </div>
         ) : (
           <NotificationList
@@ -100,9 +98,7 @@ function Panel({ onClose }: { onClose: () => void }) {
         to="/notifications"
         onClick={onClose}
         className="flex h-12 shrink-0 items-center justify-center border-t border-[hsl(var(--app-divider))] text-[14px] font-semibold text-primary transition-colors hover:bg-inset"
-      >
-        See all notifications
-      </Link>
+      >{tr("See all notifications")}</Link>
     </>
   );
 }

@@ -7,6 +7,7 @@ import { carPath, vehiclePath } from "@/features/vehicles";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useTagDictionary } from "@/lib/tags";
 import { priceUnit } from "@/lib/checkout/ctaLabel";
+import { tr } from "@/lib/tr";
 
 /**
  * "Search on Everysub" — one field over the whole catalogue.
@@ -131,7 +132,7 @@ export function useGlobalSearch(query: string) {
       const isVehicles = p.unit === VEHICLES_UNIT;
       hits.push({
         kind: "provider", id: String(p.id), title: p.name,
-        subtitle: isVehicles ? "Vehicles" : a?.label ?? null,
+        subtitle: isVehicles ? tr("Vehicles") : a?.label ?? null,
         href: businessHref(String(p.slug || p.id)),
         priceCents: null, priceUnit: null,
         haystack: [p.name, p.description, isVehicles ? "vehicles cars" : a?.label].filter(Boolean).join(" "),
@@ -190,7 +191,7 @@ export function useGlobalSearch(query: string) {
            [p.description]);
     });
     data.beach.forEach((p: any) => {
-      push(String(p.id), p.name, "Beach Club",
+      push(String(p.id), p.name, tr("Beach Club"),
            legacyHref(p.id), p.price_per_person_cents ?? null,
            "/ person / month", [p.tagline]);
     });
@@ -234,9 +235,9 @@ export function useGlobalSearch(query: string) {
 
 /** Group order on screen: the broadest answer first, the most specific last. */
 export const SEARCH_GROUPS: Array<{ kind: SearchKind; label: string }> = [
-  { kind: "category", label: "Categories" },
-  { kind: "service", label: "Services" },
-  { kind: "provider", label: "Businesses" },
-  { kind: "plan", label: "Plans" },
-  { kind: "vehicle", label: "Vehicles" },
+  { kind: "category", label: tr("Categories") },
+  { kind: "service", label: tr("Services") },
+  { kind: "provider", label: tr("Businesses") },
+  { kind: "plan", label: tr("Plans") },
+  { kind: "vehicle", label: tr("Vehicles") },
 ];

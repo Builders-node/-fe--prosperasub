@@ -5,6 +5,7 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * Single source of truth for every "service category" on the platform.
@@ -96,7 +97,7 @@ export interface ServiceConfig {
 export const SERVICES: Record<ServiceKey, ServiceConfig> = {
   cleaning: {
     key: "cleaning",
-    label: "Cleaning",
+    label: tr("Cleaning"),
     icon: SparklesIcon,
     tint: "bg-sky-50 dark:bg-sky-950/40",
     chip: "bg-sky-500",
@@ -109,9 +110,9 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     providers: {
       table: "cleaning_providers",
       labels: {
-        singular: "Cleaning company",
-        plural: "Cleaning companies",
-        apply: "Offer cleaning on EverySub",
+        singular: tr("Cleaning company"),
+        plural: tr("Cleaning companies"),
+        apply: tr("Offer cleaning on EverySub"),
       },
       features: ["info", "plans", "bookings", "staff"],
       adminListHref: "/admin/cleaning/providers",
@@ -121,7 +122,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
   },
   food: {
     key: "food",
-    label: "Food",
+    label: tr("Food"),
     icon: UtensilsCrossed,
     tint: "bg-emerald-50 dark:bg-emerald-950/40",
     chip: "bg-emerald-500",
@@ -136,7 +137,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
       labels: {
         singular: "Restaurant",
         plural: "Restaurants",
-        apply: "Open your restaurant on EverySub",
+        apply: tr("Open your restaurant on EverySub"),
       },
       features: ["info", "plans", "menu", "bookings", "staff", "analytics"],
       adminListHref: "/admin/food/providers",
@@ -146,7 +147,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
   },
   beach: {
     key: "beach",
-    label: "Beach Club",
+    label: tr("Beach Club"),
     icon: Waves,
     tint: "bg-cyan-50 dark:bg-cyan-950/40",
     chip: "bg-cyan-500",

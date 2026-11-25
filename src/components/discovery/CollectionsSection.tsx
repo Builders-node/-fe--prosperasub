@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { PlanRail, ShelfHeader, planIndex, useHomePlans } from "@/components/discovery/homePlans";
 import { collectionHref, collectionPlans, useCollections } from "@/lib/collections";
+import { tr } from "@/lib/tr";
 
 /**
  * The shelves an admin puts together for the home page — "Popular", "For
@@ -38,7 +39,7 @@ export function CollectionsSection() {
                   to={collectionHref(s)}
                   className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-1 text-body font-semibold text-foreground transition-colors hover:bg-inset"
                 >
-                  {all.length > ON_SHELF ? `All ${all.length}` : "See all"}
+                  {all.length > ON_SHELF ? tr("All {length}", { length: all.length }) : tr("See all")}
                   <ChevronRight className="h-4 w-4" />
                 </Link>
               }

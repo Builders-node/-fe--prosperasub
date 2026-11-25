@@ -11,6 +11,7 @@ import { useUserUuid } from "@/hooks/useUserUuid";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { toast } from "sonner";
 import { publicSiteUrl } from "@/integrations/supabase/config";
+import { tr } from "@/lib/tr";
 
 interface Props {
   providerId: string;
@@ -48,7 +49,7 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
     <section className="space-y-3">
       <div className="flex items-center gap-2 px-1">
         <Star className="h-4 w-4 text-attention" fill="currentColor" />
-        <SectionOverline label="Rate & tip" />
+        <SectionOverline label={tr("Rate & tip")} />
       </div>
 
       <div className="rounded-radius-lg bg-card p-5">
@@ -63,7 +64,7 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
       {/* Tip — separate card so the two concerns are visually distinct */}
       <div className="rounded-radius-lg bg-card p-5">
         <TipPayment
-          serviceName="Food Tip"
+          serviceName={tr("Food Tip")}
           context="food_tip"
           externalIdPrefix={`food-tip-${subscriptionId}`}
           adminUrl={`${publicSiteUrl()}/admin/marketplace/subscriptions`}

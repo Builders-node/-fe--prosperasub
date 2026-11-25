@@ -11,6 +11,7 @@ import { fetchPlatformRollup, type RollupServiceKey } from "@/lib/analytics/plat
 import { useQuery } from "@tanstack/react-query";
 import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
+import { tr } from "@/lib/tr";
 
 /**
  * The picker lists the services the rollup counts — Settings → Services, plus
@@ -36,7 +37,7 @@ const Analytics = () => {
   const { data: rollup } = useQuery({ queryKey: ["admin-platform-rollup"], queryFn: fetchPlatformRollup });
   const SERVICES = [
     // The platform first: that is the question this page is opened with.
-    { id: "all" as ServiceId, label: "All services" },
+    { id: "all" as ServiceId, label: tr("All services") },
     ...(rollup?.services ?? []).map((s) => ({ id: s.key as ServiceId, label: s.label })),
   ];
   const rawParam = params.get("service");
@@ -54,14 +55,12 @@ const Analytics = () => {
   const Bespoke = service === "all" ? null : BESPOKE[service];
 
   return (
-    <SuperAdminLayout title="Analytics" subtitle="Revenue, retention and volume — the platform, or one service">
+    <SuperAdminLayout title={tr("Analytics")} subtitle={tr("Revenue, retention and volume — the platform, or one service")}>
       {/* One control, not a row of chips: the list is going to grow with the
           marketplace, and a row that wraps onto a second line is a row that
           stops reading as a single choice. */}
       <div className="mb-space-5 flex flex-wrap items-center gap-3">
-        <label htmlFor="analytics-service" className="text-[16px] leading-[22px] text-muted-foreground">
-          Showing
-        </label>
+        <label htmlFor="analytics-service" className="text-[16px] leading-[22px] text-muted-foreground">{tr("Showing")}</label>
         <select
           id="analytics-service"
           value={service}

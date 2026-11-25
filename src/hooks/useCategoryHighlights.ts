@@ -5,6 +5,7 @@ import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceA
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { periodNoun } from "@/lib/services/planPeriod";
+import { tr } from "@/lib/tr";
 
 /**
  * Everything the home carousel needs to say about one category.
@@ -114,7 +115,7 @@ export function useCategoryHighlights() {
         offer(byLegacy.get(String(p.provider_id)), num(p.weekly_price_cents), "/ week"));
 
       (beach.data ?? []).forEach((p: any) =>
-        offer(byUniversal.get(String(p.owner_provider_id)), num(p.price_per_person_cents), "/ person · month"));
+        offer(byUniversal.get(String(p.owner_provider_id)), num(p.price_per_person_cents), tr("/ person · month")));
 
       (universal.data ?? []).forEach((p: any) => {
         const noun = periodNoun(p.period);

@@ -10,6 +10,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CollectionCard } from "@/components/discovery/CollectionCover";
 import { planIndex, useHomePlans } from "@/components/discovery/homePlans";
 import { collectionHref, collectionPlans, useCollections } from "@/lib/collections";
+import { tr } from "@/lib/tr";
 
 /**
  * `/collections` — every collection on the site, one cover card each, in the
@@ -17,7 +18,7 @@ import { collectionHref, collectionPlans, useCollections } from "@/lib/collectio
  * home page.
  */
 export default function Collections() {
-  useSeo({ title: "Collections", description: "Hand-picked subscriptions on EverySub, Roatán: popular plans, ideas for families, date nights and more.", path: "/collections" });
+  useSeo({ title: tr("Collections"), description: tr("Hand-picked subscriptions on EverySub, Roatán: popular plans, ideas for families, date nights and more."), path: "/collections" });
   const goBack = useGoBack();
   const { data: collections = [], isLoading: a } = useCollections();
   const { data: plans = [], isLoading: b } = useHomePlans();
@@ -29,19 +30,19 @@ export default function Collections() {
 
   return (
     <BrowseLayout>
-      <DetailHeader title="Collections" centreLabel="Collections" onBack={goBack} />
+      <DetailHeader title={tr("Collections")} centreLabel={tr("Collections")} onBack={goBack} />
       <main className="app-container space-y-space-4 pb-10 pt-space-4">
-        <Breadcrumbs className="hidden md:block" items={[{ label: "Home", href: "/discovery" }, { label: "Collections" }]} />
+        <Breadcrumbs className="hidden md:block" items={[{ label: tr("Home"), href: "/discovery" }, { label: tr("Collections") }]} />
         <header className="px-1">
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground md:text-4xl">Collections</h1>
-          <p className="mt-1 text-title text-muted-foreground">Hand-picked by the EverySub team.</p>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground md:text-4xl">{tr("Collections")}</h1>
+          <p className="mt-1 text-title text-muted-foreground">{tr("Hand-picked by the EverySub team.")}</p>
         </header>
         {loading ? (
           <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 xl:grid-cols-4">
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-[4/3]" />)}
           </div>
         ) : rows.length === 0 ? (
-          <YdEmptyState icon={LayoutGrid} title="No collections yet" subtitle="Soon: hand-picked plans for every occasion." />
+          <YdEmptyState icon={LayoutGrid} title={tr("No collections yet")} subtitle={tr("Soon: hand-picked plans for every occasion.")} />
         ) : (
           <div className="stagger grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 xl:grid-cols-4">
             {rows.map(({ c, items }) => (

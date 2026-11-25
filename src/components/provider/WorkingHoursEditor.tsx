@@ -7,6 +7,7 @@ import {
   DAY_CODES, DAY_LABELS, EMPTY_SCHEDULE,
   type DayCode, type HoursSchedule,
 } from "@/lib/workingHours";
+import { tr } from "@/lib/tr";
 
 interface Props {
   value: HoursSchedule[];
@@ -31,7 +32,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
   return (
     <div className="space-y-3">
       {value.length === 0 && (
-        <p className="text-sm text-muted-foreground">No schedule set.</p>
+        <p className="text-sm text-muted-foreground">{tr("No schedule set.")}</p>
       )}
 
       {value.map((schedule, idx) => (
@@ -44,7 +45,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
               palette used across the rest of the app; every provider modal
               (cleaning / cars / beach / food) reads the same visual language now. */}
           <div>
-            <Label className="mb-1.5 block text-xs text-muted-foreground">Days</Label>
+            <Label className="mb-1.5 block text-xs text-muted-foreground">{tr("Days")}</Label>
             <div className="flex flex-wrap gap-1.5">
               {DAY_CODES.map((day) => {
                 const active = schedule.days.includes(day);
@@ -70,7 +71,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
           {/* Time range */}
           <div className="flex items-center gap-2">
             <div className="flex-1">
-              <Label className="text-xs text-muted-foreground mb-1 block">Opens</Label>
+              <Label className="text-xs text-muted-foreground mb-1 block">{tr("Opens")}</Label>
               <input
                 type="time"
                 value={schedule.open}
@@ -80,7 +81,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
             </div>
             <span className="mt-5 text-muted-foreground">–</span>
             <div className="flex-1">
-              <Label className="text-xs text-muted-foreground mb-1 block">Closes</Label>
+              <Label className="text-xs text-muted-foreground mb-1 block">{tr("Closes")}</Label>
               <input
                 type="time"
                 value={schedule.close}
@@ -108,9 +109,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
         className="gap-2"
         onClick={addRow}
       >
-        <Plus className="h-3.5 w-3.5" />
-        Add schedule
-      </Button>
+        <Plus className="h-3.5 w-3.5" />{tr("Add schedule")}</Button>
     </div>
   );
 }

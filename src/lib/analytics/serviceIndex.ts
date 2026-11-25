@@ -1,5 +1,6 @@
 import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
+import { tr } from "@/lib/tr";
 
 /**
  * Which SERVICE a sale belongs to — the one the admin sees in Settings →
@@ -57,8 +58,8 @@ export async function fetchServiceIndex(): Promise<ServiceIndex> {
     sortOrder: Number(a.sort_order) || 0,
   }));
   services.push(
-    { key: VEHICLES_KEY, label: "Vehicles", icon: "car", isActive: true, sortOrder: 9_000 },
-    { key: UNASSIGNED_KEY, label: "Unassigned", icon: null, isActive: false, sortOrder: 9_001 },
+    { key: VEHICLES_KEY, label: tr("Vehicles"), icon: "car", isActive: true, sortOrder: 9_000 },
+    { key: UNASSIGNED_KEY, label: tr("Unassigned"), icon: null, isActive: false, sortOrder: 9_001 },
   );
 
   return {

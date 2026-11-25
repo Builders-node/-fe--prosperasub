@@ -5,6 +5,7 @@ import { DialogBlock } from "@/components/ui/dialog-blocks";
 import { etaText } from "@/lib/delivery/zones";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * "Where is my order?" — inside the purchase sheet (SubscriptionDetailSheet).
@@ -16,10 +17,10 @@ import { cn } from "@/lib/utils";
  */
 
 const STEPS = [
-  { key: "pending", label: "Order received" },
-  { key: "assigned", label: "Courier assigned" },
-  { key: "on_the_way", label: "On the way" },
-  { key: "delivered", label: "Delivered" },
+  { key: "pending", label: tr("Order received") },
+  { key: "assigned", label: tr("Courier assigned") },
+  { key: "on_the_way", label: tr("On the way") },
+  { key: "delivered", label: tr("Delivered") },
 ] as const;
 
 interface Row {
@@ -54,9 +55,9 @@ export function DeliveryStatusBlock({ subscriptionId }: { subscriptionId: string
   const eta = row.delivery_zones ? etaText(row.delivery_zones.eta_min_minutes, row.delivery_zones.eta_max_minutes) : null;
 
   return (
-    <DialogBlock title="Delivery">
+    <DialogBlock title={tr("Delivery")}>
       {failed ? (
-        <p className="text-body text-negative">We couldn't deliver it. We'll message you on WhatsApp to arrange it again.</p>
+        <p className="text-body text-negative">{tr("We couldn't deliver it. We'll message you on WhatsApp to arrange it again.")}</p>
       ) : (
         <ol className="space-y-2">
           {STEPS.map((s, i) => {

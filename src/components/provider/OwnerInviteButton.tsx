@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { adminApi } from "@/integrations/supabase/client";
 import { formatDateHN } from "@/lib/timezone";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * The admin's way to hand a business to its owner: make a link, send it.
@@ -26,7 +27,7 @@ export function OwnerInviteButton({ provider, size = "sm" }: { provider: Univers
   return (
     <>
       <Button size={size} variant="secondary" className="gap-2" onClick={() => setOpen(true)}>
-        <UserPlus /> {provider.admin_user_id ? "Hand over" : "Invite owner"}
+        <UserPlus /> {provider.admin_user_id ? tr("Hand over") : tr("Invite owner")}
       </Button>
       {open && <OwnerInviteDialog provider={provider} open={open} onOpenChange={setOpen} />}
     </>
@@ -64,13 +65,13 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
     onSuccess: (d) => {
       setLink(d);
       if (d.to) {
-        if (d.emailed) toast.success(`Sent to ${d.to}`);
-        else toast.warning("Link made, but the email didn't go out — copy and send it.");
+        if (d.emailed) toast.success(tr("Sent to {to}", { to: d.to }));
+        else toast.warning(tr("Link made, but the email didn't go out — copy and send it."));
       }
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: ["admin-owner-invites"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not create the link"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not create the link")),
   });
 
   const revoke = useMutation({
@@ -78,20 +79,20 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
       const { error } = await adminApi(`/admin/providers/${provider.id}/owner-invites`, { method: "DELETE" });
       if (error) throw error;
     },
-    onSuccess: () => { setLink(null); toast.success("Link revoked"); void qc.invalidateQueries({ queryKey: key }); },
-    onError: (e: Error) => toast.error(e.message || "Could not revoke the link"),
+    onSuccess: () => { setLink(null); toast.success(tr("Link revoked")); void qc.invalidateQueries({ queryKey: key }); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not revoke the link")),
   });
 
   const message = link
-    ? `Hi! Here is the link to take over ${provider.name} on EverySub. Open it, sign in and press Accept: ${link.url}`
+    ? tr("Hi! Here is the link to take over {name} on EverySub. Open it, sign in and press Accept: {url}", { name: provider.name, url: link.url })
     : "";
   const wa = normalizePhone(provider.contact_phone)?.replace(/\D/g, "") ?? null;
   const email = provider.contact_email;
 
   const copy = async () => {
     if (!link) return;
-    try { await navigator.clipboard.writeText(link.url); toast.success("Link copied"); }
-    catch { toast.error("Couldn't copy — select the link and copy it"); }
+    try { await navigator.clipboard.writeText(link.url); toast.success(tr("Link copied")); }
+    catch { toast.error(tr("Couldn't copy — select the link and copy it")); }
   };
 
   const openLink = statusQ.data?.open ?? null;
@@ -100,59 +101,54 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={provider.admin_user_id ? "Hand over this business" : "Invite the owner"}
-      description={`Whoever opens the link signed in and accepts becomes the owner of ${provider.name}.`}
+      title={provider.admin_user_id ? tr("Hand over this business") : tr("Invite the owner")}
+      description={tr("Whoever opens the link signed in and accepts becomes the owner of {name}.", { name: provider.name })}
     >
-      <DialogBlock title="How it works">
+      <DialogBlock title={tr("How it works")}>
         <ul className="list-disc space-y-1 pl-5 text-body text-muted-foreground">
-          <li>The link works once and for seven days.</li>
-          <li>The owner manages plans, schedule, team and withdraws the money.</li>
-          {provider.admin_user_id && <li>It replaces the current owner when accepted.</li>}
+          <li>{tr("The link works once and for seven days.")}</li>
+          <li>{tr("The owner manages plans, schedule, team and withdraws the money.")}</li>
+          {provider.admin_user_id && <li>{tr("It replaces the current owner when accepted.")}</li>}
         </ul>
       </DialogBlock>
 
       {link ? (
-        <DialogBlock title="Send this link">
+        <DialogBlock title={tr("Send this link")}>
           {link.emailed && link.to && (
-            <p className="text-body text-foreground">Emailed to <strong>{link.to}</strong>. You can also send it yourself:</p>
+            <p className="text-body text-foreground">{tr("Emailed to")}{" "}<strong>{link.to}</strong>{tr(". You can also send it yourself:")}</p>
           )}
-          <Input readOnly value={link.url} onFocus={(e) => e.currentTarget.select()} aria-label="Invite link" />
-          <p className="text-meta text-muted-foreground">Valid until {formatDateHN(link.expiresAt)}. Making a new one replaces it.</p>
+          <Input readOnly value={link.url} onFocus={(e) => e.currentTarget.select()} aria-label={tr("Invite link")} />
+          <p className="text-meta text-muted-foreground">{trx("Valid until {expiresAt}. Making a new one replaces it.", { expiresAt: formatDateHN(link.expiresAt) })}</p>
           <div className="flex flex-wrap gap-2">
-            <Button className="gap-2" onClick={() => void copy()}><Copy /> Copy link</Button>
+            <Button className="gap-2" onClick={() => void copy()}><Copy />{" "}{tr("Copy link")}</Button>
             {wa && (
               <Button variant="secondary" className="gap-2" asChild>
                 <a href={`https://wa.me/${wa}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
-                  <MessageCircle /> WhatsApp
-                </a>
+                  <MessageCircle />{" "}{tr("WhatsApp")}</a>
               </Button>
             )}
             {email && (
               <Button variant="secondary" className="gap-2" asChild>
                 <a href={`mailto:${email}?subject=${encodeURIComponent(`Your business on EverySub: ${provider.name}`)}&body=${encodeURIComponent(message)}`}>
-                  <Mail /> Email
-                </a>
+                  <Mail />{" "}{tr("Email")}</a>
               </Button>
             )}
           </div>
         </DialogBlock>
       ) : (
-        <DialogBlock title="Link">
+        <DialogBlock title={tr("Link")}>
           {statusQ.isLoading ? (
-            <p className="text-body text-muted-foreground">Checking…</p>
+            <p className="text-body text-muted-foreground">{tr("Checking…")}</p>
           ) : statusQ.isError ? (
-            <p className="text-body text-muted-foreground">Couldn't check for an open link — you can still make a new one.</p>
+            <p className="text-body text-muted-foreground">{tr("Couldn't check for an open link — you can still make a new one.")}</p>
           ) : openLink ? (
-            <p className="text-body text-muted-foreground">
-              A link made {formatDateHN(openLink.createdAt)} is open until {formatDateHN(openLink.expiresAt)}.
-              It can't be shown again — make a new one to send it, or revoke it.
-            </p>
+            <p className="text-body text-muted-foreground">{trx("A link made {createdAt} is open until {expiresAt}. It can't be shown again — make a new one to send it, or revoke it.", { createdAt: formatDateHN(openLink.createdAt), expiresAt: formatDateHN(openLink.expiresAt) })}</p>
           ) : (
-            <p className="text-body text-muted-foreground">No open link.</p>
+            <p className="text-body text-muted-foreground">{tr("No open link.")}</p>
           )}
           <div className="flex items-end gap-2">
             <Input
-              label="Owner's email"
+              label={tr("Owner's email")}
               type="email"
               inputSize="sm"
               value={inviteEmail}
@@ -163,15 +159,14 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
             <Button size="sm" className="shrink-0 gap-2" loading={create.isPending && !!inviteEmail.trim()}
               disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())}
               onClick={() => create.mutate(inviteEmail.trim())}>
-              <Mail /> Send invite
-            </Button>
+              <Mail />{" "}{tr("Send invite")}</Button>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" className="gap-2" loading={create.isPending && !inviteEmail.trim()} onClick={() => create.mutate(null)}>
-              <Link2 /> {openLink ? "Just make a new link" : "Just make a link"}
+              <Link2 /> {openLink ? tr("Just make a new link") : tr("Just make a link")}
             </Button>
             {openLink && (
-              <Button variant="secondary" loading={revoke.isPending} onClick={() => revoke.mutate()}>Revoke</Button>
+              <Button variant="secondary" loading={revoke.isPending} onClick={() => revoke.mutate()}>{tr("Revoke")}</Button>
             )}
           </div>
         </DialogBlock>

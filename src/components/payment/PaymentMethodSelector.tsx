@@ -1,5 +1,6 @@
 import { Zap, Bitcoin, Check, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * `crypto_gateway` — any non-Bitcoin coin (USDT, USDC, ETH, SOL…) taken
@@ -34,29 +35,29 @@ const META: Record<
   { label: string; subtitle: string; tileBg: string; iconColor: string; Icon: React.ComponentType<{ className?: string }> }
 > = {
   lightning: {
-    label: "Lightning",
-    subtitle: "Instant Bitcoin payment",
+    label: tr("Lightning"),
+    subtitle: tr("Instant Bitcoin payment"),
     tileBg: "bg-[#f7931a]/15",
     iconColor: "text-[#f7931a]",
     Icon: ({ className }) => <Zap className={className} />,
   },
   onchain: {
-    label: "On-chain Bitcoin",
-    subtitle: "Send BTC to an address",
+    label: tr("On-chain Bitcoin"),
+    subtitle: tr("Send BTC to an address"),
     tileBg: "bg-[#f7931a]/15",
     iconColor: "text-[#f7931a]",
     Icon: ({ className }) => <Bitcoin className={className} />,
   },
   paypal: {
-    label: "PayPal",
-    subtitle: "Card or PayPal balance",
+    label: tr("PayPal"),
+    subtitle: tr("Card or PayPal balance"),
     tileBg: "bg-[#0070ba]/15",
     iconColor: "text-[#0070ba]",
     Icon: PayPalIcon,
   },
   crypto_gateway: {
-    label: "Other crypto",
-    subtitle: "USDT, USDC, ETH, SOL and more",
+    label: tr("Other crypto"),
+    subtitle: tr("USDT, USDC, ETH, SOL and more"),
     tileBg: "bg-[#26a17b]/15",
     iconColor: "text-[#26a17b]",
     Icon: ({ className }) => <Coins className={className} />,
@@ -68,9 +69,7 @@ export function PaymentMethodSelector({ value, onChange, disabled, available }: 
 
   if (methods.length === 0) {
     return (
-      <p className="rounded-radius-md bg-inset p-3 text-sm text-muted-foreground">
-        No payment methods are currently available. Please try again later.
-      </p>
+      <p className="rounded-radius-md bg-inset p-3 text-sm text-muted-foreground">{tr("No payment methods are currently available. Please try again later.")}</p>
     );
   }
 

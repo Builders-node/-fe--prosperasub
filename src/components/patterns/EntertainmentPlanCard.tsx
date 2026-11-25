@@ -1,5 +1,6 @@
 import { SUBSCRIBE } from "@/lib/checkout/ctaLabel";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
+import { tr } from "@/lib/tr";
 
 /**
  * A `beach_club_plans` row as a plan card.
@@ -25,7 +26,7 @@ export function EntertainmentPlanCard({
       rating={rating}
       featured={featured ?? !!plan.featured}
       features={Array.isArray(plan.amenities) ? plan.amenities : []}
-      price={{ cents: plan.price_per_person_cents, unit: "/ person · month" }}
+      price={{ cents: plan.price_per_person_cents, unit: tr("/ person · month") }}
       cta={{ label: SUBSCRIBE, onClick: () => onSubscribe(plan.id) }}
       favorite={{ kind: "plan", id: String(plan.id) }}
     />

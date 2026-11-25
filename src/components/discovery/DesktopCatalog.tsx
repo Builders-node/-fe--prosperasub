@@ -6,6 +6,7 @@ import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { tr } from "@/lib/tr";
 
 /**
  * The catalogue as a column on a laptop, beside the home page — the way the
@@ -29,15 +30,15 @@ export function DesktopCatalog({ className }: { className?: string }) {
   const { openAuthModal } = useAuthModal();
 
   const personal: Row[] = [
-    { key: "subs", label: "My subscriptions", to: "/my-subscriptions", Icon: Layers, tint: true },
-    { key: "history", label: "You bought", to: "/history", Icon: History, tint: true },
-    { key: "fav", label: "Favorites", to: "/favorites", Icon: Heart, tint: true },
+    { key: "subs", label: tr("My subscriptions"), to: "/my-subscriptions", Icon: Layers, tint: true },
+    { key: "history", label: tr("You bought"), to: "/history", Icon: History, tint: true },
+    { key: "fav", label: tr("Favorites"), to: "/favorites", Icon: Heart, tint: true },
   ];
   const departments: Row[] = [
     ...highlights
       .filter((h) => h.fromCents !== null)
       .map((h) => ({ key: h.key, label: h.label, to: h.href, imageUrl: h.imageUrl, Icon: h.archetype?.Icon })),
-    { key: "vehicles", label: "Vehicles", to: "/vehicles", Icon: CarFront },
+    { key: "vehicles", label: tr("Vehicles"), to: "/vehicles", Icon: CarFront },
   ];
 
   const Item = ({ label, to, Icon, imageUrl, tint }: Row) => {
@@ -72,8 +73,8 @@ export function DesktopCatalog({ className }: { className?: string }) {
   };
 
   return (
-    <nav aria-label="Catalog" className={cn("space-y-3", className)}>
-      <h2 className="px-2 text-[28px] font-bold leading-tight tracking-tight text-foreground">Catalog</h2>
+    <nav aria-label={tr("Catalog")} className={cn("space-y-3", className)}>
+      <h2 className="px-2 text-[28px] font-bold leading-tight tracking-tight text-foreground">{tr("Catalog")}</h2>
       <ul className="space-y-0.5">
         {personal.map((r) => <Item key={r.key} {...r} />)}
         {isLoading

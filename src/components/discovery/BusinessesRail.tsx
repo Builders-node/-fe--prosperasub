@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/patterns/Skeleton";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ShelfHeader, useHomePlans } from "@/components/discovery/homePlans";
+import { tr } from "@/lib/tr";
 
 /**
  * "Businesses" — every live business on the island, by its logo.
@@ -52,8 +53,8 @@ export function BusinessesRail() {
   if (!loading && selling.length === 0) return null;
 
   return (
-    <section className="space-y-3" aria-label="Businesses">
-      <ShelfHeader title="Businesses" />
+    <section className="space-y-3" aria-label={tr("Businesses")}>
+      <ShelfHeader title={tr("Businesses")} />
       <div className="-mx-space-4 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-6 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
         {loading
           ? [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[132px] w-[112px] shrink-0 md:w-auto" />)

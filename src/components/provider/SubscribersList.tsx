@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Who is subscribed to this business.
@@ -120,10 +121,10 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
       (end && end <= soon ? ending : running).push(r);
     }
     return [
-      { key: "waiting", label: "Needs a visit scheduled", rows: waiting },
-      { key: "ending", label: "Ending within a week", rows: ending },
-      { key: "active", label: "Active", rows: running },
-      { key: "past", label: "Past", rows: past },
+      { key: "waiting", label: tr("Needs a visit scheduled"), rows: waiting },
+      { key: "ending", label: tr("Ending within a week"), rows: ending },
+      { key: "active", label: tr("Active"), rows: running },
+      { key: "past", label: tr("Past"), rows: past },
     ].filter((g) => g.rows.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, withVisits]);
@@ -131,10 +132,10 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   const approve = async (row: SubscriberRow) => {
     try {
       await approvePayment(shape.approve, row.id, { adminUserId: userData?.id });
-      toast.success("Marked as paid");
+      toast.success(tr("Marked as paid"));
       qc.invalidateQueries({ queryKey: KEY });
     } catch (e) {
-      toast.error((e as Error).message || "Could not mark it paid");
+      toast.error((e as Error).message || tr("Could not mark it paid"));
     }
   };
 
@@ -157,7 +158,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
 
     const { error } = await supabaseDb.from(shape.table).update(patch).eq("id", row.id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Renewed — payment recorded",
+    toast.success(tr("Renewed — payment recorded"),
       shape.renewNote ? { description: shape.renewNote } : undefined);
     qc.invalidateQueries({ queryKey: KEY });
     qc.invalidateQueries({ queryKey: ["provider-analytics"] });
@@ -179,9 +180,9 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
       `/account/providers/${providerId}/subscriptions/${shape.table}/${row.id}/cancel`,
       { method: "POST", body: JSON.stringify({ reason, refund }) },
     );
-    if (error) { toast.error((error as Error).message || "Could not cancel"); return false; }
+    if (error) { toast.error((error as Error).message || tr("Could not cancel")); return false; }
     await shape.onCancelled?.(row.id);
-    toast.success(refund ? "Cancelled — the customer was told, and EverySub got the refund request" : "Cancelled — the customer was told");
+    toast.success(refund ? tr("Cancelled — the customer was told, and EverySub got the refund request") : tr("Cancelled — the customer was told"));
     qc.invalidateQueries({ queryKey: KEY });
     return true;
   };
@@ -199,7 +200,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
     // Whatever else a cancellation means for this service — cleaning has to
     // cancel the visits it booked, or those slots stay full for ever.
     if (next === "cancelled") await shape.onCancelled?.(row.id);
-    toast.success(next === "cancelled" ? "Cancelled" : next === "paused" ? "Paused" : "Resumed");
+    toast.success(next === "cancelled" ? tr("Cancelled") : next === "paused" ? tr("Paused") : tr("Resumed"));
     qc.invalidateQueries({ queryKey: KEY });
   };
 
@@ -208,7 +209,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   if (isError) {
     return (
       <QueryError
-        title="Couldn't load your subscribers"
+        title={tr("Couldn't load your subscribers")}
         error={loadError}
         onRetry={() => refetch()}
         retrying={isFetching}
@@ -219,13 +220,13 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   return (
     <div className="space-y-1">
       <WorkspaceSection
-        title="Subscribers"
-        subtitle={`${rows.length} in total · ${rows.filter((r) => r.status === "active").length} active`}
+        title={tr("Subscribers")}
+        subtitle={tr("{length} in total · {length2} active", { length: rows.length, length2: rows.filter((r) => r.status === "active").length })}
         action={
           <div className="flex shrink-0 items-center gap-2">
           {rows.some((r) => r.status === "active") && (
             <Button size="sm" variant="secondary" className="gap-2" onClick={() => setMessaging(true)}>
-              <Megaphone /> <span className="hidden sm:inline">Message all</span>
+              <Megaphone /> <span className="hidden sm:inline">{tr("Message all")}</span>
             </Button>
           )}
           <div className="relative w-[160px] shrink-0 sm:w-[200px]">
@@ -233,7 +234,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search"
+              placeholder={tr("Search")}
               className="pl-9"
               inputSize="sm"
             />
@@ -246,18 +247,16 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
         rows.length === 0 ? (
           <YdEmptyState
             icon={Users}
-            title="Nobody has subscribed yet"
-            subtitle="Customers appear here as soon as they buy one of your plans."
+            title={tr("Nobody has subscribed yet")}
+            subtitle={tr("Customers appear here as soon as they buy one of your plans.")}
           />
         ) : (
           <YdEmptyState
             icon={Search}
-            title="Nobody matches that"
-            subtitle="Try a different name, email or plan."
+            title={tr("Nobody matches that")}
+            subtitle={tr("Try a different name, email or plan.")}
             action={
-              <Button variant="secondary" onClick={() => setQ("")}>
-                Clear search
-              </Button>
+              <Button variant="secondary" onClick={() => setQ("")}>{tr("Clear search")}</Button>
             }
           />
         )
@@ -286,9 +285,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                 <SaleOriginBadge paymentReference={r.paymentReference ?? null} />
                 {isPendingPayment({ payment_status: r.paymentStatus }) && (
                   <Button size="sm" variant="outline" className="px-3"
-                    onClick={() => approve(r)}>
-                    Mark paid
-                  </Button>
+                    onClick={() => approve(r)}>{tr("Mark paid")}</Button>
                 )}
               </div>
               <p className="mt-0.5 text-[14px] leading-[18px] text-muted-foreground">
@@ -311,8 +308,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                     defaultSubscriptionId={r.id}
                     trigger={
                       <Button size="sm" className="gap-1.5">
-                        <CalendarPlus className="h-4 w-4" /> Schedule visits
-                      </Button>
+                        <CalendarPlus className="h-4 w-4" />{" "}{tr("Schedule visits")}</Button>
                     }
                   />
                 </div>
@@ -324,14 +320,12 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
               </span>
               {/* Renewals, said once: the period above, the relationship here. */}
               {(r.periodsPaid ?? 1) > 1 && (
-                <span className="block text-[12px] leading-[16px] tabular-nums text-muted-foreground">
-                  ×{r.periodsPaid} · {formatUSD(r.lifetimeCents ?? r.amountCents * (r.periodsPaid ?? 1))} total
-                </span>
+                <span className="block text-[12px] leading-[16px] tabular-nums text-muted-foreground">{trx("×{periodsPaid} · {formatUSD} total", { periodsPaid: r.periodsPaid, formatUSD: formatUSD(r.lifetimeCents ?? r.amountCents * (r.periodsPaid ?? 1)) })}</span>
               )}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label="Actions">
+                <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label={tr("Actions")}>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -341,29 +335,23 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                     the only way to make it was to cancel and re-sell. */}
                 {shape.deliveryFields?.length ? (
                   <DropdownMenuItem onClick={() => setDeliveryFor(r)}>
-                    <MapPin className="mr-2 h-4 w-4" /> Edit {(shape.deliveryLabel ?? "delivery").toLowerCase()}
-                  </DropdownMenuItem>
+                    <MapPin className="mr-2 h-4 w-4" />{" "}{trx("Edit {toLowerCase}", { toLowerCase: (shape.deliveryLabel ?? "delivery").toLowerCase() })}</DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem onClick={() => setDatesFor(r)}>
-                  <CalendarClock className="mr-2 h-4 w-4" /> Change dates
-                </DropdownMenuItem>
+                  <CalendarClock className="mr-2 h-4 w-4" />{" "}{tr("Change dates")}</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => renew(r)}>
-                  <RefreshCcw className="mr-2 h-4 w-4" /> Renew — paid off platform
-                </DropdownMenuItem>
+                  <RefreshCcw className="mr-2 h-4 w-4" />{" "}{tr("Renew — paid off platform")}</DropdownMenuItem>
                 {r.status === "active" && (
                   <DropdownMenuItem onClick={() => setStatus(r, "paused")}>
-                    <PauseCircle className="mr-2 h-4 w-4" /> Pause
-                  </DropdownMenuItem>
+                    <PauseCircle className="mr-2 h-4 w-4" />{" "}{tr("Pause")}</DropdownMenuItem>
                 )}
                 {r.status === "paused" && (
                   <DropdownMenuItem onClick={() => setStatus(r, "active")}>
-                    <PlayCircle className="mr-2 h-4 w-4" /> Resume
-                  </DropdownMenuItem>
+                    <PlayCircle className="mr-2 h-4 w-4" />{" "}{tr("Resume")}</DropdownMenuItem>
                 )}
                 {r.status !== "cancelled" && (
                   <DropdownMenuItem className="text-destructive" onClick={() => setCancelFor(r)}>
-                    <XCircle className="mr-2 h-4 w-4" /> Cancel
-                  </DropdownMenuItem>
+                    <XCircle className="mr-2 h-4 w-4" />{" "}{tr("Cancel")}</DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -389,7 +377,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
         open={!!deliveryFor}
         shape={shape}
         subscriptionId={deliveryFor?.id ?? null}
-        title={deliveryFor ? (deliveryFor.customerName || deliveryFor.customerEmail || "Customer") : null}
+        title={deliveryFor ? (deliveryFor.customerName || deliveryFor.customerEmail || tr("Customer")) : null}
         onClose={() => setDeliveryFor(null)}
         onSaved={() => { void qc.invalidateQueries({ queryKey: KEY }); setDeliveryFor(null); }}
       />
@@ -419,38 +407,36 @@ function CancelDialog({ row, onClose, onConfirm }: {
     <ResponsiveDialog
       open={!!row}
       onOpenChange={(o) => !o && onClose()}
-      title="Cancel this subscription?"
-      description={row ? `${row.customerName || row.customerEmail || "The customer"} · ${row.plan}` : undefined}
+      title={tr("Cancel this subscription?")}
+      description={row ? `${row.customerName || row.customerEmail || tr("The customer")} · ${row.plan}` : undefined}
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onClose}>Keep it</Button>
+          <Button variant="secondary" onClick={onClose}>{tr("Keep it")}</Button>
           <Button variant="destructive" loading={busy} onClick={async () => {
             if (!row) return;
             setBusy(true);
             const ok = await onConfirm(row, reason.trim(), paid && refund);
             setBusy(false);
             if (ok) onClose();
-          }}>Cancel subscription</Button>
+          }}>{tr("Cancel subscription")}</Button>
         </div>
       }
     >
       <div className="space-y-1.5">
-        <Label htmlFor="cancel-reason">Reason (the customer sees it)</Label>
+        <Label htmlFor="cancel-reason">{tr("Reason (the customer sees it)")}</Label>
         <Textarea id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
-          placeholder="We are closed for renovation until March…" />
+          placeholder={tr("We are closed for renovation until March…")} />
       </div>
       {paid && (
         <label className="flex items-start gap-3 rounded-radius-md bg-inset p-3">
           <input type="checkbox" className="mt-1" checked={refund} onChange={(e) => setRefund(e.target.checked)} />
           <span className="min-w-0">
-            <span className="block text-body font-semibold text-foreground">Ask EverySub to refund the customer</span>
-            <span className="block text-meta text-muted-foreground">
-              Refunds move money, so EverySub makes them. The refunded amount comes off your earnings.
-            </span>
+            <span className="block text-body font-semibold text-foreground">{tr("Ask EverySub to refund the customer")}</span>
+            <span className="block text-meta text-muted-foreground">{tr("Refunds move money, so EverySub makes them. The refunded amount comes off your earnings.")}</span>
           </span>
         </label>
       )}
-      <p className="text-meta text-muted-foreground">The customer gets an email and a notification.</p>
+      <p className="text-meta text-muted-foreground">{tr("The customer gets an email and a notification.")}</p>
     </ResponsiveDialog>
   );
 }
@@ -468,9 +454,9 @@ function BroadcastDialog({ open, providerId, activeCount, onClose }: {
       method: "POST", body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
     });
     setBusy(false);
-    if (error) { toast.error((error as Error).message || "Could not send"); return; }
+    if (error) { toast.error((error as Error).message || tr("Could not send")); return; }
     const r = data as { recipients?: number } | null;
-    toast.success(`Sent to ${r?.recipients ?? activeCount} subscriber${(r?.recipients ?? activeCount) === 1 ? "" : "s"}`);
+    toast.success(((r?.recipients ?? activeCount) === 1 ? tr("Sent to {value} subscriber", { value: r?.recipients ?? activeCount }) : tr("Sent to {value} subscribers", { value: r?.recipients ?? activeCount })));
     setSubject(""); setMessage("");
     onClose();
   };
@@ -478,22 +464,20 @@ function BroadcastDialog({ open, providerId, activeCount, onClose }: {
     <ResponsiveDialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Message your subscribers"
-      description={`Goes to ${activeCount} active subscriber${activeCount === 1 ? "" : "s"} by email and in the app. One message a day.`}
+      title={tr("Message your subscribers")}
+      description={(activeCount === 1 ? tr("Goes to {activeCount} active subscriber by email and in the app. One message a day.", { activeCount }) : tr("Goes to {activeCount} active subscribers by email and in the app. One message a day.", { activeCount }))}
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button loading={busy} disabled={subject.trim().length < 3 || message.trim().length < 10} onClick={() => void send()}>
-            Send
-          </Button>
+          <Button variant="secondary" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button loading={busy} disabled={subject.trim().length < 3 || message.trim().length < 10} onClick={() => void send()}>{tr("Send")}</Button>
         </div>
       }
     >
-      <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Holiday schedule" maxLength={120} />
+      <Input label={tr("Subject")} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr("Holiday schedule")} maxLength={120} />
       <div className="space-y-1.5">
-        <Label htmlFor="bc-msg">Message</Label>
+        <Label htmlFor="bc-msg">{tr("Message")}</Label>
         <Textarea id="bc-msg" value={message} onChange={(e) => setMessage(e.target.value)} rows={5} maxLength={2000}
-          placeholder="No deliveries on December 25 — your plan is extended by one day." />
+          placeholder={tr("No deliveries on December 25 — your plan is extended by one day.")} />
       </div>
     </ResponsiveDialog>
   );
@@ -550,7 +534,7 @@ function DatesDialog({ row, shape, onClose, onSaved }: {
     const { error } = await supabaseDb.from(shape.table).update(shape.datesPatch({ start, end })).eq("id", row.id);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Dates updated", shape.datesNote ? { description: shape.datesNote } : undefined);
+    toast.success(tr("Dates updated"), shape.datesNote ? { description: shape.datesNote } : undefined);
     onSaved();
   };
 
@@ -558,24 +542,22 @@ function DatesDialog({ row, shape, onClose, onSaved }: {
     <ResponsiveDialog
       open={!!row}
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={row ? `Dates · ${row.customerName || row.customerEmail || "Customer"}` : "Dates"}
+      title={row ? tr("Dates · {value}", { value: row.customerName || row.customerEmail || tr("Customer") }) : tr("Dates")}
     >
       <div className="space-y-4 pb-2">
         <div className="space-y-1.5">
-          <Label htmlFor="sub-start">Starts</Label>
+          <Label htmlFor="sub-start">{tr("Starts")}</Label>
           <Input id="sub-start" type="date" value={start} onChange={(e) => onStart(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="sub-end">Ends</Label>
+          <Label htmlFor="sub-end">{tr("Ends")}</Label>
           <Input id="sub-end" type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
-          <p className="text-[13px] text-muted-foreground">
-            Moves with the start so the length stays {lengthDays} day{lengthDays === 1 ? "" : "s"}. Price and payment don't change.
-          </p>
+          <p className="text-[13px] text-muted-foreground">{lengthDays === 1 ? trx("Moves with the start so the length stays {lengthDays} day", { lengthDays }) : trx("Moves with the start so the length stays {lengthDays} days", { lengthDays })}{tr(". Price and payment don't change.")}</p>
         </div>
         {shape.datesNote && <p className="text-[13px] text-muted-foreground">{shape.datesNote}</p>}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={invalid || saving}>{saving ? "Saving…" : "Save dates"}</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button onClick={save} disabled={invalid || saving}>{saving ? tr("Saving…") : tr("Save dates")}</Button>
         </div>
       </div>
     </ResponsiveDialog>

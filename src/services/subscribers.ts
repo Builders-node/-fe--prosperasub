@@ -4,6 +4,7 @@ import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
+import { tr } from "@/lib/tr";
 
 /**
  * Who is subscribed to a business, and what changing that means — said as data
@@ -106,11 +107,11 @@ export const UNIVERSAL_SUBSCRIBERS: SubscriberSource = {
     updated_at: new Date().toISOString(),
   }),
   datesPatch: ({ start, end }) => ({ start_date: start, end_date: end, updated_at: new Date().toISOString() }),
-  deliveryLabel: "Where it happens",
+  deliveryLabel: tr("Where it happens"),
   deliveryFields: [
-    { column: "service_address", label: "Address", multiline: true, placeholder: "Building, unit, landmark" },
-    { column: "customer_whatsapp", label: "WhatsApp", placeholder: "+504 …" },
-    { column: "notes", label: "Notes", multiline: true, hint: "Anything the person doing the work should know." },
+    { column: "service_address", label: tr("Address"), multiline: true, placeholder: tr("Building, unit, landmark") },
+    { column: "customer_whatsapp", label: tr("WhatsApp"), placeholder: "+504 …" },
+    { column: "notes", label: tr("Notes"), multiline: true, hint: tr("Anything the person doing the work should know.") },
   ],
 };
 
@@ -129,13 +130,13 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
       };
     },
     // The recurrence engine seeds visits on create, not on renew.
-    renewNote: "Add visits for the new period from the Bookings tab.",
+    renewNote: tr("Add visits for the new period from the Bookings tab."),
     datesPatch: ({ start, end }) => ({
       service_start_date: start, start_date: start,
       service_end_date: end, paid_until: end, end_date: end,
     }),
     // A visit holds a seat in a slot; moving the period does not move them.
-    datesNote: "Visits already booked keep their dates — move them from the Bookings tab.",
+    datesNote: tr("Visits already booked keep their dates — move them from the Bookings tab."),
     /**
      * Cancelling has to cancel the visits it booked.
      *
@@ -154,14 +155,14 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
       const ids = (future ?? []).map((b: any) => b.id);
       if (ids.length) await cancelCleaningBookings(supabaseDb, ids);
     },
-    deliveryLabel: "Address & access",
+    deliveryLabel: tr("Address & access"),
     deliveryFields: [
-      { column: "apartment_note", label: "Address / apartment", multiline: true, placeholder: "Tower, unit, floor" },
-      { column: "customer_whatsapp", label: "WhatsApp", placeholder: "+504 …" },
+      { column: "apartment_note", label: tr("Address / apartment"), multiline: true, placeholder: tr("Tower, unit, floor") },
+      { column: "customer_whatsapp", label: tr("WhatsApp"), placeholder: "+504 …" },
       // The recurring day and time are NOT here: a visit holds a seat in a
       // slot, and moving one without the slot engine leaves the old seat
       // taken. Rescheduling stays on the Bookings tab, which gives it back.
-      { column: "admin_notes", label: "Access notes", multiline: true, hint: "Keys, gate code, dog — whoever cleans reads this." },
+      { column: "admin_notes", label: tr("Access notes"), multiline: true, hint: tr("Keys, gate code, dog — whoever cleans reads this.") },
     ],
   },
 
@@ -180,13 +181,13 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
     datesPatch: ({ start, end }) => ({ started_at: start, end_date: end, updated_at: new Date().toISOString() }),
     // Food records WHEN it was paused, and clears that on resume.
     statusPatch: (next) => ({ paused_at: next === "paused" ? todayHN() : null }),
-    deliveryLabel: "Delivery details",
+    deliveryLabel: tr("Delivery details"),
     deliveryFields: [
-      { column: "delivery_address", label: "Delivery address", multiline: true, placeholder: "Building, unit, floor" },
-      { column: "residence", label: "Residence", hint: "The building or community, used for grouping a run." },
-      { column: "customer_name", label: "Name on the order" },
-      { column: "customer_whatsapp", label: "WhatsApp", placeholder: "+504 …" },
-      { column: "notes", label: "Delivery notes", multiline: true, hint: "Gate code, floor, who to hand it to." },
+      { column: "delivery_address", label: tr("Delivery address"), multiline: true, placeholder: tr("Building, unit, floor") },
+      { column: "residence", label: tr("Residence"), hint: tr("The building or community, used for grouping a run.") },
+      { column: "customer_name", label: tr("Name on the order") },
+      { column: "customer_whatsapp", label: tr("WhatsApp"), placeholder: "+504 …" },
+      { column: "notes", label: tr("Delivery notes"), multiline: true, hint: tr("Gate code, floor, who to hand it to.") },
     ],
   },
 
@@ -225,7 +226,7 @@ async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]>
     const u = users.get(String(r.user_id));
     return {
       id: r.id,
-      plan: names.get(r.package_id) ?? "Cleaning plan",
+      plan: names.get(r.package_id) ?? tr("Cleaning plan"),
       customerName: u?.display_name ?? u?.name ?? null,
       customerEmail: u?.email ?? null,
       start: r.service_start_date ?? r.start_date ?? null,
@@ -270,7 +271,7 @@ async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
     const perPeriodCents = (r.weekly_price_cents ?? 0) * (r.commitment_weeks || 1);
     return {
       id: r.id,
-      plan: names.get(r.meal_plan_id) ?? "Meal plan",
+      plan: names.get(r.meal_plan_id) ?? tr("Meal plan"),
       customerName: r.customer_name ?? u?.display_name ?? u?.name ?? null,
       customerEmail: u?.email ?? null,
       start: r.started_at ?? null,
@@ -321,7 +322,7 @@ async function fetchUniversal(providerId: string, sourceKey: string): Promise<Su
       amountCents: r.price_cents ?? 0,
       status: String(r.status ?? ""),
       paymentStatus: r.payment_status ?? null,
-      detail: people > 1 ? `${people} people` : people === 1 ? "1 person" : null,
+      detail: people > 1 ? `${people} people` : people === 1 ? tr("1 person") : null,
       phone: pickPhone(r.customer_whatsapp),
       paymentReference: r.payment_reference ?? null,
       // A membership runs a month at a time.
@@ -375,7 +376,7 @@ export async function saveDelivery(
   ownerUserId?: string,
 ): Promise<void> {
   const fields = source.deliveryFields ?? [];
-  if (!fields.length) throw new Error("This service has no delivery details to edit.");
+  if (!fields.length) throw new Error(tr("This service has no delivery details to edit."));
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const f of fields) {
     const v = (values[f.column] ?? "").trim();
@@ -388,6 +389,6 @@ export async function saveDelivery(
   const { data, error } = await q.select("id");
   if (error) throw error;
   if (ownerUserId && !(data ?? []).length) {
-    throw new Error("That subscription is not yours to change.");
+    throw new Error(tr("That subscription is not yours to change."));
   }
 }

@@ -3,6 +3,7 @@ import { Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useFavorites, type FavoriteKind } from "@/lib/favorites/useFavorites";
+import { tr } from "@/lib/tr";
 
 /**
  * The heart. Two shapes:
@@ -36,7 +37,7 @@ export function FavoriteButton({
       type="button"
       aria-pressed={saved}
       data-tooltip={saved ? "Remove from favorites" : "Save to favorites"}
-      aria-label={saved ? `Remove ${name ?? "this"} from favourites` : `Save ${name ?? "this"} to favourites`}
+      aria-label={saved ? tr("Remove {value} from favourites", { value: name ?? "this" }) : tr("Save {value} to favourites", { value: name ?? "this" })}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();

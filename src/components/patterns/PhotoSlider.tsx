@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Every photo of a product inside a card's picture slot.
@@ -59,13 +60,13 @@ export function PhotoSlider({ photos, className, icon }: {
 
       {/* Arrows: a mouse can't swipe. Hidden on touch screens, where it can. */}
       <button
-        type="button" aria-label="Previous photo" onClick={go(active - 1)}
+        type="button" aria-label={tr("Previous photo")} onClick={go(active - 1)}
         className="absolute left-1.5 top-1/2 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 backdrop-blur transition-opacity group-hover/slider:opacity-100 [@media(hover:hover)]:flex"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
       <button
-        type="button" aria-label="Next photo" onClick={go(active + 1)}
+        type="button" aria-label={tr("Next photo")} onClick={go(active + 1)}
         className="absolute right-1.5 top-1/2 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 backdrop-blur transition-opacity group-hover/slider:opacity-100 [@media(hover:hover)]:flex"
       >
         <ChevronRight className="h-4 w-4" />

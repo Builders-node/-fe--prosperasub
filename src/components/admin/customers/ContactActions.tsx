@@ -2,6 +2,7 @@ import { Mail, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { normalizePhone } from "@/components/patterns/CustomerPhone";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Call · WhatsApp · Email for one customer, as 40px icon buttons.
@@ -34,7 +35,7 @@ export function ContactActions({ name, phone, whatsapp, email, className }: Prop
     <div className={cn("flex items-center gap-1", className)}>
       {tel && (
         <Button asChild variant="ghost" size="icon">
-          <a href={`tel:${tel.replace(/\s+/g, "")}`} onClick={stop} aria-label={`Call ${name}`}>
+          <a href={`tel:${tel.replace(/\s+/g, "")}`} onClick={stop} aria-label={tr("Call {name}", { name })}>
             <Phone />
           </a>
         </Button>
@@ -46,7 +47,7 @@ export function ContactActions({ name, phone, whatsapp, email, className }: Prop
             target="_blank"
             rel="noopener noreferrer"
             onClick={stop}
-            aria-label={`WhatsApp ${name}`}
+            aria-label={tr("WhatsApp {name}", { name })}
           >
             <MessageCircle />
           </a>
@@ -54,7 +55,7 @@ export function ContactActions({ name, phone, whatsapp, email, className }: Prop
       )}
       {mail && (
         <Button asChild variant="ghost" size="icon">
-          <a href={`mailto:${mail}`} onClick={stop} aria-label={`Email ${name}`}>
+          <a href={`mailto:${mail}`} onClick={stop} aria-label={tr("Email {name}", { name })}>
             <Mail />
           </a>
         </Button>

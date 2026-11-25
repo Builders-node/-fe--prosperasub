@@ -35,6 +35,7 @@ import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { carPath, vehiclePath } from "../lib/routes";
 import { todayHN } from "@/lib/timezone";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 export default function Book() {
   const { id } = useParams<{ id: string }>();
@@ -63,10 +64,10 @@ export default function Book() {
    */
   const problem = useMemo(() => {
     const ISO = /^\d{4}-\d{2}-\d{2}$/;
-    if (!ISO.test(fromISO) || !ISO.test(toISOParam)) return "Pick your dates first.";
-    if (toISOParam < fromISO) return "The return date is before the pickup date.";
-    if (fromISO < todayHN()) return "That pickup date has already passed.";
-    if (v && v.status !== "public") return "This car isn't available for booking.";
+    if (!ISO.test(fromISO) || !ISO.test(toISOParam)) return tr("Pick your dates first.");
+    if (toISOParam < fromISO) return tr("The return date is before the pickup date.");
+    if (fromISO < todayHN()) return tr("That pickup date has already passed.");
+    if (v && v.status !== "public") return tr("This car isn't available for booking.");
     return null;
   }, [fromISO, toISOParam, v]);
 
@@ -156,8 +157,8 @@ export default function Book() {
       });
       if (error) {
         setConfirmIssue(error.message === "payment_not_confirmed"
-          ? "We haven't seen the payment settle yet. Your booking confirms by itself as soon as it does — nothing to do."
-          : "We couldn't confirm the payment just now. If you paid, it is matched automatically within minutes; if not, write to support.");
+          ? tr("We haven't seen the payment settle yet. Your booking confirms by itself as soon as it does — nothing to do.")
+          : tr("We couldn't confirm the payment just now. If you paid, it is matched automatically within minutes; if not, write to support."));
       }
     }
     setStep("done");
@@ -177,12 +178,12 @@ export default function Book() {
 
   /** Refusals the API words for a customer — a refusal never falls back. */
   const REFUSALS: Record<string, string> = {
-    dates_taken: "Sorry — this car was just booked for those dates. Please pick another period.",
-    invalid_dates: "Those dates can't be booked. Please pick them again.",
-    vehicle_unavailable: "This car isn't available for booking.",
-    invalid_insurance: "That insurance option is no longer offered — please reselect.",
-    invalid_extras: "One of the extras is no longer offered — please reselect.",
-    invalid_zone: "That delivery zone is no longer offered — please reselect.",
+    dates_taken: tr("Sorry — this car was just booked for those dates. Please pick another period."),
+    invalid_dates: tr("Those dates can't be booked. Please pick them again."),
+    vehicle_unavailable: tr("This car isn't available for booking."),
+    invalid_insurance: tr("That insurance option is no longer offered — please reselect."),
+    invalid_extras: tr("One of the extras is no longer offered — please reselect."),
+    invalid_zone: tr("That delivery zone is no longer offered — please reselect."),
   };
 
   const reserve = async (): Promise<{ id: string; charged: number | null } | null> => {
@@ -217,16 +218,16 @@ export default function Book() {
       return { id: apiRow.id, charged: Number(apiRow.charged_cents) || null };
     }
     const refusal = viaApi.error ? REFUSALS[viaApi.error.message] : null;
-    toast.error(refusal ?? "We couldn't reserve the car right now. Please try again in a moment.");
+    toast.error(refusal ?? tr("We couldn't reserve the car right now. Please try again in a moment."));
     return null;
   };
 
   /** Raise (or raise again) the Bitcoin invoice for the reserved booking. */
   const raiseInvoice = async (bookingId: string, payTotal: number) => {
     if (!pricing) return false;
-    if (!btcPrice) { toast.error("The Bitcoin price is still loading — try again in a second."); return false; }
+    if (!btcPrice) { toast.error(tr("The Bitcoin price is still loading — try again in a second.")); return false; }
     const sats = convertToSats(centsToDollars(payTotal));
-    if (sats <= 0) { toast.error("We couldn't work out the amount in sats."); return false; }
+    if (sats <= 0) { toast.error(tr("We couldn't work out the amount in sats.")); return false; }
     return inv.start({
       method: method === "onchain" ? "onchain" : "lightning",
       amountCents: payTotal,
@@ -241,7 +242,7 @@ export default function Book() {
         client_name: name.trim() || userData?.name || undefined,
         client_email: userData?.email || undefined,
         client_phone: whatsapp.trim() || undefined,
-        duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
+        duration: (pricing.rentalDays > 1 ? tr("{rentalDays} days", { rentalDays: pricing.rentalDays }) : tr("{rentalDays} day", { rentalDays: pricing.rentalDays })),
         selected_date_time: `${fromISO} → ${toISOParam}`,
         booking_id: bookingId,
       },
@@ -263,14 +264,14 @@ export default function Book() {
   };
 
   const startPay = async () => {
-    if (!isAuthenticated) { toast.error("Please sign in to book."); return; }
+    if (!isAuthenticated) { toast.error(tr("Please sign in to book.")); return; }
     if (!pricing) return;
-    if (!name.trim()) { toast.error("Add your name."); return; }
+    if (!name.trim()) { toast.error(tr("Add your name.")); return; }
     // The company has to reach the driver to hand the car over.
-    if (!whatsapp.trim() || phoneError(whatsapp)) { toast.error("Add a WhatsApp number we can reach you on."); return; }
-    if (zoneId && !address.trim()) { toast.error("Where should we bring the car?"); return; }
+    if (!whatsapp.trim() || phoneError(whatsapp)) { toast.error(tr("Add a WhatsApp number we can reach you on.")); return; }
+    if (zoneId && !address.trim()) { toast.error(tr("Where should we bring the car?")); return; }
     if ((method === "lightning" || method === "onchain") && !btcPrice) {
-      toast.error("The Bitcoin price is still loading — try again in a second.");
+      toast.error(tr("The Bitcoin price is still loading — try again in a second."));
       return;
     }
     setReserving(true);
@@ -296,10 +297,10 @@ export default function Book() {
   if (!v || !pricing || problem) return (
     <AppContainer className="py-24 text-center">
       <p className="text-title font-semibold text-foreground">
-        {problem ?? "Something's missing for this booking."}
+        {problem ?? tr("Something's missing for this booking.")}
       </p>
       <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? vehiclePath(v) : carPath())}>
-        {v ? "Choose dates" : "Back to vehicles"}
+        {v ? tr("Choose dates") : tr("Back to vehicles")}
       </Button>
     </AppContainer>
   );
@@ -313,14 +314,14 @@ export default function Book() {
         // What was actually charged — the payment fee included, as on the
         // invoice. The base alone under-stated a PayPal or on-chain payment.
         amount={formatUSD(serverCharged ?? effectiveTotal)}
-        eyebrow={confirmIssue ? "Payment received — confirming" : "Booking confirmed"}
+        eyebrow={confirmIssue ? tr("Payment received — confirming") : tr("Booking confirmed")}
         subtitle={<>
-          {`${v.name} · ${format(new Date(fromISO + "T00:00:00"), "MMM d")} → ${format(new Date(toISOParam + "T00:00:00"), "MMM d")}`}
+          {`${v.name} · ${format(new Date(fromISO + "T00:00:00"), "MMM d", { locale: dfLocale })} → ${format(new Date(toISOParam + "T00:00:00"), "MMM d", { locale: dfLocale })}`}
           {confirmIssue && <span className="mt-2 block text-meta text-muted-foreground">{confirmIssue}</span>}
         </>}
-        ctaLabel="View my bookings"
+        ctaLabel={tr("View my bookings")}
         onCta={() => navigate(carPath("my-bookings"))}
-        secondary={{ label: "Browse vehicles", onClick: () => navigate(carPath()) }}
+        secondary={{ label: tr("Browse vehicles"), onClick: () => navigate(carPath()) }}
       />
     </AppContainer>
   );
@@ -329,7 +330,7 @@ export default function Book() {
     <Button size="lg" className="w-full" disabled={reserving}
       onClick={() => (isAuthenticated ? void startPay() : openAuthModal("login", location.pathname + location.search))}>
       {reserving && <Spinner size="sm" className="mr-2" />}
-      {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : `Sign in to book · ${formatUSD(effectiveTotal)}`}
+      {isAuthenticated ? tr("Pay {effectiveTotal}", { effectiveTotal: formatUSD(effectiveTotal) }) : tr("Sign in to book · {effectiveTotal}", { effectiveTotal: formatUSD(effectiveTotal) })}
     </Button>
   );
 
@@ -343,10 +344,10 @@ export default function Book() {
             <>
               {/* Details */}
               <div className="space-y-3 rounded-radius-lg bg-card p-4">
-                <h2 className="text-title font-semibold text-foreground">Your details</h2>
-                <div className="space-y-1.5"><Label>Full name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
-                <div className="space-y-1.5"><Label>WhatsApp *</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
-                <div className="space-y-1.5"><Label>Notes (optional)</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+                <h2 className="text-title font-semibold text-foreground">{tr("Your details")}</h2>
+                <div className="space-y-1.5"><Label>{tr("Full name")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Your name")} /></div>
+                <div className="space-y-1.5"><Label>{tr("WhatsApp *")}</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
+                <div className="space-y-1.5"><Label>{tr("Notes (optional)")}</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
               </div>
 
               {/* Insurance + Delivery — summary rows opening a sheet (DESIGN.md §9) */}
@@ -354,22 +355,22 @@ export default function Book() {
                 <SummaryRow
                   icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
                   tint="bg-inset"
-                  title="Insurance"
+                  title={tr("Insurance")}
                   value={insurance ? `${insurance.name}${insuranceCents > 0 ? ` · ${formatUSD(insuranceCents)}` : " · included"}` : "Choose coverage"}
                   onClick={() => setInsOpen(true)}
                 />
                 <SummaryRow
                   icon={<MapPin className="h-5 w-5 text-muted-foreground" />}
                   tint="bg-inset"
-                  title="Delivery"
+                  title={tr("Delivery")}
                   value={zone ? `${zone.name}${deliveryFee > 0 ? ` · ${formatUSD(deliveryFee)}` : " · free"}` : "Pick up at our office — free"}
                   onClick={() => setZoneOpen(true)}
                 />
                 {/* Where to bring it — asked only when it is being brought. */}
                 {zone && (
                   <div className="space-y-1.5 px-4 pb-4">
-                    <Label htmlFor="rent-addr">Where should we bring the car?</Label>
-                    <Input id="rent-addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Hotel, building, street…" />
+                    <Label htmlFor="rent-addr">{tr("Where should we bring the car?")}</Label>
+                    <Input id="rent-addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tr("Hotel, building, street…")} />
                   </div>
                 )}
               </div>
@@ -377,7 +378,7 @@ export default function Book() {
               {/* Extras */}
               {extras.length > 0 && (
                 <div className="space-y-1 rounded-radius-lg bg-card p-4">
-                  <h2 className="mb-1 text-title font-semibold text-foreground">Extras</h2>
+                  <h2 className="mb-1 text-title font-semibold text-foreground">{tr("Extras")}</h2>
                   {extras.map((e) => {
                     const active = extraIds.has(e.id);
                     return (
@@ -401,7 +402,7 @@ export default function Book() {
                   most important button on the page was the only one a customer
                   had to go looking for. */}
               <div className="space-y-3 rounded-radius-lg bg-card p-4">
-                <h2 className="text-title font-semibold text-foreground">Payment</h2>
+                <h2 className="text-title font-semibold text-foreground">{tr("Payment")}</h2>
                 <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
               </div>
             </>
@@ -409,7 +410,7 @@ export default function Book() {
             <div className="rounded-radius-lg bg-card p-4">
               {method === "paypal" ? (
                 <>
-                  <h2 className="mb-3 text-title font-semibold text-foreground">Pay with PayPal</h2>
+                  <h2 className="mb-3 text-title font-semibold text-foreground">{tr("Pay with PayPal")}</h2>
                   <PayPalPanel
                     totalCents={serverCharged ?? effectiveTotal}
                     onPaid={(cap: string) => activate(cap, "paypal")}
@@ -431,7 +432,7 @@ export default function Book() {
                       client_name: name.trim() || userData?.name || undefined,
                       client_email: userData?.email || undefined,
                       client_phone: whatsapp.trim() || undefined,
-                      duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
+                      duration: (pricing.rentalDays > 1 ? tr("{rentalDays} days", { rentalDays: pricing.rentalDays }) : tr("{rentalDays} day", { rentalDays: pricing.rentalDays })),
                       selected_date_time: `${fromISO} → ${toISOParam}`,
                       booking_id: pendingIdRef.current ?? undefined,
                     }}
@@ -447,13 +448,11 @@ export default function Book() {
                     inv.reset();
                     if (pendingIdRef.current) void raiseInvoice(pendingIdRef.current, serverCharged ?? effectiveTotal);
                   }}
-                  successLabel="Confirming your booking…"
+                  successLabel={tr("Confirming your booking…")}
                 />
               )}
               {!inv.state.isPaid && (
-                <Button variant="ghost" className="mt-2 w-full" onClick={() => void backToForm()}>
-                  Change payment method
-                </Button>
+                <Button variant="ghost" className="mt-2 w-full" onClick={() => void backToForm()}>{tr("Change payment method")}</Button>
               )}
             </div>
           )}
@@ -470,20 +469,20 @@ export default function Book() {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-title font-semibold text-foreground">{v.name}</p>
-                <p className="text-meta text-muted-foreground">{format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}</p>
-                <p className="text-meta text-muted-foreground">{pricing.rentalDays} day{pricing.rentalDays > 1 ? "s" : ""}</p>
+                <p className="text-meta text-muted-foreground">{format(new Date(fromISO + "T00:00:00"), "MMM d", { locale: dfLocale })} → {format(new Date(toISOParam + "T00:00:00"), "MMM d", { locale: dfLocale })}</p>
+                <p className="text-meta text-muted-foreground">{pricing.rentalDays > 1 ? trx("{rentalDays} days", { rentalDays: pricing.rentalDays }) : trx("{rentalDays} day", { rentalDays: pricing.rentalDays })}</p>
               </div>
             </div>
             <div className="space-y-1.5 border-t border-border/60 pt-3 text-body">
-              <Line label={`Car · ${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`} value={formatUSD(pricing.subtotalCents)} />
-              {pricing.discountCents > 0 && <Line label="Multi-day discount" value={`−${formatUSD(pricing.discountCents)}`} accent />}
+              <Line label={(pricing.rentalDays > 1 ? tr("Car · {rentalDays} days", { rentalDays: pricing.rentalDays }) : tr("Car · {rentalDays} day", { rentalDays: pricing.rentalDays }))} value={formatUSD(pricing.subtotalCents)} />
+              {pricing.discountCents > 0 && <Line label={tr("Multi-day discount")} value={`−${formatUSD(pricing.discountCents)}`} accent />}
               {offerCents > 0 && offer && <Line label={quoteLabel(offer)} value={`−${formatUSD(offerCents)}`} accent />}
-              {insuranceCents > 0 && <Line label={insurance?.name ?? "Insurance"} value={formatUSD(insuranceCents)} />}
+              {insuranceCents > 0 && <Line label={insurance?.name ?? tr("Insurance")} value={formatUSD(insuranceCents)} />}
               {chosenExtras.map((e) => <Line key={e.id} label={e.name} value={formatUSD(extraCost(e, days))} />)}
-              {deliveryFee > 0 && <Line label={`Delivery · ${zone?.name}`} value={formatUSD(deliveryFee)} />}
-              {effectiveTotal > baseTotal && <Line label="Payment fee" value={formatUSD(effectiveTotal - baseTotal)} />}
+              {deliveryFee > 0 && <Line label={tr("Delivery · {name}", { name: zone?.name })} value={formatUSD(deliveryFee)} />}
+              {effectiveTotal > baseTotal && <Line label={tr("Payment fee")} value={formatUSD(effectiveTotal - baseTotal)} />}
               <div className="flex justify-between border-t border-border/60 pt-2 text-title font-semibold text-foreground">
-                <span>Total</span><span className="tabular-nums">{formatUSD(effectiveTotal)}</span>
+                <span>{tr("Total")}</span><span className="tabular-nums">{formatUSD(effectiveTotal)}</span>
               </div>
             </div>
             {/* On a laptop the button sits under the total it pays, in the
@@ -506,8 +505,8 @@ export default function Book() {
       <ResponsiveDialog
         open={insOpen}
         onOpenChange={setInsOpen}
-        title="Insurance"
-        description="Basic coverage is included. Upgrade for extra protection."
+        title={tr("Insurance")}
+        description={tr("Basic coverage is included. Upgrade for extra protection.")}
       >
           <div className="space-y-3 overflow-y-auto">
             {insuranceTiers.map((t) => {
@@ -520,7 +519,7 @@ export default function Book() {
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="text-title font-semibold text-foreground">{t.name}</p>
                     <span className={cn("shrink-0 text-sm font-semibold tabular-nums", t.price_per_day_cents === 0 ? "text-positive" : "text-foreground")}>
-                      {t.price_per_day_cents === 0 ? "Included" : `${formatUSD(t.price_per_day_cents)}/day · ${formatUSD(cost)}`}
+                      {t.price_per_day_cents === 0 ? tr("Included") : `${formatUSD(t.price_per_day_cents)}/day · ${formatUSD(cost)}`}
                     </span>
                   </div>
                   <ul className="mt-2 space-y-1">
@@ -540,11 +539,11 @@ export default function Book() {
       <ResponsiveDialog
         open={zoneOpen}
         onOpenChange={setZoneOpen}
-        title="Delivery"
-        description="Pick up for free, or we bring it to your zone."
+        title={tr("Delivery")}
+        description={tr("Pick up for free, or we bring it to your zone.")}
       >
           <div className="space-y-2 overflow-y-auto">
-            <ZoneOption active={!zoneId} title="Pick up at our office" sub="Free" onClick={() => { setZoneId(""); setZoneOpen(false); }} />
+            <ZoneOption active={!zoneId} title={tr("Pick up at our office")} sub={tr("Free")} onClick={() => { setZoneId(""); setZoneOpen(false); }} />
             {zones.map((z) => (
               <ZoneOption key={z.id} active={zoneId === z.id} title={z.name} sub={z.fee_cents > 0 ? formatUSD(z.fee_cents) : "Free"} areas={z.areas}
                 onClick={() => { setZoneId(z.id); setZoneOpen(false); }} />

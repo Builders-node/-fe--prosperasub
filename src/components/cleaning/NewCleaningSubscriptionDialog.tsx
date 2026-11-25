@@ -18,6 +18,7 @@ import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel"
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { orderShape } from "@/lib/checkout/orderShape";
 import { format } from "date-fns";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * "New subscription" for a cleaning business — a customer who paid outside
@@ -102,9 +103,9 @@ export function NewCleaningSubscriptionDialog({
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!userId) throw new Error("Pick a customer");
-      if (!priced) throw new Error("Pick a plan");
-      if (unitCents <= 0) throw new Error("The price must be more than $0");
+      if (!userId) throw new Error(tr("Pick a customer"));
+      if (!priced) throw new Error(tr("Pick a plan"));
+      if (unitCents <= 0) throw new Error(tr("The price must be more than $0"));
       const { table, row } = buildSubscriptionWrite(priced, {
         userId,
         userUuid: userId,
@@ -136,14 +137,14 @@ export function NewCleaningSubscriptionDialog({
       return String(data?.id ?? "");
     },
     onSuccess: (id) => {
-      toast.success("Subscription added — now book its visits");
+      toast.success(tr("Subscription added — now book its visits"));
       qc.invalidateQueries({ queryKey: ["provider-subscribers"] });
       qc.invalidateQueries({ queryKey: ["unified-bookings"] });
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
       reset();
       if (id) onCreated?.(id);
     },
-    onError: (e: Error) => toast.error(e.message || "Could not add the subscription"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not add the subscription")),
   });
 
   return (
@@ -152,28 +153,27 @@ export function NewCleaningSubscriptionDialog({
         ? <span onClick={() => setOpen(true)}>{trigger}</span>
         : (
           <Button variant="secondary" className="gap-2" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" /> New subscription
-          </Button>
+            <Plus className="h-4 w-4" />{" "}{tr("New subscription")}</Button>
         )}
 
       <ResponsiveDialog
         open={open}
         onOpenChange={(o) => { if (!o && !create.isPending) reset(); }}
-        title="New subscription"
-        description="For a customer who paid outside the platform. It counts as paid and runs from the start date."
+        title={tr("New subscription")}
+        description={tr("For a customer who paid outside the platform. It counts as paid and runs from the start date.")}
         footer={
           <div className="flex w-full gap-2">
-            <Button variant="secondary" className="flex-1" onClick={reset} disabled={create.isPending}>Cancel</Button>
+            <Button variant="secondary" className="flex-1" onClick={reset} disabled={create.isPending}>{tr("Cancel")}</Button>
             <Button className="flex-1" onClick={() => create.mutate()} loading={create.isPending}
               disabled={create.isPending || !userId || !priced || unitCents <= 0}>
-              {totalCents > 0 ? `Add · ${formatUSD(totalCents)}` : "Add subscription"}
+              {totalCents > 0 ? tr("Add · {totalCents}", { totalCents: formatUSD(totalCents) }) : tr("Add subscription")}
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Customer</Label>
+            <Label>{tr("Customer")}</Label>
             <UserPicker
               providerId={universalProviderId ?? null}
               value={userId}
@@ -181,15 +181,15 @@ export function NewCleaningSubscriptionDialog({
                 setUserId(u?.id ?? "");
                 setCustomerName(u ? (u.display_name || u.name || u.email || "") : "");
               }}
-              placeholder="Pick a platform user…"
+              placeholder={tr("Pick a platform user…")}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Plan</Label>
+            <Label>{tr("Plan")}</Label>
             <Select value={packageId} onValueChange={setPackageId}>
               <SelectTrigger>
-                <SelectValue placeholder={packagesLoading ? "Loading…" : "Pick a plan"} />
+                <SelectValue placeholder={packagesLoading ? tr("Loading…") : tr("Pick a plan")} />
               </SelectTrigger>
               <SelectContent>
                 {packages.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -197,35 +197,33 @@ export function NewCleaningSubscriptionDialog({
             </Select>
           </div>
 
-          {packageId && planLoading && !plan && <p className="text-meta text-muted-foreground">Loading the plan…</p>}
+          {packageId && planLoading && !plan && <p className="text-meta text-muted-foreground">{tr("Loading the plan…")}</p>}
 
           {plan && shape && (
             <>
               {shape.termOptions.length > 1 && (
                 <div className="space-y-1.5">
-                  <Label>How long</Label>
+                  <Label>{tr("How long")}</Label>
                   <TermPills options={shape.termOptions} value={months} onChange={setMonths} noun={shape.periodNoun} />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <Input
-                  label={`Price per ${shape.periodNoun || "period"} ($)`}
+                  label={tr("Price per {value} ($)", { value: shape.periodNoun || "period" })}
                   inputMode="decimal"
                   value={priceDollars}
                   onChange={(e) => setPriceDollars(e.target.value.replace(/[^0-9.]/g, ""))}
                 />
-                <Input label="Starts" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Input label={tr("Starts")} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
               {endDate && (
-                <p className="text-meta text-muted-foreground">
-                  Runs {formatDateHN(startDate)} → {formatDateHN(endDate)} · {formatUSD(totalCents)} in total
-                </p>
+                <p className="text-meta text-muted-foreground">{trx("Runs {startDate} → {endDate} · {totalCents} in total", { startDate: formatDateHN(startDate), endDate: formatDateHN(endDate), totalCents: formatUSD(totalCents) })}</p>
               )}
             </>
           )}
 
-          <Input label="Where" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Apartment, building" />
-          <Input label="WhatsApp" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+504 1234 5678" />
+          <Input label={tr("Where")} value={where} onChange={(e) => setWhere(e.target.value)} placeholder={tr("Apartment, building")} />
+          <Input label={tr("WhatsApp")} type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+504 1234 5678" />
         </div>
       </ResponsiveDialog>
     </>

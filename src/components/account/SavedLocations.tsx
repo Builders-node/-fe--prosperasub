@@ -16,6 +16,7 @@ import { useResidences } from "@/hooks/useResidences";
 import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 // Home addresses are physical-safety PII. They used to be read/written straight
 // from the browser with the anon key; every operation now goes through the
@@ -67,7 +68,7 @@ export function SavedLocations({ userId }: { userId: string }) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = locationPayload(label, addr, residence);
-      if (!payload.line) throw new Error("Pick a residence or add a street/area.");
+      if (!payload.line) throw new Error(tr("Pick a residence or add a street/area."));
       // The backend sets is_default (first location wins) and mirrors it to the
       // profile; the browser just sends the address.
       const { error } =
@@ -78,7 +79,7 @@ export function SavedLocations({ userId }: { userId: string }) {
             });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Location saved"); setEditing(null); invalidate(); },
+    onSuccess: () => { toast.success(tr("Location saved")); setEditing(null); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -88,7 +89,7 @@ export function SavedLocations({ userId }: { userId: string }) {
       const { error } = await accountApi(`/account/locations/${loc.id}`, { method: "DELETE" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Location removed"); invalidate(); },
+    onSuccess: () => { toast.success(tr("Location removed")); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -97,7 +98,7 @@ export function SavedLocations({ userId }: { userId: string }) {
       const { error } = await accountApi(`/account/locations/${loc.id}/default`, { method: "POST" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Default location set"); invalidate(); },
+    onSuccess: () => { toast.success(tr("Default location set")); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -111,8 +112,8 @@ export function SavedLocations({ userId }: { userId: string }) {
           <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-[8px] bg-inset">
             <MapPin className="h-5 w-5 text-muted-foreground" />
           </div>
-          <p className="text-title font-semibold text-foreground">No saved locations</p>
-          <p className="mt-0.5 text-meta text-muted-foreground">Add one to reuse at checkout.</p>
+          <p className="text-title font-semibold text-foreground">{tr("No saved locations")}</p>
+          <p className="mt-0.5 text-meta text-muted-foreground">{tr("Add one to reuse at checkout.")}</p>
         </div>
       ) : (
         // One card, a row per place — the account page's row shape (40px tile,
@@ -128,23 +129,21 @@ export function SavedLocations({ userId }: { userId: string }) {
                   <p className="truncate text-title font-semibold text-foreground">{loc.label || "Location"}</p>
                   {loc.is_default && (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
-                      <Star className="h-3 w-3 fill-primary" /> Default
-                    </span>
+                      <Star className="h-3 w-3 fill-primary" />{" "}{tr("Default")}</span>
                   )}
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-meta text-muted-foreground">{loc.line}</p>
                 {!loc.is_default && (
                   <button type="button" onClick={() => setDefaultMutation.mutate(loc)} disabled={setDefaultMutation.isPending}
                     className="mt-1 inline-flex items-center gap-1 text-meta font-semibold text-foreground underline-offset-4 hover:underline">
-                    <Check className="h-3 w-3" /> Make default
-                  </button>
+                    <Check className="h-3 w-3" />{" "}{tr("Make default")}</button>
                 )}
               </div>
-              <Button variant="ghost" size="iconSm" onClick={() => openEdit(loc)} aria-label="Edit location">
+              <Button variant="ghost" size="iconSm" onClick={() => openEdit(loc)} aria-label={tr("Edit location")}>
                 <Pencil />
               </Button>
               <Button variant="ghost" size="iconSm" onClick={() => deleteMutation.mutate(loc)} disabled={deleteMutation.isPending}
-                aria-label="Delete location" className="hover:text-destructive">
+                aria-label={tr("Delete location")} className="hover:text-destructive">
                 <Trash2 />
               </Button>
             </div>
@@ -153,20 +152,19 @@ export function SavedLocations({ userId }: { userId: string }) {
       )}
 
       <Button variant="secondary" className="w-full gap-2" onClick={openNew}>
-        <Plus className="h-4 w-4" /> Add location
-      </Button>
+        <Plus className="h-4 w-4" />{" "}{tr("Add location")}</Button>
 
       {/* Add / edit in a dialog over the list (a sheet on a phone) — it used to
           replace the list in place, which read as a new page on a laptop. */}
       <ResponsiveDialog
         open={!!editing}
         onOpenChange={(o) => { if (!o && !saveMutation.isPending) setEditing(null); }}
-        title={editing === "new" ? "New location" : "Edit location"}
+        title={editing === "new" ? tr("New location") : tr("Edit location")}
         footer={
           <div className="flex w-full gap-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setEditing(null)} disabled={saveMutation.isPending}>Cancel</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setEditing(null)} disabled={saveMutation.isPending}>{tr("Cancel")}</Button>
             <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
+              {saveMutation.isPending ? <><Spinner size="sm" />{" "}{tr("Saving…")}</> : "Save"}
             </Button>
           </div>
         }
@@ -174,18 +172,18 @@ export function SavedLocations({ userId }: { userId: string }) {
         <div className="space-y-3">
           <Input
             id="loc-label"
-            label="Label"
+            label={tr("Label")}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Home, Office"
+            placeholder={tr("e.g. Home, Office")}
           />
           {residences.length > 0 && (
             <div>
-              <Label className="mb-1.5">Residence</Label>
+              <Label className="mb-1.5">{tr("Residence")}</Label>
               <Select value={residence || "_none"} onValueChange={(v) => setResidence(v === "_none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Select residence" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tr("Select residence")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none">Other / not listed</SelectItem>
+                  <SelectItem value="_none">{tr("Other / not listed")}</SelectItem>
                   {residences.map((r) => (
                     <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
                   ))}
@@ -232,7 +230,7 @@ export function LocationPicker({
   return (
     <div className="space-y-1">
       {locations.length > 0 && (
-        <p className="text-meta text-muted-foreground">Saved addresses</p>
+        <p className="text-meta text-muted-foreground">{tr("Saved addresses")}</p>
       )}
       {locations.map((loc) => {
         const selected = !!value && value === loc.line;
@@ -264,8 +262,7 @@ export function LocationPicker({
                 </span>
                 {loc.is_default && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
-                    <Star className="h-3 w-3 fill-primary" /> Default
-                  </span>
+                    <Star className="h-3 w-3 fill-primary" />{" "}{tr("Default")}</span>
                 )}
               </span>
               <span className="mt-0.5 block truncate text-meta text-muted-foreground">
@@ -284,7 +281,7 @@ export function LocationPicker({
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border">
             <Plus className="h-3.5 w-3.5 text-muted-foreground" />
           </span>
-          <span className="text-body font-semibold text-foreground">Add new address</span>
+          <span className="text-body font-semibold text-foreground">{tr("Add new address")}</span>
         </button>
       )}
     </div>

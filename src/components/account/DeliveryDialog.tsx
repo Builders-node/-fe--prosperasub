@@ -10,6 +10,7 @@ import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import {
   fetchDelivery, saveDelivery, type SubscriberSource,
 } from "@/services/subscribers";
+import { tr } from "@/lib/tr";
 
 /**
  * Where a subscription goes, edited.
@@ -60,10 +61,10 @@ export function DeliveryDialog({
     setSaving(true);
     try {
       await saveDelivery(shape, subscriptionId, values, ownerUserId ?? undefined);
-      toast.success("Saved");
+      toast.success(tr("Saved"));
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message || "Could not save");
+      toast.error(e?.message || tr("Could not save"));
     } finally {
       setSaving(false);
     }
@@ -73,7 +74,7 @@ export function DeliveryDialog({
     <ResponsiveDialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title={shape.deliveryLabel ?? "Delivery details"}
+      title={shape.deliveryLabel ?? tr("Delivery details")}
       description={title ?? undefined}
       footer={
         <Button
@@ -81,10 +82,8 @@ export function DeliveryDialog({
           onClick={() => void submit()}
           disabled={saving || isLoading}
           loading={saving}
-          loadingText="Saving…"
-        >
-          Save
-        </Button>
+          loadingText={tr("Saving…")}
+        >{tr("Save")}</Button>
       }
     >
       {isLoading ? (

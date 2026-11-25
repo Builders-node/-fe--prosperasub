@@ -6,13 +6,14 @@ import {
 } from "@/components/admin/analytics/AnalyticsPrimitives";
 import { changeLabel, type PeriodFigures, type RevenueGroup, type RollupFigures } from "@/lib/analytics/platformRollup";
 import { formatUSD } from "@/lib/pricing";
+import { tr } from "@/lib/tr";
 
 /** A revenue grouping as the ranked list wants it — "Studio Apartment · 5 subs". */
 export const rankedByRevenue = (groups: RevenueGroup[]): RankedRow[] =>
   groups.map((g) => ({
     key: g.key,
     label: g.label,
-    sublabel: `${g.subs} sub${g.subs !== 1 ? "s" : ""}`,
+    sublabel: (g.subs !== 1 ? tr("{subs} subs", { subs: g.subs }) : tr("{subs} sub", { subs: g.subs })),
     value: g.revenueCents,
   }));
 
@@ -86,37 +87,37 @@ export function AnalyticsView({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {period ? (
           <>
-            <KpiCard icon={TrendingUp} label="Revenue" value={formatUSD(period.revenueCents)}
+            <KpiCard icon={TrendingUp} label={tr("Revenue")} value={formatUSD(period.revenueCents)}
               accent="text-positive" change={changeLabel(period.revenueCents, period.prevRevenueCents)} />
-            <KpiCard icon={BarChart3} label="Sales" value={String(period.sales)}
+            <KpiCard icon={BarChart3} label={tr("Sales")} value={String(period.sales)}
               accent="text-primary" change={changeLabel(period.sales, period.prevSales)} />
-            <KpiCard icon={Layers} label="Active now" value={String(figures.active)} accent="text-attention" />
-            <KpiCard icon={Users} label="Buyers" value={String(period.customers)} accent="text-muted-foreground" />
+            <KpiCard icon={Layers} label={tr("Active now")} value={String(figures.active)} accent="text-attention" />
+            <KpiCard icon={Users} label={tr("Buyers")} value={String(period.customers)} accent="text-muted-foreground" />
           </>
         ) : (
           <>
-            <KpiCard icon={TrendingUp} label="Total revenue" value={formatUSD(figures.revenueCents)} accent="text-positive" />
-            <KpiCard icon={TrendingUp} label={`Revenue — ${monthLabel}`} value={formatUSD(figures.monthRevenueCents)} accent="text-blue-400" />
-            <KpiCard icon={Layers} label="Active subscriptions" value={String(figures.active)} accent="text-attention" />
-            <KpiCard icon={Users} label="Customers" value={String(figures.customers)} accent="text-purple-400" />
+            <KpiCard icon={TrendingUp} label={tr("Total revenue")} value={formatUSD(figures.revenueCents)} accent="text-positive" />
+            <KpiCard icon={TrendingUp} label={tr("Revenue — {monthLabel}", { monthLabel })} value={formatUSD(figures.monthRevenueCents)} accent="text-blue-400" />
+            <KpiCard icon={Layers} label={tr("Active subscriptions")} value={String(figures.active)} accent="text-attention" />
+            <KpiCard icon={Users} label={tr("Customers")} value={String(figures.customers)} accent="text-purple-400" />
           </>
         )}
       </div>
 
       {/* 2 — how revenue moved, and where the subscriptions stand today. */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Monthly Revenue (last 6 months)" icon={BarChart3}>
+        <Card title={tr("Monthly Revenue (last 6 months)")} icon={BarChart3}>
           <StackedRevenueChart months={months} series={series} formatValue={formatUSD} />
         </Card>
-        <Card title="Subscription status" icon={Layers}>
+        <Card title={tr("Subscription status")} icon={Layers}>
           <div className="space-y-3">
-            <StatusBar label="Active" count={figures.active} total={figures.subs} color="bg-positive" textColor="text-positive" />
-            <StatusBar label="Expired" count={figures.expired} total={figures.subs} color="bg-negative" textColor="text-negative" />
-            <StatusBar label="Paused" count={figures.paused} total={figures.subs} color="bg-attention" textColor="text-attention" />
-            <StatusBar label="Cancelled" count={figures.cancelled} total={figures.subs} color="bg-muted-foreground" textColor="text-muted-foreground" />
+            <StatusBar label={tr("Active")} count={figures.active} total={figures.subs} color="bg-positive" textColor="text-positive" />
+            <StatusBar label={tr("Expired")} count={figures.expired} total={figures.subs} color="bg-negative" textColor="text-negative" />
+            <StatusBar label={tr("Paused")} count={figures.paused} total={figures.subs} color="bg-attention" textColor="text-attention" />
+            <StatusBar label={tr("Cancelled")} count={figures.cancelled} total={figures.subs} color="bg-muted-foreground" textColor="text-muted-foreground" />
           </div>
           <div className="flex items-center justify-between border-t border-border pt-3 text-title">
-            <span className="text-muted-foreground">Awaiting payment</span>
+            <span className="text-muted-foreground">{tr("Awaiting payment")}</span>
             <span className={`font-semibold tabular-nums ${figures.awaitingPayment > 0 ? "text-attention" : "text-foreground"}`}>
               {figures.awaitingPayment}
             </span>
@@ -126,34 +127,34 @@ export function AnalyticsView({
 
       {/* 3 — what sells, and who sells it. */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card title={period && period.period !== "all" ? `Revenue by Plan · ${period.label}` : "Revenue by Plan"} icon={TrendingUp}>
+        <Card title={period && period.period !== "all" ? tr("Revenue by Plan · {label}", { label: period.label }) : tr("Revenue by Plan")} icon={TrendingUp}>
           <RankedBarList
             rows={plans.rows}
             formatValue={formatUSD}
-            emptyMessage={plans.emptyMessage ?? "No plan has earned anything yet."}
+            emptyMessage={plans.emptyMessage ?? tr("No plan has earned anything yet.")}
           />
         </Card>
         <Card title={period && period.period !== "all" ? `${group.title} · ${period.label}` : group.title} icon={Layers}>
           <RankedBarList
             rows={group.rows}
             formatValue={formatUSD}
-            emptyMessage={group.emptyMessage ?? "Nothing to show yet."}
+            emptyMessage={group.emptyMessage ?? tr("Nothing to show yet.")}
           />
         </Card>
       </div>
 
       {/* 4 — the same eight numbers, in the same order, on every screen. */}
       <div className="rounded-radius-lg bg-card p-4">
-        <h2 className="mb-4 text-heading font-semibold text-foreground">Overview</h2>
+        <h2 className="mb-4 text-heading font-semibold text-foreground">{tr("Overview")}</h2>
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatItem label="Total subscriptions" value={String(figures.subs)} />
-          <StatItem label="Active" value={String(figures.active)} />
-          <StatItem label="Paused" value={String(figures.paused)} />
-          <StatItem label="Expired" value={String(figures.expired)} />
-          <StatItem label="Cancelled" value={String(figures.cancelled)} />
-          <StatItem label="Awaiting payment" value={String(figures.awaitingPayment)} />
-          <StatItem label="Customers" value={String(figures.customers)} />
-          <StatItem label="Avg revenue / sub" value={formatUSD(avgPerSubCents)} />
+          <StatItem label={tr("Total subscriptions")} value={String(figures.subs)} />
+          <StatItem label={tr("Active")} value={String(figures.active)} />
+          <StatItem label={tr("Paused")} value={String(figures.paused)} />
+          <StatItem label={tr("Expired")} value={String(figures.expired)} />
+          <StatItem label={tr("Cancelled")} value={String(figures.cancelled)} />
+          <StatItem label={tr("Awaiting payment")} value={String(figures.awaitingPayment)} />
+          <StatItem label={tr("Customers")} value={String(figures.customers)} />
+          <StatItem label={tr("Avg revenue / sub")} value={formatUSD(avgPerSubCents)} />
         </dl>
       </div>
 
@@ -165,11 +166,7 @@ export function AnalyticsView({
         </div>
       )}
 
-      <p className="text-body text-muted-foreground">
-        Revenue counts each paid, non-cancelled subscription at its full committed
-        value, in the month it was sold — the same rule on every service and on the
-        Overview. Active means paid and running today (Honduras time).
-        {period && period.period !== "all" && " A period cuts revenue, sales, buyers and the rankings to sales made in it; the status figures are always as of now."}
+      <p className="text-body text-muted-foreground">{tr("Revenue counts each paid, non-cancelled subscription at its full committed value, in the month it was sold — the same rule on every service and on the Overview. Active means paid and running today (Honduras time).")}{period && period.period !== "all" && tr(" A period cuts revenue, sales, buyers and the rankings to sales made in it; the status figures are always as of now.")}
       </p>
     </div>
   );

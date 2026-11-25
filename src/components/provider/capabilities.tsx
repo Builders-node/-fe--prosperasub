@@ -1,4 +1,5 @@
 import { LayoutDashboard, Truck, type LucideIcon } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * What a business does that changes the app's behaviour.
@@ -30,11 +31,11 @@ export interface CapabilityMeta {
 export const CAPABILITIES: Record<CapabilityKey, CapabilityMeta> = {
   delivery: {
     key: "delivery",
-    label: "Delivery",
-    description: "Ships items to the customer's address",
+    label: tr("Delivery"),
+    description: tr("Ships items to the customer's address"),
     icon: Truck,
     tabValue: "delivery",
-    tabLabel: "Delivery",
+    tabLabel: tr("Delivery"),
   },
 };
 
@@ -45,7 +46,7 @@ export const ALL_CAPABILITIES: CapabilityMeta[] = Object.values(CAPABILITIES);
  * Operations → Team). Batch 4 will fold the KPI widget in here as well. */
 export const INFO_TAB_META = {
   tabValue: "info",
-  tabLabel: "Overview",
+  tabLabel: tr("Overview"),
   tabMobileLabel: "Overview",
   icon: LayoutDashboard,
 };

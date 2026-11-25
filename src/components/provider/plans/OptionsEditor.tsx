@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Options & prices — what a customer can choose inside one plan, and what
@@ -57,9 +58,9 @@ function moveTo<T>(items: T[], from: number, to: number): T[] {
 }
 
 const STARTERS: Array<{ label: string; values: string[] }> = [
-  { label: "Size", values: ["Small", "Medium", "Large"] },
-  { label: "Days per week", values: ["3 days", "5 days", "7 days"] },
-  { label: "People", values: ["1 person", "2 people", "Family"] },
+  { label: tr("Size"), values: ["Small", "Medium", "Large"] },
+  { label: tr("Days per week"), values: ["3 days", "5 days", "7 days"] },
+  { label: tr("People"), values: ["1 person", "2 people", "Family"] },
 ];
 
 const cents = (text: string) => {
@@ -109,10 +110,8 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-inset"><Layers className="h-5 w-5 text-muted-foreground" /></span>
           <div className="min-w-0 flex-1">
-            <p className="text-title font-semibold text-foreground">Options & prices</p>
-            <p className="mt-0.5 text-body text-muted-foreground">
-              Right now this plan has one price. Add options if customers choose something that changes the price — a size, how many days a week, how many people.
-            </p>
+            <p className="text-title font-semibold text-foreground">{tr("Options & prices")}</p>
+            <p className="mt-0.5 text-body text-muted-foreground">{tr("Right now this plan has one price. Add options if customers choose something that changes the price — a size, how many days a week, how many people.")}</p>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -121,7 +120,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
               <Plus /> {s.label}
             </Button>
           ))}
-          <Button size="sm" variant="ghost" onClick={() => setOpened(true)}>Something else</Button>
+          <Button size="sm" variant="ghost" onClick={() => setOpened(true)}>{tr("Something else")}</Button>
         </div>
       </section>
     );
@@ -140,7 +139,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
         inputSize="sm" inputMode="decimal" aria-label={aria}
         value={prices[k] ?? ""}
         onChange={(e) => setPrices((p) => ({ ...p, [k]: e.target.value }))}
-        placeholder="Not offered"
+        placeholder={tr("Not offered")}
         className="w-full min-w-0 bg-card text-right tabular-nums placeholder:text-left placeholder:text-meta"
         leftIcon={<span className="text-meta text-muted-foreground">$</span>}
       />
@@ -152,31 +151,27 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
     <section className="space-y-4 rounded-radius-lg bg-card p-4">
       {confirmDialog}
       <div>
-        <p className="text-title font-semibold text-foreground">Options & prices</p>
-        <p className="mt-0.5 text-body text-muted-foreground">
-          What the customer picks before paying. Each combination gets its own price.
-        </p>
+        <p className="text-title font-semibold text-foreground">{tr("Options & prices")}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{tr("What the customer picks before paying. Each combination gets its own price.")}</p>
       </div>
 
       {/* ── 1. The choices ── */}
       <div className="space-y-2">
         <div>
-          <p className="text-meta font-semibold text-muted-foreground">1 · What does the customer choose?</p>
-          <p className="text-meta text-muted-foreground">
-            Each choice is a question the customer answers before paying — e.g. “Days per week” → Mon–Fri or Mon–Sat.
-          </p>
+          <p className="text-meta font-semibold text-muted-foreground">{tr("1 · What does the customer choose?")}</p>
+          <p className="text-meta text-muted-foreground">{tr("Each choice is a question the customer answers before paying — e.g. “Days per week” → Mon–Fri or Mon–Sat.")}</p>
         </div>
         {groups.map((g, gi) => (
           <div key={g.key} className="rounded-radius-md bg-inset p-3">
             {/* The question — reads as a heading, edits in place. */}
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-meta text-muted-foreground">Question {gi + 1}</p>
+                <p className="text-meta text-muted-foreground">{trx("Question {value}", { value: gi + 1 })}</p>
                 <input
-                  aria-label="Question"
+                  aria-label={tr("Question")}
                   value={g.label}
                   onChange={(e) => patchGroup(gi, (x) => ({ ...x, label: e.target.value }))}
-                  placeholder="Name it — e.g. Size"
+                  placeholder={tr("Name it — e.g. Size")}
                   className="w-full border-b border-transparent bg-transparent pb-0.5 text-title font-semibold text-foreground outline-none placeholder:text-muted-foreground/60 hover:border-border focus:border-primary"
                 />
               </div>
@@ -185,18 +180,16 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
                   <Button variant="ghost" size="icon" aria-label={`${g.label || "Question"} actions`}><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem disabled={gi === 0} onSelect={() => move(gi, -1)}>Ask earlier</DropdownMenuItem>
-                  <DropdownMenuItem disabled={gi === groups.length - 1} onSelect={() => move(gi, 1)}>Ask later</DropdownMenuItem>
+                  <DropdownMenuItem disabled={gi === 0} onSelect={() => move(gi, -1)}>{tr("Ask earlier")}</DropdownMenuItem>
+                  <DropdownMenuItem disabled={gi === groups.length - 1} onSelect={() => move(gi, 1)}>{tr("Ask later")}</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-negative" onSelect={() => setGroups((gs) => gs.filter((_, i) => i !== gi))}>
-                    Remove this question
-                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-negative" onSelect={() => setGroups((gs) => gs.filter((_, i) => i !== gi))}>{tr("Remove this question")}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             {/* The answers. */}
-            <p className="mt-3 text-meta text-muted-foreground">Customer picks one — tap an answer to rename or move it, or drag it:</p>
+            <p className="mt-3 text-meta text-muted-foreground">{tr("Customer picks one — tap an answer to rename or move it, or drag it:")}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {g.options.map((o, oi) => (
                 <AnswerChip
@@ -217,7 +210,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
               ))}
               <AddValue
                 startOpen={g.options.length === 0}
-                placeholder={g.options.length ? "Another answer" : "First answer — e.g. Large"}
+                placeholder={g.options.length ? tr("Another answer") : tr("First answer — e.g. Large")}
                 onAdd={(label) => patchGroup(gi, (x) => ({
                   ...x,
                   options: x.options.some((o) => o.label.toLowerCase() === label.toLowerCase())
@@ -227,7 +220,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
               />
             </div>
             {g.options.length === 0 && (
-              <p className="mt-2 text-meta text-attention">Type an answer and press Enter. Add as many as you sell.</p>
+              <p className="mt-2 text-meta text-attention">{tr("Type an answer and press Enter. Add as many as you sell.")}</p>
             )}
           </div>
         ))}
@@ -236,11 +229,11 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
         {/* What all of this looks like on the plan page. */}
         {groups.some((g) => g.options.length > 0) && (
           <div className="rounded-radius-md border border-dashed border-border p-3">
-            <p className="text-meta font-semibold text-muted-foreground">How the customer sees it</p>
+            <p className="text-meta font-semibold text-muted-foreground">{tr("How the customer sees it")}</p>
             <div className="mt-2 space-y-3">
               {groups.filter((g) => g.options.length > 0).map((g) => (
                 <div key={g.key}>
-                  <p className="text-body font-semibold text-foreground">{g.label || "Untitled question"}</p>
+                  <p className="text-body font-semibold text-foreground">{g.label || tr("Untitled question")}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {g.options.map((o, i) => (
                       <span key={o.key} className={cn("rounded-full px-3.5 py-1.5 text-body font-semibold",
@@ -259,14 +252,11 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
       {/* ── 2. The prices ── */}
       {groups.length > 0 && (
         <div className="space-y-2">
-          <p className="text-meta font-semibold text-muted-foreground">
-            2 · Prices{perLabel ? ` per ${perLabel}` : ""}
+          <p className="text-meta font-semibold text-muted-foreground">{tr("2 · Prices")}{perLabel ? ` per ${perLabel}` : ""}
           </p>
 
           {unvalued.length > 0 ? (
-            <p className="rounded-radius-md bg-inset p-3 text-body text-muted-foreground">
-              Give {unvalued.map((g) => `“${g.label || "the new question"}”`).join(" and ")} at least one answer to set prices.
-            </p>
+            <p className="rounded-radius-md bg-inset p-3 text-body text-muted-foreground">{tr("Give {questions} at least one answer to set prices.", { questions: unvalued.map((g) => `“${g.label || tr("the new question")}”`).join(tr(" and ")) })}</p>
           ) : groups.length === 2 ? (
             // Two choices: a grid (rows × columns) where there is room; on a
             // phone, the same thing grouped by the first choice.
@@ -319,8 +309,8 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
 
           {unvalued.length === 0 && combos.length > 1 && (
             <div className="flex flex-wrap items-center gap-2">
-              <Input inputSize="sm" inputMode="decimal" value={fill} onChange={(e) => setFill(e.target.value)} placeholder="Same price"
-                leftIcon={<span className="text-meta text-muted-foreground">$</span>} wrapperClassName="w-36" aria-label="Price for empty cells" />
+              <Input inputSize="sm" inputMode="decimal" value={fill} onChange={(e) => setFill(e.target.value)} placeholder={tr("Same price")}
+                leftIcon={<span className="text-meta text-muted-foreground">$</span>} wrapperClassName="w-36" aria-label={tr("Price for empty cells")} />
               <Button size="sm" variant="secondary" disabled={!cents(fill)}
                 onClick={() => {
                   setPrices((p) => {
@@ -329,19 +319,15 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
                     return next;
                   });
                   setFill("");
-                }}>
-                Fill empty
-              </Button>
+                }}>{tr("Fill empty")}</Button>
             </div>
           )}
 
           {unvalued.length === 0 && (
             <p className="text-meta text-muted-foreground">
               {pricedCount === 0
-                ? "Nothing is on sale yet — enter at least one price."
-                : `${pricedCount} of ${combos.length} on sale · customers see “from ${formatUSD(fromCents)}”.`}{" "}
-              An empty price means you don't offer that combination; anyone already subscribed to it keeps their plan.
-            </p>
+                ? tr("Nothing is on sale yet — enter at least one price.")
+                : tr("{pricedCount} of {length} on sale · customers see “from {fromCents}”.", { pricedCount, length: combos.length, fromCents: formatUSD(fromCents) })}{" "}{tr("An empty price means you don't offer that combination; anyone already subscribed to it keeps their plan.")}</p>
           )}
         </div>
       )}
@@ -349,11 +335,9 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
       {groups.length > 0 && (
         <button
           type="button"
-          onClick={async () => { if (await confirm({ title: "Remove all options?", description: "The plan goes back to one price.", confirmLabel: "Remove" })) { setGroups(() => []); setOpened(false); } }}
+          onClick={async () => { if (await confirm({ title: tr("Remove all options?"), description: tr("The plan goes back to one price."), confirmLabel: tr("Remove") })) { setGroups(() => []); setOpened(false); } }}
           className="text-meta font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-        >
-          Remove all options — back to one price
-        </button>
+        >{tr("Remove all options — back to one price")}</button>
       )}
     </section>
   );
@@ -386,7 +370,7 @@ function AnswerChip({ label, first, last, taken, onRename, onMove, onRemove, onD
           if (e.key === "Escape") { setDraft(label); setEditing(false); }
         }}
         onBlur={commit}
-        inputSize="sm" className="w-44 bg-card" aria-label={`Rename ${label}`}
+        inputSize="sm" className="w-44 bg-card" aria-label={tr("Rename {label}", { label })}
       />
     );
   }
@@ -404,20 +388,20 @@ function AnswerChip({ label, first, last, taken, onRename, onMove, onRemove, onD
     >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" className="h-full rounded-l-full pl-3.5 pr-1.5 hover:bg-muted/60" aria-label={`${label} — edit`}>
+          <button type="button" className="h-full rounded-l-full pl-3.5 pr-1.5 hover:bg-muted/60" aria-label={tr("{label} — edit", { label })}>
             {label}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem onSelect={() => { setDraft(label); setEditing(true); }}>Rename</DropdownMenuItem>
-          <DropdownMenuItem disabled={first} onSelect={() => onMove(-1)}>Move earlier</DropdownMenuItem>
-          <DropdownMenuItem disabled={last} onSelect={() => onMove(1)}>Move later</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => { setDraft(label); setEditing(true); }}>{tr("Rename")}</DropdownMenuItem>
+          <DropdownMenuItem disabled={first} onSelect={() => onMove(-1)}>{tr("Move earlier")}</DropdownMenuItem>
+          <DropdownMenuItem disabled={last} onSelect={() => onMove(1)}>{tr("Move later")}</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-negative" onSelect={onRemove}>Remove</DropdownMenuItem>
+          <DropdownMenuItem className="text-negative" onSelect={onRemove}>{tr("Remove")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <button
-        type="button" aria-label={`Remove ${label}`} onClick={onRemove}
+        type="button" aria-label={tr("Remove {label}", { label })} onClick={onRemove}
         className="mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" />
@@ -437,8 +421,7 @@ function NewChoice({ onAdd, first }: { onAdd: (label: string) => void; first: bo
     return (
       <button type="button" onClick={() => setOpen(true)}
         className="flex w-full items-center justify-center gap-1.5 rounded-radius-md border border-dashed border-border p-3 text-body font-semibold text-muted-foreground hover:text-foreground">
-        <Plus className="h-4 w-4" /> Add another question
-      </button>
+        <Plus className="h-4 w-4" />{" "}{tr("Add another question")}</button>
     );
   }
   return (
@@ -451,11 +434,11 @@ function NewChoice({ onAdd, first }: { onAdd: (label: string) => void; first: bo
             if (e.key === "Enter") { e.preventDefault(); submit(); }
             if (e.key === "Escape" && !first) { setLabel(""); setOpen(false); }
           }}
-          placeholder={first ? "What does the customer choose? — e.g. Size" : "Another question — e.g. Delivery time"}
-          inputSize="sm" className="w-full bg-card" aria-label="New question"
+          placeholder={first ? tr("What does the customer choose? — e.g. Size") : tr("Another question — e.g. Delivery time")}
+          inputSize="sm" className="w-full bg-card" aria-label={tr("New question")}
         />
       </div>
-      <Button size="sm" variant="secondary" disabled={!label.trim()} onClick={submit}><Plus /> Add</Button>
+      <Button size="sm" variant="secondary" disabled={!label.trim()} onClick={submit}><Plus />{" "}{tr("Add")}</Button>
     </div>
   );
 }
@@ -468,8 +451,7 @@ function AddValue({ onAdd, placeholder, startOpen }: { onAdd: (label: string) =>
     return (
       <button type="button" onClick={() => setOpen(true)}
         className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed border-border px-3.5 text-body font-semibold text-muted-foreground hover:text-foreground">
-        <Plus className="h-4 w-4" /> Add answer
-      </button>
+        <Plus className="h-4 w-4" />{" "}{tr("Add answer")}</button>
     );
   }
   return (
@@ -482,9 +464,9 @@ function AddValue({ onAdd, placeholder, startOpen }: { onAdd: (label: string) =>
           if (e.key === "Escape") { setValue(""); setOpen(false); }
         }}
         onBlur={() => { if (!value.trim() && !startOpen) setOpen(false); }}
-        placeholder={placeholder} inputSize="sm" className="w-56 max-w-full bg-card" aria-label="New answer"
+        placeholder={placeholder} inputSize="sm" className="w-56 max-w-full bg-card" aria-label={tr("New answer")}
       />
-      <Button size="sm" variant="secondary" disabled={!value.trim()} onMouseDown={(e) => e.preventDefault()} onClick={submit}>Add</Button>
+      <Button size="sm" variant="secondary" disabled={!value.trim()} onMouseDown={(e) => e.preventDefault()} onClick={submit}>{tr("Add")}</Button>
     </span>
   );
 }

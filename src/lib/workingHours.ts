@@ -1,4 +1,5 @@
 import { formatTime } from "@/lib/formatTime";
+import { tr } from "@/lib/tr";
 /** Structured working-hours format stored as JSON in the DB TEXT column. */
 
 export type DayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
@@ -12,13 +13,13 @@ export interface HoursSchedule {
 export const DAY_CODES: DayCode[] = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 
 export const DAY_LABELS: Record<DayCode, string> = {
-  MO: "Mon",
-  TU: "Tue",
-  WE: "Wed",
-  TH: "Thu",
-  FR: "Fri",
-  SA: "Sat",
-  SU: "Sun",
+  MO: tr("Mon"),
+  TU: tr("Tue"),
+  WE: tr("Wed"),
+  TH: tr("Thu"),
+  FR: tr("Fri"),
+  SA: tr("Sat"),
+  SU: tr("Sun"),
 };
 
 /** Parse the working_hours TEXT column → array of schedules (falls back gracefully). */
@@ -151,8 +152,8 @@ export function openStatus(raw: unknown, now: Date): OpenStatus | null {
 
 /** "Open until 8:00 PM", "Closed · opens 8:00 AM", "Closed · opens Mon 8:00 AM". */
 export function openStatusLabel(s: OpenStatus): string {
-  if (s.open) return `Open until ${formatTime(s.until)}`;
-  if (!s.opensAt) return "Closed";
+  if (s.open) return tr("Open until {until}", { until: formatTime(s.until) });
+  if (!s.opensAt) return tr("Closed");
   const when = s.opensDay === "today" ? "" : s.opensDay === "tomorrow" ? "tomorrow " : `${DAY_LABELS[s.opensDay]} `;
-  return `Closed · opens ${when}${formatTime(s.opensAt)}`;
+  return tr("Closed · opens {when}{opensAt}", { when, opensAt: formatTime(s.opensAt) });
 }

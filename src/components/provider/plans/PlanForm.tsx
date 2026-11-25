@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PLAN_PERIODS, includedLabel, type PlanPeriod } from "@/lib/services/planPeriod";
+import { tr } from "@/lib/tr";
 
 /**
  * The one plan form every service renders.
@@ -123,8 +124,8 @@ export interface PlanFormProps {
 }
 
 const DEFAULT_STATUSES = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
+  { value: "active", label: tr("Active") },
+  { value: "inactive", label: tr("Inactive") },
 ] as const;
 
 export function PlanForm({
@@ -135,8 +136,8 @@ export function PlanForm({
   periods = PLAN_PERIODS,
   hideQuantity = false,
   hidePrice = false,
-  featuresLabel = "What's included",
-  featuresPlaceholder = "One per line",
+  featuresLabel = tr("What's included"),
+  featuresPlaceholder = tr("One per line"),
   statuses = DEFAULT_STATUSES,
   hideVisibility = false,
   providerId,
@@ -147,29 +148,28 @@ export function PlanForm({
   const preview = includedLabel(values.quantity, unit, values.period);
 
   const previewLine = preview ? (
-    <p className="-mt-1 text-xs text-muted-foreground">
-      Customers will see: <span className="font-medium text-foreground">{preview}</span>
+    <p className="-mt-1 text-xs text-muted-foreground">{tr("Customers will see:")}{" "}<span className="font-medium text-foreground">{preview}</span>
     </p>
   ) : null;
 
   return (
     <div className="space-y-4">
       <div>
-        <Label>Plan name <span className="text-destructive">*</span></Label>
+        <Label>{tr("Plan name")}{" "}<span className="text-destructive">*</span></Label>
         <Input
           value={values.name}
           onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="e.g. Studio Apartment"
+          placeholder={tr("e.g. Studio Apartment")}
         />
       </div>
 
       <div>
-        <Label>Description</Label>
+        <Label>{tr("Description")}</Label>
         <Textarea
           rows={3}
           value={values.description}
           onChange={(e) => onChange({ description: e.target.value })}
-          placeholder="One line customers see under the name"
+          placeholder={tr("One line customers see under the name")}
         />
       </div>
 
@@ -177,10 +177,10 @@ export function PlanForm({
       {!hideQuantity && (
         <div className={`grid gap-3 ${fixedUnit ? "grid-cols-2" : "grid-cols-3"}`}>
           <div>
-            <Label>How many</Label>
+            <Label>{tr("How many")}</Label>
             <Input
               type="number" min={1} inputMode="numeric"
-              placeholder="empty = unlimited"
+              placeholder={tr("empty = unlimited")}
               value={values.quantity ?? ""}
               onChange={(e) => {
                 const n = Number.parseInt(e.target.value, 10);
@@ -190,7 +190,7 @@ export function PlanForm({
           </div>
           {!fixedUnit && (
             <div>
-              <Label>Unit</Label>
+              <Label>{tr("Unit")}</Label>
               <Input
                 value={values.unit}
                 onChange={(e) => onChange({ unit: e.target.value })}
@@ -199,7 +199,7 @@ export function PlanForm({
             </div>
           )}
           <div>
-            <Label>How often</Label>
+            <Label>{tr("How often")}</Label>
             <select
               className={fieldClass}
               value={values.period}
@@ -269,7 +269,7 @@ export function PlanForm({
       )}
 
       <GalleryField
-        label="Photos"
+        label={tr("Photos")}
         value={values.gallery}
         onChange={(next) => onChange({ gallery: next })}
         pathPrefix="plans/gallery"
@@ -281,19 +281,19 @@ export function PlanForm({
       <div className={hideVisibility ? "grid grid-cols-2 gap-3" : "grid grid-cols-3 gap-3"}>
         {!hideVisibility && (
         <div>
-          <Label>Visibility</Label>
+          <Label>{tr("Visibility")}</Label>
           <select
             className={fieldClass}
             value={values.visibility}
             onChange={(e) => onChange({ visibility: e.target.value as "public" | "private" })}
           >
-            <option value="public">Public — listed</option>
-            <option value="private">Private — link only</option>
+            <option value="public">{tr("Public — listed")}</option>
+            <option value="private">{tr("Private — link only")}</option>
           </select>
         </div>
         )}
         <div>
-          <Label>Status</Label>
+          <Label>{tr("Status")}</Label>
           <select
             className={fieldClass}
             value={values.status}
@@ -305,7 +305,7 @@ export function PlanForm({
           </select>
         </div>
         <div>
-          <Label>Sort order</Label>
+          <Label>{tr("Sort order")}</Label>
           <Input
             type="number" inputMode="numeric"
             value={values.sortOrder}

@@ -7,6 +7,7 @@ import { FilterListIcon, SearchIcon } from "@/components/icons/FigmaIcons";
 import { SORT_LABELS, type SortKey } from "@/hooks/useListingSearch";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * The top of every service listing: title bar, search, sort, location — one
@@ -68,7 +69,7 @@ export function ListingHeader({
         <button
           type="button"
           onClick={() => onQueryChange("")}
-          aria-label="Clear search"
+          aria-label={tr("Clear search")}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground"
         >
           <X className="h-4 w-4" />
@@ -80,7 +81,7 @@ export function ListingHeader({
   const sortButton = canSort && (
     <button
       type="button"
-      aria-label="Sort"
+      aria-label={tr("Sort")}
       onClick={() => setFiltersOpen(true)}
       className={cn(
         "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted",
@@ -117,7 +118,7 @@ export function ListingHeader({
       </div>
 
       {canSort && (
-        <ResponsiveDialog open={filtersOpen} onOpenChange={setFiltersOpen} title="Sort by">
+        <ResponsiveDialog open={filtersOpen} onOpenChange={setFiltersOpen} title={tr("Sort by")}>
           <div className="flex flex-col pb-2">
             {sorts.map((key) => (
               <button

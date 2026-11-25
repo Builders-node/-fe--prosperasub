@@ -12,6 +12,7 @@ import { serviceSeo } from "@/lib/seo/serviceSeo";
 import { inSpanishUrl } from "@/lib/seo/lang";
 import { useSeo } from "@/hooks/useSeo";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * `/guides` and `/guides/:slug` — practical answers to what people search
@@ -267,7 +268,7 @@ export function GuidePage() {
 
       {/* ─── Hero ─── */}
       <section className="app-container pb-6 pt-10 text-center md:pb-10 md:pt-16">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center justify-center gap-1 text-meta text-muted-foreground">
+        <nav aria-label={tr("Breadcrumb")} className="flex flex-wrap items-center justify-center gap-1 text-meta text-muted-foreground">
           <Link to="/discovery" className="hover:text-foreground">{ui.home}</Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <Link to="/guides" className="hover:text-foreground">{ui.guides}</Link>

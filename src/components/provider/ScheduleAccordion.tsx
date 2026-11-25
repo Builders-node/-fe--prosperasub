@@ -10,6 +10,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { BookingSettingsForm } from "@/components/provider/BookingSettingsForm";
 import { normalizeBookingSettings } from "@/lib/booking/bookingSettings";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { tr } from "@/lib/tr";
 
 /**
  * Provider-level booking rules folded into the Offerings tab.
@@ -44,7 +45,7 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
       >
         <SlidersHorizontal className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="text-body text-muted-foreground">Booking rules</p>
+          <p className="text-body text-muted-foreground">{tr("Booking rules")}</p>
           <p className="mt-0.5 truncate text-title font-semibold text-foreground">{summary}</p>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -59,7 +60,7 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
           className={isMobile ? "h-[92vh] p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
           <SheetHeader>
-            <SheetTitle>Booking rules</SheetTitle>
+            <SheetTitle>{tr("Booking rules")}</SheetTitle>
           </SheetHeader>
           {/* No side padding: the blocks are the sheet's width, like every dialog. */}
           <div className="mt-1 min-h-0 flex-1 overflow-y-auto bg-background">
@@ -70,14 +71,12 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
       <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-            <AlertDialogDescription>Your changes to the booking rules are not saved.</AlertDialogDescription>
+            <AlertDialogTitle>{tr("Discard changes?")}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("Your changes to the booking rules are not saved.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => { setConfirmClose(false); setDirty(false); setOpen(false); }}>
-              Discard
-            </AlertDialogAction>
+            <AlertDialogCancel>{tr("Keep editing")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { setConfirmClose(false); setDirty(false); setOpen(false); }}>{tr("Discard")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -94,12 +93,12 @@ function summarize(raw: unknown): string {
   const s = normalizeBookingSettings(raw);
   const parts: string[] = [];
   if (typeof s.minNoticeHours === "number") {
-    if (s.minNoticeHours <= 0) parts.push("Same-day booking");
+    if (s.minNoticeHours <= 0) parts.push(tr("Same-day booking"));
     else if (s.minNoticeHours < 24) parts.push(`${s.minNoticeHours}h notice`);
     else parts.push(`${Math.round(s.minNoticeHours / 24)}d notice`);
   }
   if (Array.isArray(s.blockedRanges) && s.blockedRanges.length > 0) {
-    parts.push(`${s.blockedRanges.length} blocked range${s.blockedRanges.length === 1 ? "" : "s"}`);
+    parts.push((s.blockedRanges.length === 1 ? tr("{length} blocked range", { length: s.blockedRanges.length }) : tr("{length} blocked ranges", { length: s.blockedRanges.length })));
   }
-  return parts.length ? parts.join(" · ") : "Using platform defaults";
+  return parts.length ? parts.join(" · ") : tr("Using platform defaults");
 }

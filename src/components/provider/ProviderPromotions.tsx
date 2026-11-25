@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * Promote — paid placements for a business (Edge routes/promotions.ts).
@@ -39,8 +40,8 @@ interface PromoState {
 
 type Placement = "home" | "service";
 const PLACES = [
-  { key: "home" as const, label: "Home screen", Icon: Home },
-  { key: "service" as const, label: "Your service", Icon: LayoutList },
+  { key: "home" as const, label: tr("Home screen"), Icon: Home },
+  { key: "service" as const, label: tr("Your service"), Icon: LayoutList },
 ];
 
 const statsLine = (s?: Stats) => s ?? { impressions: 0, clicks: 0, orders: 0, revenueCents: 0 };
@@ -49,10 +50,10 @@ function StatsGrid({ s }: { s?: Stats }) {
   const v = statsLine(s);
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-      <WorkspaceStat label="Views" value={String(v.impressions)} />
-      <WorkspaceStat label="Taps" value={String(v.clicks)} />
-      <WorkspaceStat label="Orders" value={String(v.orders)} />
-      <WorkspaceStat label="Revenue" value={formatUSD(v.revenueCents)} />
+      <WorkspaceStat label={tr("Views")} value={String(v.impressions)} />
+      <WorkspaceStat label={tr("Taps")} value={String(v.clicks)} />
+      <WorkspaceStat label={tr("Orders")} value={String(v.orders)} />
+      <WorkspaceStat label={tr("Revenue")} value={formatUSD(v.revenueCents)} />
     </div>
   );
 }
@@ -87,8 +88,8 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
       if (error) throw error;
       return body.on;
     },
-    onSuccess: (on) => { toast.success(on ? "Boost is on" : "Boost is off"); void qc.invalidateQueries({ queryKey: KEY }); },
-    onError: (e: Error) => toast.error(e.message || "Could not change the boost"),
+    onSuccess: (on) => { toast.success(on ? tr("Boost is on") : tr("Boost is off")); void qc.invalidateQueries({ queryKey: KEY }); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not change the boost")),
   });
 
   const { isAdmin } = useAuth();
@@ -97,8 +98,8 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
       const { error } = await adminApi(`/admin/promotions/${promoId}/end`, { method: "POST" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Ad ended"); void qc.invalidateQueries({ queryKey: KEY }); },
-    onError: (e: Error) => toast.error(e.message || "Could not end it"),
+    onSuccess: () => { toast.success(tr("Ad ended")); void qc.invalidateQueries({ queryKey: KEY }); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not end it")),
   });
 
   const [confirm, confirmDialog] = useConfirm();
@@ -114,14 +115,14 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
     <div className="space-y-1">
       {confirmDialog}
       <WorkspaceSection
-        title="Boost"
-        subtitle={`Show up under Featured on the home screen and in your service. Nothing up front — you pay ${data.boost && boostOn ? data.boost.extra_commission_pct : s.boostPct}% extra commission only on orders that came from it.`}
+        title={tr("Boost")}
+        subtitle={tr("Show up under Featured on the home screen and in your service. Nothing up front — you pay {value}% extra commission only on orders that came from it.", { value: data.boost && boostOn ? data.boost.extra_commission_pct : s.boostPct })}
         action={
           <Switch
             checked={boostOn}
             disabled={!data.canBuy || boost.isPending || !data.enabled}
             onCheckedChange={(on) => boost.mutate({ on, planId: data.boost?.plan_id ?? null })}
-            aria-label={boostOn ? "Turn boost off" : "Turn boost on"}
+            aria-label={boostOn ? tr("Turn boost off") : tr("Turn boost on")}
           />
         }
         bodyClassName="space-y-3"
@@ -132,24 +133,23 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
             value={data.boost?.plan_id ?? null}
             disabled={!data.canBuy || !boostOn || boost.isPending}
             onChange={(planId) => boost.mutate({ on: true, planId })}
-            label="Boost shows"
+            label={tr("Boost shows")}
           />
         )}
         {data.boost ? <StatsGrid s={data.boost.stats} /> : (
-          <WorkspaceEmpty>{data.canBuy ? "Switch it on and the numbers appear here." : "Only the owner can switch this on."}</WorkspaceEmpty>
+          <WorkspaceEmpty>{data.canBuy ? tr("Switch it on and the numbers appear here.") : tr("Only the owner can switch this on.")}</WorkspaceEmpty>
         )}
       </WorkspaceSection>
 
       <WorkspaceSection
-        title="Featured"
-        subtitle="A guaranteed place at the top, for as many weeks as you choose. Run several at once — on the home screen, in your service, or both."
+        title={tr("Featured")}
+        subtitle={tr("A guaranteed place at the top, for as many weeks as you choose. Run several at once — on the home screen, in your service, or both.")}
         bodyClassName="space-y-4"
       >
         {/* 1 — what is running. Live first, then the ones that ended. */}
         {featured.length > 0 && (
           <div className="space-y-2">
-            <p className="text-body font-semibold text-foreground">
-              Your ads{liveCount > 0 ? ` · ${liveCount} live` : ""}
+            <p className="text-body font-semibold text-foreground">{tr("Your ads")}{liveCount > 0 ? tr(" · {liveCount} live", { liveCount }) : ""}
             </p>
             {[...featured].sort((a, b) => Number(isLive(b)) - Number(isLive(a))).map((p) => {
               const live = isLive(p);
@@ -159,20 +159,18 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
                   <div className="flex items-center gap-2">
                     {p.placement === "home" ? <Home className="h-4 w-4 shrink-0 text-muted-foreground" /> : <LayoutList className="h-4 w-4 shrink-0 text-muted-foreground" />}
                     <span className="min-w-0 flex-1 truncate text-title font-semibold text-foreground">
-                      {p.placement === "home" ? "Home screen" : "Your service"} · {offer ?? "The business"}
+                      {p.placement === "home" ? tr("Home screen") : tr("Your service")} · {offer ?? tr("The business")}
                     </span>
                     <span className={cn("shrink-0 text-meta font-semibold", live ? "text-success" : "text-muted-foreground")}>
-                      {live ? "Live" : "Ended"}
+                      {live ? tr("Live") : tr("Ended")}
                     </span>
                     {live && isAdmin && (
                       <Button size="sm" variant="secondary" disabled={end.isPending}
-                        onClick={async () => { if (await confirm({ title: "End this ad now?", description: "It stops showing straight away.", confirmLabel: "End ad" })) end.mutate(p.id); }}>
-                        End
-                      </Button>
+                        onClick={async () => { if (await confirm({ title: tr("End this ad now?"), description: tr("It stops showing straight away."), confirmLabel: tr("End ad") })) end.mutate(p.id); }}>{tr("End")}</Button>
                     )}
                   </div>
                   <p className="text-meta text-muted-foreground">
-                    {format(new Date(p.starts_at), "MMM d")} → {p.ends_at ? format(new Date(p.ends_at), "MMM d") : "—"} · {p.price_cents > 0 ? formatUSD(p.price_cents) : "Free"}
+                    {format(new Date(p.starts_at), "MMM d", { locale: dfLocale })} → {p.ends_at ? format(new Date(p.ends_at), "MMM d", { locale: dfLocale }) : "—"} · {p.price_cents > 0 ? formatUSD(p.price_cents) : tr("Free")}
                   </p>
                   <StatsGrid s={p.stats} />
                 </div>
@@ -186,14 +184,14 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
           <NewAd providerId={providerId} state={data} plans={plans} isAdmin={isAdmin}
             onDone={() => void qc.invalidateQueries({ queryKey: KEY })} />
         ) : featured.length === 0 ? (
-          <WorkspaceEmpty>{data.canBuy ? "No ads yet." : "Only the owner can place an ad."}</WorkspaceEmpty>
+          <WorkspaceEmpty>{data.canBuy ? tr("No ads yet.") : tr("Only the owner can place an ad.")}</WorkspaceEmpty>
         ) : null}
       </WorkspaceSection>
     </div>
   );
 }
 
-function OfferPicker({ plans, value, onChange, disabled, label = "What to show", onInset = false }: {
+function OfferPicker({ plans, value, onChange, disabled, label = tr("What to show"), onInset = false }: {
   plans: Array<{ id: string; name: string }>; value: string | null; onChange: (id: string | null) => void; disabled?: boolean; label?: string;
   /** Sitting on an inset panel already — the field takes the card colour to show. */
   onInset?: boolean;
@@ -207,7 +205,7 @@ function OfferPicker({ plans, value, onChange, disabled, label = "What to show",
         disabled={disabled}
         onChange={(e) => onChange(e.target.value || null)}
       >
-        <option value="">The business</option>
+        <option value="">{tr("The business")}</option>
         {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
     </label>
@@ -253,23 +251,23 @@ function NewAd({ providerId, state, plans, isAdmin, onDone }: {
             });
         if (error) {
           // Some may already be placed — say exactly which.
-          throw new Error(done.length ? `${done.join(" and ")} placed; ${p.label}: ${error.message}` : error.message);
+          throw new Error(done.length ? `${done.join(tr(" and "))} placed; ${p.label}: ${error.message}` : error.message);
         }
         done.push(p.label);
       }
       return done;
     },
-    onSuccess: (done) => { toast.success(`${done.join(" and ")} — live now for ${weeks} week${weeks > 1 ? "s" : ""}`); onDone(); },
-    onError: (e: Error) => { toast.error(e.message || "Could not place the ad"); onDone(); },
+    onSuccess: (done) => { toast.success((weeks > 1 ? tr("{join} — live now for {weeks} weeks", { join: done.join(tr(" and ")), weeks }) : tr("{join} — live now for {weeks} week", { join: done.join(tr(" and ")), weeks }))); onDone(); },
+    onError: (e: Error) => { toast.error(e.message || tr("Could not place the ad")); onDone(); },
   });
 
   return (
     <div className="space-y-4 rounded-radius-md bg-inset p-3 md:p-4">
-      <p className="text-title font-semibold text-foreground">New ad</p>
+      <p className="text-title font-semibold text-foreground">{tr("New ad")}</p>
 
       {isAdmin && state.canBuy && (
         <div className="flex rounded-full bg-card p-0.5">
-          {([[false, "From the balance"], [true, "Free · EverySub"]] as const).map(([v, label]) => (
+          {([[false, tr("From the balance")], [true, tr("Free · EverySub")]] as const).map(([v, label]) => (
             <button key={label} type="button" onClick={() => { setFree(v); if (!v && weeks > 4) setWeeks(4); }}
               className={cn("h-9 flex-1 rounded-full text-[14px] font-semibold transition-colors",
                 free === v ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground")}>
@@ -280,7 +278,7 @@ function NewAd({ providerId, state, plans, isAdmin, onDone }: {
       )}
 
       <div className="space-y-1.5">
-        <p className="text-body font-medium text-foreground">Where <span className="font-normal text-muted-foreground">— pick one or both</span></p>
+        <p className="text-body font-medium text-foreground">{tr("Where")}{" "}<span className="font-normal text-muted-foreground">{tr("— pick one or both")}</span></p>
         <div className="grid grid-cols-2 gap-2">
           {PLACES.map(({ key, label, Icon }) => {
             const on = where.has(key);
@@ -298,7 +296,7 @@ function NewAd({ providerId, state, plans, isAdmin, onDone }: {
                 </span>
                 <span className="text-title font-semibold">{label}</span>
                 <span className={cn("text-meta", on ? "text-background/70" : "text-muted-foreground")}>
-                  {free ? "Free" : `${formatUSD(cents)} / week`} · {left === 0 ? "full" : `${left} of ${key === "home" ? s.slotsHome : s.slotsService} free`}
+                  {free ? tr("Free") : `${formatUSD(cents)} / week`} · {left === 0 ? "full" : tr("{left} of {value} free", { left, value: key === "home" ? s.slotsHome : s.slotsService })}
                 </span>
               </button>
             );
@@ -306,10 +304,10 @@ function NewAd({ providerId, state, plans, isAdmin, onDone }: {
         </div>
       </div>
 
-      {plans.length > 0 && <OfferPicker plans={plans} value={planId} onChange={setPlanId} label="What it shows" onInset />}
+      {plans.length > 0 && <OfferPicker plans={plans} value={planId} onChange={setPlanId} label={tr("What it shows")} onInset />}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-body font-medium text-foreground">How long</span>
+        <span className="text-body font-medium text-foreground">{tr("How long")}</span>
         <div className="flex rounded-full bg-card p-1">
           {weekOptions.map((w) => (
             <button key={w} type="button" onClick={() => setWeeks(w)}
@@ -318,24 +316,24 @@ function NewAd({ providerId, state, plans, isAdmin, onDone }: {
             </button>
           ))}
         </div>
-        <span className="text-body text-muted-foreground">week{weeks > 1 ? "s" : ""}</span>
+        <span className="text-body text-muted-foreground">{weeks > 1 ? tr("weeks") : tr("week")}</span>
       </div>
 
       <Button className="w-full gap-2" loading={place.isPending}
         disabled={!chosen.length || full.length > 0 || short || (!free && price === 0)}
         onClick={() => place.mutate()}>
         <Megaphone />
-        {!chosen.length ? "Pick where to show it"
-          : `${chosen.length > 1 ? `Place ${chosen.length} ads` : "Place the ad"} · ${free ? "free" : formatUSD(price)}`}
+        {!chosen.length ? tr("Pick where to show it")
+          : `${chosen.length > 1 ? tr("Place {length} ads", { length: chosen.length }) : tr("Place the ad")} · ${free ? "free" : formatUSD(price)}`}
       </Button>
       <p className="text-meta text-muted-foreground">
         {full.length
-          ? `${full.map((p) => p.label).join(" and ")} ${full.length > 1 ? "are" : "is"} full this week — untick it, or wait for a slot to end${isAdmin ? " (or raise the slot count in Admin → Promotions)" : ""}.`
+          ? (full.length > 1 ? tr("{join} are full this week — untick it, or wait for a slot to end{value2}.", { join: full.map((p) => p.label).join(tr(" and ")), value2: isAdmin ? tr(" (or raise the slot count in Admin → Promotions)") : "" }) : tr("{join} is full this week — untick it, or wait for a slot to end{value2}.", { join: full.map((p) => p.label).join(tr(" and ")), value2: isAdmin ? tr(" (or raise the slot count in Admin → Promotions)") : "" }))
           : free
-            ? "Free — nothing is taken from the balance. Starts now."
+            ? tr("Free — nothing is taken from the balance. Starts now.")
             : short
-              ? `That's ${formatUSD(price)}; the balance is ${formatUSD(state.availableCents)}. It's paid from what was earned on EverySub.`
-              : `Taken from the balance (${formatUSD(state.availableCents)}). Starts now.`}
+              ? tr("That's {price}; the balance is {availableCents}. It's paid from what was earned on EverySub.", { price: formatUSD(price), availableCents: formatUSD(state.availableCents) })
+              : tr("Taken from the balance ({availableCents}). Starts now.", { availableCents: formatUSD(state.availableCents) })}
       </p>
     </div>
   );

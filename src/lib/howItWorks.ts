@@ -4,6 +4,7 @@ import {
   Truck, Utensils, type LucideIcon,
 } from "lucide-react";
 import type { TranslationKey } from "@/i18n";
+import { tr } from "@/lib/tr";
 
 /**
  * "How it works" — the steps a customer goes through with a business.
@@ -37,30 +38,30 @@ export interface HowItWorksRow {
 export const HOW_IT_WORKS_LIMITS = { minSteps: 2, maxSteps: 6, title: 60, text: 240 } as const;
 
 export const HOW_IT_WORKS_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
-  search: { icon: Search, label: "Search" },
-  sliders: { icon: SlidersHorizontal, label: "Options" },
-  card: { icon: CreditCard, label: "Payment" },
-  repeat: { icon: Repeat, label: "Repeats" },
-  calendar: { icon: CalendarDays, label: "Calendar" },
-  clock: { icon: Clock, label: "Time" },
-  check: { icon: Check, label: "Done" },
-  star: { icon: Star, label: "Star" },
-  truck: { icon: Truck, label: "Delivery" },
-  utensils: { icon: Utensils, label: "Food" },
-  sparkles: { icon: Sparkles, label: "Cleaning" },
-  qr: { icon: QrCode, label: "QR code" },
-  bell: { icon: Bell, label: "Reminder" },
-  chat: { icon: MessageCircle, label: "Message" },
-  home: { icon: Home, label: "Home" },
-  car: { icon: Car, label: "Car" },
-  key: { icon: KeyRound, label: "Keys" },
-  heart: { icon: Heart, label: "Care" },
-  gift: { icon: Gift, label: "Gift" },
-  map: { icon: MapPin, label: "Place" },
-  phone: { icon: Phone, label: "Call" },
-  dumbbell: { icon: Dumbbell, label: "Fitness" },
-  shield: { icon: ShieldCheck, label: "Safe" },
-  smile: { icon: Smile, label: "Enjoy" },
+  search: { icon: Search, label: tr("Search") },
+  sliders: { icon: SlidersHorizontal, label: tr("Options") },
+  card: { icon: CreditCard, label: tr("Payment") },
+  repeat: { icon: Repeat, label: tr("Repeats") },
+  calendar: { icon: CalendarDays, label: tr("Calendar") },
+  clock: { icon: Clock, label: tr("Time") },
+  check: { icon: Check, label: tr("Done") },
+  star: { icon: Star, label: tr("Star") },
+  truck: { icon: Truck, label: tr("Delivery") },
+  utensils: { icon: Utensils, label: tr("Food") },
+  sparkles: { icon: Sparkles, label: tr("Cleaning") },
+  qr: { icon: QrCode, label: tr("QR code") },
+  bell: { icon: Bell, label: tr("Reminder") },
+  chat: { icon: MessageCircle, label: tr("Message") },
+  home: { icon: Home, label: tr("Home") },
+  car: { icon: Car, label: tr("Car") },
+  key: { icon: KeyRound, label: tr("Keys") },
+  heart: { icon: Heart, label: tr("Care") },
+  gift: { icon: Gift, label: tr("Gift") },
+  map: { icon: MapPin, label: tr("Place") },
+  phone: { icon: Phone, label: tr("Call") },
+  dumbbell: { icon: Dumbbell, label: tr("Fitness") },
+  shield: { icon: ShieldCheck, label: tr("Safe") },
+  smile: { icon: Smile, label: tr("Enjoy") },
 };
 
 /** The platform's steps, for a business that has not written its own. */
@@ -102,13 +103,13 @@ export function cleanSteps(raw: unknown): HowItWorksStep[] {
 export function howItWorksProblems(steps: HowItWorksStep[]): { list?: string; steps: Record<number, string> } {
   const L = HOW_IT_WORKS_LIMITS;
   const out: { list?: string; steps: Record<number, string> } = { steps: {} };
-  if (steps.length < L.minSteps) out.list = `Add at least ${L.minSteps} steps.`;
-  if (steps.length > L.maxSteps) out.list = `At most ${L.maxSteps} steps.`;
+  if (steps.length < L.minSteps) out.list = tr("Add at least {minSteps} steps.", { minSteps: L.minSteps });
+  if (steps.length > L.maxSteps) out.list = tr("At most {maxSteps} steps.", { maxSteps: L.maxSteps });
   steps.forEach((s, i) => {
     const title = s.title.trim();
-    if (!title) out.steps[i] = "Give this step a title.";
-    else if (title.length > L.title) out.steps[i] = `The title is over ${L.title} characters.`;
-    else if ((s.text ?? "").trim().length > L.text) out.steps[i] = `The text is over ${L.text} characters.`;
+    if (!title) out.steps[i] = tr("Give this step a title.");
+    else if (title.length > L.title) out.steps[i] = tr("The title is over {title} characters.", { title: L.title });
+    else if ((s.text ?? "").trim().length > L.text) out.steps[i] = tr("The text is over {text} characters.", { text: L.text });
   });
   return out;
 }

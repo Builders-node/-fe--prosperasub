@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiUrlFor } from "@/integrations/supabase/config";
+import { tr } from "@/lib/tr";
 
 /**
  * Contact support.
@@ -31,7 +32,7 @@ const SUPPORT_WHATSAPP = "+50488776655";
 const SUPPORT_EMAIL = "support@prosperasub.com";
 
 export default function Support() {
-  useSeo({ title: "Support", description: "Questions about an order, a payment or a business on EverySub? Write to us.", path: "/support" });
+  useSeo({ title: tr("Support"), description: tr("Questions about an order, a payment or a business on EverySub? Write to us."), path: "/support" });
   const navigate = useNavigate();
   const { userData, isAuthenticated } = useAuth();
 
@@ -87,12 +88,12 @@ export default function Support() {
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(
-          Array.isArray(body?.message) ? body.message[0] : body?.message || "Could not send your message.",
+          Array.isArray(body?.message) ? body.message[0] : body?.message || tr("Could not send your message."),
         );
       }
       setSent(true);
     } catch (e: any) {
-      toast.error(e?.message || "Could not send your message. Please try again.");
+      toast.error(e?.message || tr("Could not send your message. Please try again."));
     } finally {
       setSending(false);
     }
@@ -100,35 +101,27 @@ export default function Support() {
 
   if (sent) {
     return (
-      <UserLayout title="Support" showBackButton allowGuest>
+      <UserLayout title={tr("Support")} showBackButton allowGuest>
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <CheckCircle2 className="mb-4 h-14 w-14 text-positive" />
-          <h2 className="text-xl font-semibold text-foreground">Message sent</h2>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            We&apos;ll reply to <span className="font-semibold text-foreground">{email}</span>. Most
-            messages get an answer the same day.
-          </p>
-          <Button className="mt-6" onClick={() => navigate("/discovery")}>
-            Back to services
-          </Button>
+          <h2 className="text-xl font-semibold text-foreground">{tr("Message sent")}</h2>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">{tr("We'll reply to")}{" "}<span className="font-semibold text-foreground">{email}</span>{tr(". Most messages get an answer the same day.")}</p>
+          <Button className="mt-6" onClick={() => navigate("/discovery")}>{tr("Back to services")}</Button>
         </div>
       </UserLayout>
     );
   }
 
   return (
-    <UserLayout title="Support" showBackButton allowGuest>
+    <UserLayout title={tr("Support")} showBackButton allowGuest>
       <div className="space-y-6 pb-8">
         <div className="flex items-start gap-3 rounded-radius-md bg-card p-5">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15">
             <LifeBuoy className="h-5 w-5 text-primary" />
           </span>
           <div className="min-w-0">
-            <p className="font-semibold text-foreground">How can we help?</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Tell us what happened and we&apos;ll get back to you by email. If it&apos;s urgent,
-              WhatsApp is faster.
-            </p>
+            <p className="font-semibold text-foreground">{tr("How can we help?")}</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{tr("Tell us what happened and we'll get back to you by email. If it's urgent, WhatsApp is faster.")}</p>
           </div>
         </div>
 
@@ -145,7 +138,7 @@ export default function Support() {
               <MessageCircle className="h-5 w-5 text-positive" />
             </span>
             <div className="min-w-0">
-              <p className="font-semibold text-foreground">WhatsApp</p>
+              <p className="font-semibold text-foreground">{tr("WhatsApp")}</p>
               <p className="truncate text-caption text-muted-foreground">{SUPPORT_WHATSAPP}</p>
             </div>
           </a>
@@ -157,7 +150,7 @@ export default function Support() {
               <Mail className="h-5 w-5 text-primary" />
             </span>
             <div className="min-w-0">
-              <p className="font-semibold text-foreground">Email</p>
+              <p className="font-semibold text-foreground">{tr("Email")}</p>
               <p className="truncate text-caption text-muted-foreground">{SUPPORT_EMAIL}</p>
             </div>
           </a>
@@ -166,49 +159,47 @@ export default function Support() {
         <div className="space-y-4 rounded-radius-md bg-card p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="support-name">Your name</Label>
-              <Input id="support-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Lopez" />
+              <Label htmlFor="support-name">{tr("Your name")}</Label>
+              <Input id="support-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Maria Lopez")} />
             </div>
             <div>
-              <Label htmlFor="support-email">Email</Label>
+              <Label htmlFor="support-email">{tr("Email")}</Label>
               <Input id="support-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="support-phone">WhatsApp <span className="text-muted-foreground">(optional)</span></Label>
+            <Label htmlFor="support-phone">{tr("WhatsApp")}{" "}<span className="text-muted-foreground">{tr("(optional)")}</span></Label>
             <Input id="support-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+504 …" />
           </div>
 
           <div>
-            <Label htmlFor="support-subject">Subject</Label>
-            <Input id="support-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Cleaning didn't arrive" />
+            <Label htmlFor="support-subject">{tr("Subject")}</Label>
+            <Input id="support-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr("Cleaning didn't arrive")} />
           </div>
 
           <div>
-            <Label htmlFor="support-message">What happened?</Label>
+            <Label htmlFor="support-message">{tr("What happened?")}</Label>
             <Textarea
               id="support-message"
               rows={6}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Nobody came on Tuesday and the slot still shows as booked."
+              placeholder={tr("Nobody came on Tuesday and the slot still shows as booked.")}
             />
             <p className="mt-1 text-caption text-muted-foreground">
               {message.trim().length < 10
-                ? "A sentence or two is enough — the more detail, the faster we can fix it."
+                ? tr("A sentence or two is enough — the more detail, the faster we can fix it.")
                 : `${message.trim().length} characters`}
             </p>
           </div>
 
           <Button size="lg" className="w-full rounded-radius-md" disabled={!valid || sending} onClick={submit}>
             {sending ? <Spinner size="sm" className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
-            {sending ? "Sending…" : "Send message"}
+            {sending ? tr("Sending…") : tr("Send message")}
           </Button>
           {!valid && (
-            <p className="text-center text-caption text-muted-foreground">
-              Fill in your name, email, a subject and a short description.
-            </p>
+            <p className="text-center text-caption text-muted-foreground">{tr("Fill in your name, email, a subject and a short description.")}</p>
           )}
         </div>
       </div>

@@ -33,6 +33,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import Discovery from "./pages/Discovery";
 import OAuthCallback from "./pages/OAuthCallback";
 import NotFound from "./pages/NotFound";
+import { tr } from "@/lib/tr";
 
 // ─── Lazy (everything else) ───────────────────────────────────────────────────
 // React.lazy + dynamic import() gives each page its own bundle chunk. Public
@@ -174,7 +175,7 @@ const reportQueryFailure = (error: unknown) => {
   });
   if (recentlyReported.has(message)) return;
   recentlyReported.set(message, now);
-  toast.error("Couldn't load some data", { description: message });
+  toast.error(tr("Couldn't load some data"), { description: message });
 };
 
 const queryClient = new QueryClient({

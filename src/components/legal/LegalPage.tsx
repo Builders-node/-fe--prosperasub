@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useSeo } from "@/hooks/useSeo";
 import { UserLayout } from "@/components/layout/UserLayout";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Terms and Privacy share one shape: a title block with the date it took
@@ -34,7 +35,7 @@ export function LegalPage({ title, updated, intro, sections, other, path }: {
       <div className="mx-auto max-w-[760px] space-y-1 py-4">
         <section className="rounded-radius-lg bg-card p-4 md:p-6">
           <h1 className="text-heading font-semibold text-foreground">{title}</h1>
-          <p className="mt-1 text-meta text-muted-foreground">Last updated {updated}</p>
+          <p className="mt-1 text-meta text-muted-foreground">{trx("Last updated {updated}", { updated })}</p>
           <p className="mt-3 text-body text-muted-foreground">{intro}</p>
         </section>
 
@@ -56,11 +57,8 @@ export function LegalPage({ title, updated, intro, sections, other, path }: {
         ))}
 
         <section className="rounded-radius-lg bg-card p-4 md:p-6">
-          <h2 className="text-title font-semibold text-foreground">Contact</h2>
-          <p className="mt-2 text-body text-muted-foreground">
-            Email <a className="text-primary underline-offset-2 hover:underline" href={`mailto:${LEGAL_CONTACT.email}`}>{LEGAL_CONTACT.email}</a>,
-            WhatsApp <a className="text-primary underline-offset-2 hover:underline" href={LEGAL_CONTACT.whatsappHref} target="_blank" rel="noreferrer">{LEGAL_CONTACT.whatsapp}</a>,
-            or the <Link className="text-primary underline-offset-2 hover:underline" to="/support">support form</Link>.
+          <h2 className="text-title font-semibold text-foreground">{tr("Contact")}</h2>
+          <p className="mt-2 text-body text-muted-foreground">{tr("Email")}{" "}<a className="text-primary underline-offset-2 hover:underline" href={`mailto:${LEGAL_CONTACT.email}`}>{LEGAL_CONTACT.email}</a>{tr(", WhatsApp")}{" "}<a className="text-primary underline-offset-2 hover:underline" href={LEGAL_CONTACT.whatsappHref} target="_blank" rel="noreferrer">{LEGAL_CONTACT.whatsapp}</a>{tr(", or the")}{" "}<Link className="text-primary underline-offset-2 hover:underline" to="/support">{tr("support form")}</Link>.
           </p>
           <p className="mt-3 text-body">
             <Link className="text-primary underline-offset-2 hover:underline" to={other.to}>{other.label} →</Link>

@@ -1,6 +1,7 @@
 import { Check, Circle } from "lucide-react";
 import { profileCompleteness } from "@/lib/providerProfile";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * What is still missing from this business's public profile.
@@ -16,14 +17,10 @@ export function ProfileCompletenessCard({ provider }: { provider: UniversalProvi
   return (
     <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground lg:text-[18px] lg:leading-[24px]">
-          Your profile is {percent}% complete
-        </h2>
-        <span className="text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">{done} of {total} done</span>
+        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground lg:text-[18px] lg:leading-[24px]">{trx("Your profile is {percent}% complete", { percent })}</h2>
+        <span className="text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">{trx("{done} of {total} done", { done, total })}</span>
       </div>
-      <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">
-        This is what a customer sees before they buy. Fill it in with Edit.
-      </p>
+      <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">{tr("This is what a customer sees before they buy. Fill it in with Edit.")}</p>
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
@@ -43,9 +40,7 @@ export function ProfileCompletenessCard({ provider }: { provider: UniversalProvi
 
       {done > 0 && (
         <p className="mt-3 flex items-center gap-1.5 text-[14px] leading-[18px] text-muted-foreground">
-          <Check className="h-3.5 w-3.5 text-primary" />
-          {done} already filled in
-        </p>
+          <Check className="h-3.5 w-3.5 text-primary" />{trx("{done} already filled in", { done })}</p>
       )}
     </section>
   );

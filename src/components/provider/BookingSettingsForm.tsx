@@ -15,6 +15,7 @@ import {
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { todayHN } from "@/lib/timezone";
 import { formatWorkingHours, parseWorkingHours } from "@/lib/workingHours";
+import { tr, trx } from "@/lib/tr";
 
 /** The shared field surface, sized to its content inside these rows. */
 const inputCls = cn(fieldClass, "w-auto px-3");
@@ -153,10 +154,10 @@ export function BookingSettingsEditor({
   const effective = following && derived ? { ...s, weekly: derived } : s;
   const previewSlots = useMemo(() => (previewDate ? computeSlots(effective, previewDate) : []), [effective, previewDate]);
 
-  const durationSummary = `${s.sessionDurationMin} min sessions` +
-    (s.bufferBeforeMin || s.bufferAfterMin ? ` · ${s.bufferBeforeMin}/${s.bufferAfterMin} min buffers` : "") +
-    (showCapacity ? ` · ${s.capacity} at a time` : "");
-  const rulesSummary = s.minNoticeHours ? `${s.minNoticeHours}h notice` : "Same-day booking";
+  const durationSummary = tr("{n} min sessions", { n: s.sessionDurationMin }) +
+    (s.bufferBeforeMin || s.bufferAfterMin ? tr(" · {before}/{after} min buffers", { before: s.bufferBeforeMin, after: s.bufferAfterMin }) : "") +
+    (showCapacity ? tr(" · {n} at a time", { n: s.capacity }) : "");
+  const rulesSummary = s.minNoticeHours ? tr("{minNoticeHours}h notice", { minNoticeHours: s.minNoticeHours }) : tr("Same-day booking");
   const whoSummary = [
     "Your subscribers",
     s.policy.maxActiveBookings ? `${s.policy.maxActiveBookings} upcoming max` : null,
@@ -166,11 +167,11 @@ export function BookingSettingsEditor({
   return (
     <div className="space-y-1">
       {/* Hours — and right under them, what they produce. */}
-      <Section title="Bookable hours" subtitle="When customers can book a time.">
+      <Section title={tr("Bookable hours")} subtitle={tr("When customers can book a time.")}>
         <div className="space-y-4">
           {canFollow && (
             <div className="flex rounded-radius-md bg-inset p-0.5">
-              {([["follow", "Same as working hours"], ["custom", "Custom hours"]] as const).map(([k, label]) => (
+              {([["follow", tr("Same as working hours")], ["custom", tr("Custom hours")]] as const).map(([k, label]) => (
                 <button key={k} type="button"
                   onClick={() => patch(k === "follow"
                     ? { followWorkingHours: true }
@@ -187,21 +188,15 @@ export function BookingSettingsEditor({
             hasWorkingHours ? (
               <p className="text-body text-foreground">
                 {formatWorkingHours(workingHours) }
-                <span className="mt-1 block text-meta text-muted-foreground">
-                  The hours on your page. Change them with Edit, and bookings follow.
-                </span>
+                <span className="mt-1 block text-meta text-muted-foreground">{tr("The hours on your page. Change them with Edit, and bookings follow.")}</span>
               </p>
             ) : (
-              <p className="text-body text-attention">
-                Your page has no working hours yet — add them with Edit, or use custom hours here.
-              </p>
+              <p className="text-body text-attention">{tr("Your page has no working hours yet — add them with Edit, or use custom hours here.")}</p>
             )
           ) : (
             <>
               {canFollow && hasWorkingHours && derived && !sameWeekly(s.weekly, derived) && (
-                <p className="rounded-radius-md bg-inset p-3 text-meta text-muted-foreground">
-                  Differs from the hours on your page ({formatWorkingHours(workingHours)}). Customers see those; bookings use these.
-                </p>
+                <p className="rounded-radius-md bg-inset p-3 text-meta text-muted-foreground">{trx("Differs from the hours on your page ({workingHours}). Customers see those; bookings use these.", { workingHours: formatWorkingHours(workingHours) })}</p>
               )}
               <div className="flex flex-wrap gap-1.5">
                 {SHORT_DAYS.map((d, i) => (
@@ -211,11 +206,11 @@ export function BookingSettingsEditor({
               {!perDay ? (
                 open.length > 0 ? (
                   <div className="flex items-center gap-2">
-                    <input type="time" value={common.from} onChange={(e) => setCommon({ from: e.target.value })} className={inputCls} aria-label="Opens" />
+                    <input type="time" value={common.from} onChange={(e) => setCommon({ from: e.target.value })} className={inputCls} aria-label={tr("Opens")} />
                     <span className="text-muted-foreground">—</span>
-                    <input type="time" value={common.to} onChange={(e) => setCommon({ to: e.target.value })} className={inputCls} aria-label="Closes" />
+                    <input type="time" value={common.to} onChange={(e) => setCommon({ to: e.target.value })} className={inputCls} aria-label={tr("Closes")} />
                   </div>
-                ) : <p className="text-body text-muted-foreground">Closed every day — pick the days you take bookings.</p>
+                ) : <p className="text-body text-muted-foreground">{tr("Closed every day — pick the days you take bookings.")}</p>
               ) : (
                 <div className="space-y-1">
                   {s.weekly.map((day, i) => day.enabled && (
@@ -234,7 +229,7 @@ export function BookingSettingsEditor({
                   // Back to one window: every open day takes the first day's hours.
                   if (!v && open[0]) setCommon({ from: open[0].from, to: open[0].to });
                 }} />
-                <span className="text-body text-foreground">Different hours per day</span>
+                <span className="text-body text-foreground">{tr("Different hours per day")}</span>
               </label>
             </>
           )}
@@ -242,13 +237,13 @@ export function BookingSettingsEditor({
           {/* What the settings produce, next to the hours that make it. */}
           <div className="space-y-2 rounded-radius-md bg-inset p-3">
             <div>
-              <p className="text-body font-semibold text-foreground">How customers see it</p>
-              <p className="text-meta text-muted-foreground">The times a customer can pick on a given day.</p>
+              <p className="text-body font-semibold text-foreground">{tr("How customers see it")}</p>
+              <p className="text-meta text-muted-foreground">{tr("The times a customer can pick on a given day.")}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-meta font-semibold text-muted-foreground">Slots on</span>
+              <span className="text-meta font-semibold text-muted-foreground">{tr("Slots on")}</span>
               <input type="date" value={previewDate} onChange={(e) => setPreviewDate(e.target.value)} className={cn(inputCls, "bg-card")} />
-              {previewDate && <span className="text-meta text-muted-foreground">{previewSlots.length} slot{previewSlots.length === 1 ? "" : "s"}</span>}
+              {previewDate && <span className="text-meta text-muted-foreground">{previewSlots.length === 1 ? trx("{length} slot", { length: previewSlots.length }) : trx("{length} slots", { length: previewSlots.length })}</span>}
             </div>
             {previewDate && (previewSlots.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -259,21 +254,20 @@ export function BookingSettingsEditor({
                 ))}
               </div>
             ) : (
-              <p className="text-meta text-muted-foreground">Nothing to book — the day is closed, blocked, or shorter than one session.</p>
+              <p className="text-meta text-muted-foreground">{tr("Nothing to book — the day is closed, blocked, or shorter than one session.")}</p>
             ))}
           </div>
         </div>
       </Section>
 
-      <Section title="Days off & breaks" subtitle="Close a whole day, or block a time within open days.">
+      <Section title={tr("Days off & breaks")} subtitle={tr("Close a whole day, or block a time within open days.")}>
         <div className="space-y-5">
           <div>
-            <span className="text-meta font-semibold text-muted-foreground">Closed days</span>
+            <span className="text-meta font-semibold text-muted-foreground">{tr("Closed days")}</span>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <input type="date" value={newBlockDate} onChange={(e) => setNewBlockDate(e.target.value)} className={inputCls} />
               <Button type="button" size="sm" variant="secondary" className="gap-1" onClick={addBlockedDate} disabled={!newBlockDate}>
-                <Plus /> Close day
-              </Button>
+                <Plus />{" "}{tr("Close day")}</Button>
             </div>
             {s.blockedDates.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -281,7 +275,7 @@ export function BookingSettingsEditor({
                   <span key={d} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted pl-3 pr-1.5 text-meta font-semibold text-foreground">
                     {d}
                     <button type="button" onClick={() => patch({ blockedDates: s.blockedDates.filter((x) => x !== d) })}
-                      aria-label={`Reopen ${d}`} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">
+                      aria-label={tr("Reopen {d}", { d })} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-background">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </span>
@@ -292,32 +286,31 @@ export function BookingSettingsEditor({
 
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-meta font-semibold text-muted-foreground">Breaks</span>
+              <span className="text-meta font-semibold text-muted-foreground">{tr("Breaks")}</span>
               <Button type="button" size="sm" variant="ghost" className="gap-1" onClick={addBlockedRange}>
-                <Plus /> Add break
-              </Button>
+                <Plus />{" "}{tr("Add break")}</Button>
             </div>
             {s.blockedRanges.length === 0 ? (
-              <p className="mt-1.5 text-body text-muted-foreground">No breaks.</p>
+              <p className="mt-1.5 text-body text-muted-foreground">{tr("No breaks.")}</p>
             ) : (
               <div className="mt-2 space-y-1">
                 {s.blockedRanges.map((r) => (
                   <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-radius-md bg-inset p-2">
                     {/* Every day, or one date. */}
                     <label className="flex items-center gap-2">
-                      <Switch checked={r.date === null} onCheckedChange={(on) => setRange(r.id, { date: on ? null : todayHN() })} aria-label="Repeat every day" />
-                      <span className="text-meta font-semibold text-muted-foreground">Every day</span>
+                      <Switch checked={r.date === null} onCheckedChange={(on) => setRange(r.id, { date: on ? null : todayHN() })} aria-label={tr("Repeat every day")} />
+                      <span className="text-meta font-semibold text-muted-foreground">{tr("Every day")}</span>
                     </label>
                     {r.date !== null && (
                       <input type="date" value={r.date} onChange={(e) => setRange(r.id, { date: e.target.value || todayHN() })} className={cn(inputCls, "bg-card")} />
                     )}
-                    <input type="time" value={r.from} onChange={(e) => setRange(r.id, { from: e.target.value })} className={cn(inputCls, "bg-card")} aria-label="Break starts" />
+                    <input type="time" value={r.from} onChange={(e) => setRange(r.id, { from: e.target.value })} className={cn(inputCls, "bg-card")} aria-label={tr("Break starts")} />
                     <span className="text-muted-foreground">—</span>
-                    <input type="time" value={r.to} onChange={(e) => setRange(r.id, { to: e.target.value })} className={cn(inputCls, "bg-card")} aria-label="Break ends" />
-                    <input type="text" placeholder="Note (optional)" value={r.note ?? ""} onChange={(e) => setRange(r.id, { note: e.target.value })}
+                    <input type="time" value={r.to} onChange={(e) => setRange(r.id, { to: e.target.value })} className={cn(inputCls, "bg-card")} aria-label={tr("Break ends")} />
+                    <input type="text" placeholder={tr("Note (optional)")} value={r.note ?? ""} onChange={(e) => setRange(r.id, { note: e.target.value })}
                       className={cn(inputCls, "min-w-[120px] flex-1 bg-card")} />
                     <Button type="button" size="iconSm" variant="ghost" className="text-destructive"
-                      onClick={() => patch({ blockedRanges: s.blockedRanges.filter((x) => x.id !== r.id) })} aria-label="Remove break">
+                      onClick={() => patch({ blockedRanges: s.blockedRanges.filter((x) => x.id !== r.id) })} aria-label={tr("Remove break")}>
                       <Trash2 />
                     </Button>
                   </div>
@@ -329,52 +322,52 @@ export function BookingSettingsEditor({
       </Section>
 
       {/* Set once, rarely touched — folded to a summary. */}
-      <Section title="Session length" subtitle="How long each booking is, and the gaps around it." summary={durationSummary} collapsible defaultOpen={false}>
+      <Section title={tr("Session length")} subtitle={tr("How long each booking is, and the gaps around it.")} summary={durationSummary} collapsible defaultOpen={false}>
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-1.5">
             {DURATION_PRESETS.map((d) => (
-              <Chip key={d} on={s.sessionDurationMin === d} onClick={() => patch({ sessionDurationMin: d })}>{d} min</Chip>
+              <Chip key={d} on={s.sessionDurationMin === d} onClick={() => patch({ sessionDurationMin: d })}>{trx("{d} min", { d })}</Chip>
             ))}
             <NumberField label="" suffix="min" value={s.sessionDurationMin} min={5}
               onChange={(n) => patch({ sessionDurationMin: Math.max(5, n) })} />
           </div>
           <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-            <NumberField label="Gap before" suffix="min" value={s.bufferBeforeMin} onChange={(n) => patch({ bufferBeforeMin: n })} />
-            <NumberField label="Gap after" suffix="min" value={s.bufferAfterMin} onChange={(n) => patch({ bufferAfterMin: n })} />
+            <NumberField label={tr("Gap before")} suffix="min" value={s.bufferBeforeMin} onChange={(n) => patch({ bufferBeforeMin: n })} />
+            <NumberField label={tr("Gap after")} suffix="min" value={s.bufferAfterMin} onChange={(n) => patch({ bufferAfterMin: n })} />
           </div>
           {showCapacity && (
             <div className="sm:max-w-md">
-              <NumberField label="Bookings at the same time" suffix={s.capacity === 1 ? "job" : "jobs"} min={1}
+              <NumberField label={tr("Bookings at the same time")} suffix={s.capacity === 1 ? "job" : "jobs"} min={1}
                 value={s.capacity} onChange={(n) => patch({ capacity: Math.max(1, n) })} />
               <p className="mt-1.5 text-meta text-muted-foreground">
                 {s.capacity === 1
-                  ? "One customer per time slot — a second person sees that hour as taken."
-                  : `Up to ${s.capacity} customers can book the same hour — how many crews you can send at once.`}
+                  ? tr("One customer per time slot — a second person sees that hour as taken.")
+                  : tr("Up to {capacity} customers can book the same hour — how many crews you can send at once.", { capacity: s.capacity })}
               </p>
             </div>
           )}
         </div>
       </Section>
 
-      <Section title="Notice" subtitle="How soon before the start a customer can still book. 0 means same-day." summary={rulesSummary} collapsible defaultOpen={false}>
+      <Section title={tr("Notice")} subtitle={tr("How soon before the start a customer can still book. 0 means same-day.")} summary={rulesSummary} collapsible defaultOpen={false}>
         <div className="sm:max-w-[220px]">
-          <NumberField label="Minimum notice" suffix="hrs" value={s.minNoticeHours} onChange={(n) => patch({ minNoticeHours: n })} />
+          <NumberField label={tr("Minimum notice")} suffix="hrs" value={s.minNoticeHours} onChange={(n) => patch({ minNoticeHours: n })} />
         </div>
       </Section>
 
-      <Section title="Who may book" subtitle="Only your subscribers — anyone with a live plan from you. Limits below: 0 means none." summary={whoSummary} collapsible defaultOpen={false}>
+      <Section title={tr("Who may book")} subtitle={tr("Only your subscribers — anyone with a live plan from you. Limits below: 0 means none.")} summary={whoSummary} collapsible defaultOpen={false}>
         <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-          <NumberField label="Upcoming per customer" value={s.policy.maxActiveBookings}
+          <NumberField label={tr("Upcoming per customer")} value={s.policy.maxActiveBookings}
             onChange={(n) => patch({ policy: { ...s.policy, maxActiveBookings: n } })} />
-          <NumberField label="Per day per customer" value={s.policy.maxPerDay}
+          <NumberField label={tr("Per day per customer")} value={s.policy.maxPerDay}
             onChange={(n) => patch({ policy: { ...s.policy, maxPerDay: n } })} />
-          <NumberField label="Cancel up to" suffix="hrs" value={s.policy.cancelNoticeHours}
+          <NumberField label={tr("Cancel up to")} suffix="hrs" value={s.policy.cancelNoticeHours}
             onChange={(n) => patch({ policy: { ...s.policy, cancelNoticeHours: n } })} />
         </div>
         <p className="mt-2 text-meta text-muted-foreground">
           {s.policy.cancelNoticeHours > 0
-            ? `A customer can cancel until ${s.policy.cancelNoticeHours}h before the start. You can still cancel it for them.`
-            : "Customers can cancel at any time, even a minute before the start."}
+            ? tr("A customer can cancel until {cancelNoticeHours}h before the start. You can still cancel it for them.", { cancelNoticeHours: s.policy.cancelNoticeHours })
+            : tr("Customers can cancel at any time, even a minute before the start.")}
         </p>
       </Section>
     </div>
@@ -415,10 +408,10 @@ export function BookingSettingsForm({ provider, onDirtyChange }: {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Booking rules saved");
+      toast.success(tr("Booking rules saved"));
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not save"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not save")),
   });
 
   return (
@@ -429,11 +422,9 @@ export function BookingSettingsForm({ provider, onDirtyChange }: {
           "All changes saved" read as broken. */}
       {dirty && (
         <div className="sticky bottom-0 z-10 mt-1 flex gap-2 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-          <Button type="button" variant="ghost" onClick={() => setS(saved)} disabled={save.isPending}>Undo</Button>
+          <Button type="button" variant="ghost" onClick={() => setS(saved)} disabled={save.isPending}>{tr("Undo")}</Button>
           <Button type="button" className="flex-1" onClick={() => save.mutate()}
-            disabled={save.isPending} loading={save.isPending} loadingText="Saving…">
-            Save changes
-          </Button>
+            disabled={save.isPending} loading={save.isPending} loadingText={tr("Saving…")}>{tr("Save changes")}</Button>
         </div>
       )}
       <div className="h-4" />

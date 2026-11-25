@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 interface ImageFieldProps {
   label: string;
@@ -52,7 +53,7 @@ export function ImageField({
       if (error) throw error;
       const { data } = supabaseDb.storage.from(bucket).getPublicUrl(path);
       onChange(data.publicUrl);
-      toast.success("Image uploaded");
+      toast.success(tr("Image uploaded"));
     } catch (err) {
       toast.error(String(err));
     } finally {
@@ -88,9 +89,7 @@ export function ImageField({
           disabled={uploading}
           onClick={() => fileRef.current?.click()}
         >
-          {uploading ? <Spinner size="xs" /> : <Upload className="h-3.5 w-3.5" />}
-          Upload
-        </Button>
+          {uploading ? <Spinner size="xs" /> : <Upload className="h-3.5 w-3.5" />}{tr("Upload")}</Button>
         <Button
           type="button"
           variant="outline"
@@ -98,9 +97,7 @@ export function ImageField({
           className="gap-1.5"
           onClick={() => setShowUrl((v) => !v)}
         >
-          <Link2 className="h-3.5 w-3.5" />
-          URL
-        </Button>
+          <Link2 className="h-3.5 w-3.5" />{tr("URL")}</Button>
       </div>
       {showUrl && (
         <div className="mt-2 flex gap-2">
@@ -118,9 +115,7 @@ export function ImageField({
               setUrlInput("");
               setShowUrl(false);
             }}
-          >
-            Set
-          </Button>
+          >{tr("Set")}</Button>
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { accountApi } from "@/integrations/supabase/client";
 import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { cn } from "@/lib/utils";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Where a business loses its customers — the funnel from "saw your page" to
@@ -34,10 +35,10 @@ const TINY: Record<string, string> = {
 
 /** Short names for a wider screen. */
 const SHORT: Record<string, string> = {
-  provider_view: "Saw page",
-  plan_view: "Opened plan",
+  provider_view: tr("Saw page"),
+  plan_view: tr("Opened plan"),
   checkout_start: "Checkout",
-  payment_chosen: "Chose payment",
+  payment_chosen: tr("Chose payment"),
   paid: "Paid",
 };
 
@@ -63,8 +64,8 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
 
   return (
     <WorkspaceSection
-      title="Sales funnel"
-      subtitle="Where visitors stop on the way to paying"
+      title={tr("Sales funnel")}
+      subtitle={tr("Where visitors stop on the way to paying")}
       action={
         <div className="flex rounded-full bg-inset p-0.5">
           {PERIODS.map((d) => (
@@ -86,7 +87,7 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
       {q.isLoading ? (
         <Skeleton className="h-[92px]" />
       ) : q.isError ? (
-        <p className="text-[14px] text-muted-foreground">Couldn't load the funnel right now.</p>
+        <p className="text-[14px] text-muted-foreground">{tr("Couldn't load the funnel right now.")}</p>
       ) : (
         <div className="space-y-3">
           {/* One strip, left to right: how many reached each step and what
@@ -110,7 +111,7 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
                   </div>
                   <p className="mt-1.5 text-[11px] leading-[14px] tabular-nums text-muted-foreground">
                     {pct === null ? "\u00a0" : (
-                      <>{pct}%<span className="hidden sm:inline"> of prev.</span></>
+                      <>{pct}%<span className="hidden sm:inline">{" "}{tr("of prev.")}</span></>
                     )}
                   </p>
                 </li>
@@ -124,14 +125,12 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
             <div>
               <button type="button" onClick={() => setByPlanOpen((o) => !o)}
                 className="flex items-center gap-1 text-[13px] font-semibold text-foreground"
-                aria-expanded={byPlanOpen}>
-                By plan · {q.data!.plans.length}
-                <ChevronDown className={cn("h-4 w-4 transition-transform", byPlanOpen && "rotate-180")} />
+                aria-expanded={byPlanOpen}>{trx("By plan · {length}", { length: q.data!.plans.length })}<ChevronDown className={cn("h-4 w-4 transition-transform", byPlanOpen && "rotate-180")} />
               </button>
               {byPlanOpen && (
                 <div className="mt-1">
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1 text-[12px] text-muted-foreground">
-                    <span>Plan</span><span className="text-right">Opened</span><span className="text-right">Checkout</span><span className="text-right">Paid</span>
+                    <span>{tr("Plan")}</span><span className="text-right">{tr("Opened")}</span><span className="text-right">{tr("Checkout")}</span><span className="text-right">{tr("Paid")}</span>
                   </div>
                   {q.data!.plans.map((p) => (
                     <div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1 text-[13px] tabular-nums">
@@ -155,7 +154,7 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
 function biggestLeak(stages: Stage[]): string | null {
   if (stages.length < 2 || (stages[0]?.count ?? 0) < 5) {
     return stages.length && (stages[0]?.count ?? 0) === 0
-      ? "Nobody has opened your page in this period yet. Share its link or QR code (below) to get the first visitors."
+      ? tr("Nobody has opened your page in this period yet. Share its link or QR code (below) to get the first visitors.")
       : null;
   }
   let worst: { from: Stage; to: Stage; lost: number } | null = null;
@@ -168,10 +167,10 @@ function biggestLeak(stages: Stage[]): string | null {
   if (!worst || worst.lost < 0.3) return null;
   const pct = Math.round(worst.lost * 100);
   const hint: Record<string, string> = {
-    plan_view: "People see your page but don't open a plan — better photos and a clear first plan help.",
-    checkout_start: "People open a plan but don't start checkout — check the price, the description and the photos.",
-    payment_chosen: "People start checkout but stop before paying — the form or the choice of dates may be in the way.",
-    paid: "People choose how to pay but don't finish — payment is where you lose them.",
+    plan_view: tr("People see your page but don't open a plan — better photos and a clear first plan help."),
+    checkout_start: tr("People open a plan but don't start checkout — check the price, the description and the photos."),
+    payment_chosen: tr("People start checkout but stop before paying — the form or the choice of dates may be in the way."),
+    paid: tr("People choose how to pay but don't finish — payment is where you lose them."),
   };
-  return `${pct}% stop between “${worst.from.label}” and “${worst.to.label}”. ${hint[worst.to.key] ?? ""}`.trim();
+  return tr("{pct}% stop between “{label}” and “{label2}”. {value}", { pct, label: worst.from.label, label2: worst.to.label, value: hint[worst.to.key] ?? "" }).trim();
 }

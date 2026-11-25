@@ -6,6 +6,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * The wide banner above the services grid: one slide per category, each a
@@ -50,8 +51,7 @@ function Slide({ item }: { item: CategoryHighlight }) {
         )}
         <p className="text-title font-semibold text-primary-foreground">{item.label}</p>
         {item.fromCents !== null && (
-          <p className="text-meta text-primary-foreground/70">
-            from {formatUSD(item.fromCents)}{item.unit ? ` ${item.unit}` : ""}
+          <p className="text-meta text-primary-foreground/70">{trx("from {fromCents}", { fromCents: formatUSD(item.fromCents) })}{item.unit ? ` ${item.unit}` : ""}
           </p>
         )}
       </div>
@@ -127,7 +127,7 @@ export function CategoryCarousel({ family }: {
       {count > 1 && <DesktopRow items={highlights} />}
     <section
       aria-roledescription="carousel"
-      aria-label="Browse by category"
+      aria-label={tr("Browse by category")}
       className={cn("relative", count > 1 && "md:hidden")}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -180,7 +180,7 @@ function DesktopRow({ items }: { items: CategoryHighlight[] }) {
   const page = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth, behavior: "smooth" });
 
   return (
-    <section aria-label="Browse by category" className="relative hidden md:block">
+    <section aria-label={tr("Browse by category")} className="relative hidden md:block">
       <div
         ref={ref}
         onScroll={measure}
@@ -203,7 +203,7 @@ function RowArrow({ dir, onClick }: { dir: 1 | -1; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      aria-label={dir === 1 ? "More categories" : "Previous categories"}
+      aria-label={dir === 1 ? tr("More categories") : tr("Previous categories")}
       className={cn(
         "absolute top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card text-foreground shadow-figma transition-colors hover:bg-muted",
         dir === 1 ? "-right-3" : "-left-3",
