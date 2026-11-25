@@ -296,6 +296,185 @@ export const GUIDES: Guide[] = [
   },
 ];
 
+/**
+ * What a reader should leave with (shown first, as "In short") and the
+ * questions people actually type, answered in a line or two (shown last and
+ * sent as FAQPage JSON-LD). Same rule as above: true for every business.
+ */
+export interface GuideExtras {
+  takeaways: string[];
+  faq: Array<{ q: string; a: string }>;
+}
+
+export const GUIDE_EXTRAS: Record<string, { en: GuideExtras; es: GuideExtras }> = {
+  "moving-to-roatan": {
+    en: {
+      takeaways: [
+        "Sort out transport first: the island's towns are spread along one main road.",
+        "A weekly or monthly rental, meal plan and cleaner cost less per day than paying as you go.",
+        "Find a clinic before you need one.",
+        "Every business on EverySub takes Lightning, Bitcoin, card and PayPal, paid up front.",
+      ],
+      faq: [
+        { q: "Do I need a car on Roatán?", a: "For a short beach stay in West End or West Bay, taxis are enough. If you live on the island, shop in French Harbour or visit the east end, most people rent a car, jeep or scooter." },
+        { q: "Can I pay businesses on Roatán without cash?", a: "Cash in lempiras and US dollars is common, but every business on EverySub takes Lightning, on-chain Bitcoin, card and PayPal online, paid up front." },
+        { q: "Where are the main towns on Roatán?", a: "Coxen Hole, French Harbour, West End, West Bay, Sandy Bay, First Bight and Pristine Bay, all along the main road." },
+      ],
+    },
+    es: {
+      takeaways: [
+        "Resuelve el transporte primero: los pueblos de la isla están a lo largo de una carretera principal.",
+        "Una renta, un plan de comida o una limpieza por semana o por mes cuestan menos por día que pagar suelto.",
+        "Ubica una clínica antes de necesitarla.",
+        "Todos los negocios en EverySub aceptan Lightning, Bitcoin, tarjeta y PayPal, por adelantado.",
+      ],
+      faq: [
+        { q: "¿Necesito carro en Roatán?", a: "Para unos días de playa en West End o West Bay alcanzan los taxis. Si vives en la isla, compras en French Harbour o vas al este, la mayoría renta carro, jeep o moto." },
+        { q: "¿Puedo pagar a negocios en Roatán sin efectivo?", a: "El efectivo en lempiras y dólares es común, pero todos los negocios en EverySub aceptan Lightning, Bitcoin on-chain, tarjeta y PayPal en línea, por adelantado." },
+        { q: "¿Cuáles son los pueblos principales de Roatán?", a: "Coxen Hole, French Harbour, West End, West Bay, Sandy Bay, First Bight y Pristine Bay, todos sobre la carretera principal." },
+      ],
+    },
+  },
+  "getting-around-roatan": {
+    en: {
+      takeaways: [
+        "Taxis cover a short stay in West End or West Bay; for more, rent.",
+        "A small car is the everyday choice; a jeep or SUV helps on the east end's hills and dirt roads.",
+        "Weekly and monthly rates cap the total, so a longer rental never costs more.",
+        "Some companies deliver the car to where you stay; you see the fee before paying.",
+      ],
+      faq: [
+        { q: "Is it better to rent a scooter or a car on Roatán?", a: "A scooter is cheapest and easy to park but suits experienced riders, since the main road has hills, rain and fast traffic. A small car is the everyday choice." },
+        { q: "Can the rental car be delivered to my hotel?", a: "Some rental companies deliver to where you stay. You choose the area when booking and see the delivery fee before paying; others hand the car over at their office." },
+        { q: "Is renting by the week cheaper?", a: "Yes. Companies give lower weekly and monthly rates, and on EverySub those rates cap the total: 6 days never cost more than a week." },
+      ],
+    },
+    es: {
+      takeaways: [
+        "Para unos días en West End o West Bay alcanza el taxi; para más, renta.",
+        "Un carro pequeño es lo diario; un jeep o SUV ayuda en las cuestas y caminos de tierra del este.",
+        "Las tarifas semanales y mensuales limitan el total: rentar más tiempo nunca cuesta más.",
+        "Algunas empresas llevan el carro a donde te hospedas; ves el costo antes de pagar.",
+      ],
+      faq: [
+        { q: "¿Conviene rentar moto o carro en Roatán?", a: "La moto es lo más barato y fácil de estacionar, pero conviene a conductores con experiencia: la carretera tiene cuestas, lluvia y tráfico rápido. El carro pequeño es lo diario." },
+        { q: "¿Me pueden llevar el carro al hotel?", a: "Algunas empresas lo llevan a donde te hospedas. Eliges la zona al reservar y ves el costo de entrega antes de pagar; otras lo entregan en su oficina." },
+        { q: "¿Sale más barato rentar por semana?", a: "Sí. Las empresas dan tarifas más bajas por semana y por mes, y en EverySub esas tarifas limitan el total: 6 días nunca cuestan más que una semana." },
+      ],
+    },
+  },
+  "house-cleaning-roatan": {
+    en: {
+      takeaways: [
+        "Most homes on the island are cleaned once or twice a week.",
+        "Check what a visit includes, the home size and who brings supplies before you subscribe.",
+        "Move or skip a visit from My subscriptions.",
+        "Paid up front, so there is no cash to leave out.",
+      ],
+      faq: [
+        { q: "How often should a house on Roatán be cleaned?", a: "Most homes are cleaned once or twice a week because of sand, humidity and salt air. A rental between guests needs a clean after every stay." },
+        { q: "Do cleaners bring their own supplies?", a: "It depends on the plan. Each plan says whether supplies are brought or yours, and what extras like laundry or windows cost." },
+        { q: "Can I reschedule a cleaning?", a: "Yes. Open the visit in My subscriptions to move it, or cancel it up to a day before and it goes back to your plan." },
+      ],
+    },
+    es: {
+      takeaways: [
+        "La mayoría de las casas en la isla se limpian una o dos veces por semana.",
+        "Antes de suscribirte revisa qué incluye la visita, el tamaño de casa y quién lleva los productos.",
+        "Mueve o salta una visita desde Mis suscripciones.",
+        "Pagas por adelantado: no hay efectivo que dejar.",
+      ],
+      faq: [
+        { q: "¿Cada cuánto se limpia una casa en Roatán?", a: "La mayoría una o dos veces por semana, por la arena, la humedad y el aire salado. Una casa de renta necesita limpieza después de cada huésped." },
+        { q: "¿Las personas de limpieza llevan sus productos?", a: "Depende del plan. Cada plan indica si llevan los productos o usan los tuyos, y cuánto cuestan extras como lavandería o ventanas." },
+        { q: "¿Puedo cambiar el día de la limpieza?", a: "Sí. Abre la visita en Mis suscripciones para moverla, o cancélala hasta un día antes y vuelve a tu plan." },
+      ],
+    },
+  },
+  "meal-plans-roatan": {
+    en: {
+      takeaways: [
+        "Choose lunch, dinner or both, for as many weeks as you want.",
+        "Each kitchen shows the week's menu before you pay.",
+        "Drop a pin at checkout to see whether you're covered and what delivery costs.",
+        "Cancel any time; the plan runs to the end of the period you paid for.",
+      ],
+      faq: [
+        { q: "Is there meal delivery on Roatán?", a: "Yes. Local kitchens sell weekly meal plans and deliver lunch, dinner or both. Coverage depends on the kitchen, and you see it before paying." },
+        { q: "Can I change my meals during the week?", a: "Yes. In My subscriptions you can change which meals you get." },
+        { q: "What happens when I cancel a meal plan?", a: "It doesn't renew. The plan keeps running to the end of the period you already paid for." },
+      ],
+    },
+    es: {
+      takeaways: [
+        "Elige almuerzo, cena o ambos, por las semanas que quieras.",
+        "Cada cocina muestra el menú de la semana antes de pagar.",
+        "Marca en el mapa al pagar para ver si hay cobertura y cuánto cuesta la entrega.",
+        "Cancela cuando quieras; el plan sigue hasta el final del periodo pagado.",
+      ],
+      faq: [
+        { q: "¿Hay entrega de comida en Roatán?", a: "Sí. Cocinas locales venden planes semanales y entregan almuerzo, cena o ambos. La cobertura depende de cada cocina y la ves antes de pagar." },
+        { q: "¿Puedo cambiar mis comidas durante la semana?", a: "Sí. En Mis suscripciones puedes cambiar qué comidas recibes." },
+        { q: "¿Qué pasa si cancelo el plan de comida?", a: "No se renueva. El plan sigue hasta el final del periodo que ya pagaste." },
+      ],
+    },
+  },
+  "learn-to-dive-roatan": {
+    en: {
+      takeaways: [
+        "Warm water all year and many sites a short boat ride from shore.",
+        "A course certifies you; a package is fun dives for the certified; a membership suits regulars.",
+        "Book dives from the shop's calendar and show your access QR at the dock.",
+      ],
+      faq: [
+        { q: "Is Roatán good for learning to dive?", a: "Yes. The water is warm all year, visibility is usually good, and shops run courses every week, from a first try-dive to full certification." },
+        { q: "What is the difference between a dive package and a membership?", a: "A package is a set number of fun dives for certified divers. A membership suits residents who dive regularly. Each plan lists exactly what is included." },
+        { q: "How do I book my dives after buying?", a: "From the shop's calendar in your account. Your plan shows an access QR the staff scan at the dock or the door." },
+      ],
+    },
+    es: {
+      takeaways: [
+        "Agua tibia todo el año y muchos sitios a pocos minutos en lancha.",
+        "Un curso te certifica; un paquete son inmersiones para certificados; una membresía es para quien bucea seguido.",
+        "Reserva en el calendario de la tienda y muestra tu QR de acceso en el muelle.",
+      ],
+      faq: [
+        { q: "¿Roatán es buen lugar para aprender a bucear?", a: "Sí. El agua es tibia todo el año, la visibilidad suele ser buena y las tiendas dan cursos cada semana, desde una inmersión de prueba hasta la certificación." },
+        { q: "¿Qué diferencia hay entre un paquete y una membresía de buceo?", a: "Un paquete es un número fijo de inmersiones para buzos certificados. Una membresía conviene a residentes que bucean seguido. Cada plan indica qué incluye." },
+        { q: "¿Cómo reservo mis inmersiones después de comprar?", a: "En el calendario de la tienda, desde tu cuenta. Tu plan muestra un QR de acceso que el personal escanea en el muelle o la entrada." },
+      ],
+    },
+  },
+  "cost-of-services-roatan": {
+    en: {
+      takeaways: [
+        "Every price below is live, in US dollars, from businesses on the island.",
+        "Weekly and monthly plans cost less per day or per meal.",
+        "December to April is the busiest season.",
+      ],
+      faq: [
+        { q: "Are prices on Roatán in dollars or lempiras?", a: "Both are used on the island. Prices on EverySub are in US dollars and you can pay by Lightning, Bitcoin, card or PayPal." },
+        { q: "When is high season on Roatán?", a: "The island is busiest from December to April." },
+        { q: "Is delivery included in the price?", a: "Where a plan has delivery, its cost depends on where you are and is shown at checkout before you pay." },
+      ],
+    },
+    es: {
+      takeaways: [
+        "Todos los precios de abajo son actuales, en dólares, de negocios de la isla.",
+        "Los planes semanales y mensuales cuestan menos por día o por comida.",
+        "De diciembre a abril es la temporada con más movimiento.",
+      ],
+      faq: [
+        { q: "¿En Roatán se paga en dólares o lempiras?", a: "En la isla se usan ambos. En EverySub los precios están en dólares y puedes pagar con Lightning, Bitcoin, tarjeta o PayPal." },
+        { q: "¿Cuándo es temporada alta en Roatán?", a: "La isla tiene más movimiento de diciembre a abril." },
+        { q: "¿La entrega está incluida en el precio?", a: "Si el plan tiene entrega, su costo depende de dónde estás y se muestra al pagar, antes de confirmar." },
+      ],
+    },
+  },
+};
+
+export const guideExtras = (slug: string, lang: "en" | "es"): GuideExtras | null => GUIDE_EXTRAS[slug]?.[lang] ?? null;
+
 export const guideBySlug = (slug: string | undefined) => GUIDES.find((g) => g.slug === slug) ?? null;
 
 export const GUIDES_INDEX = {

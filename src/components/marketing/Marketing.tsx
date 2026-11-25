@@ -115,11 +115,13 @@ export function FeatureCard({ icon: Icon, title, children, className }: {
 }
 
 /** Questions in two columns: the heading left, `<details>` right. */
-export function Faq({ items, id = "faq" }: { items: Array<{ q: string; a: string }>; id?: string }) {
+export function Faq({ items, id = "faq", accent = "answered", plain = "questions," }: {
+  items: Array<{ q: string; a: string }>; id?: string; accent?: string; plain?: string;
+}) {
   return (
     <section id={id} className="app-container scroll-mt-20 py-16 md:py-24">
       <div className="grid gap-8 md:grid-cols-[1fr_1.4fr]">
-        <TwoTone accent="answered" plain="questions," accentFirst={false} />
+        <TwoTone accent={accent} plain={plain} accentFirst={false} />
         <div className="divide-y divide-border">
           {items.map((f) => (
             <details key={f.q} className="group py-5">
