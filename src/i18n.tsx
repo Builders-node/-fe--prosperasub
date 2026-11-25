@@ -168,6 +168,15 @@ const en = {
   "referral.claimAcceptedPlain": "Code applied \u2014 thanks, we know who sent you.",
   "profile.inviteFriendValuePlain": "Share EverySub with a neighbour",
   "referral.statsUnavailable": "Your code works now. Who used it and what it earned will show up here shortly.",
+  "howItWorks.title": "How it works",
+  "howItWorks.default.1.title": "You're in",
+  "howItWorks.default.1.text": "Your order is confirmed and saved in My subscriptions, with its receipt.",
+  "howItWorks.default.2.title": "The business gets it",
+  "howItWorks.default.2.text": "Your order goes straight to the business. They'll reach out if they need anything.",
+  "howItWorks.default.3.title": "It happens on schedule",
+  "howItWorks.default.3.text": "Deliveries, visits and bookings arrive as planned. If your plan needs a time, book it from My subscriptions.",
+  "howItWorks.default.4.title": "Show your QR when asked",
+  "howItWorks.default.4.text": "Each subscription has its own QR in My subscriptions. We remind you before a plan ends.",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -336,6 +345,15 @@ const es: Record<TranslationKey, string> = {
   "referral.claimAcceptedPlain": "C\u00f3digo aplicado: gracias, ya sabemos qui\u00e9n te envi\u00f3.",
   "profile.inviteFriendValuePlain": "Comparte EverySub con un vecino",
   "referral.statsUnavailable": "Tu c\u00f3digo ya funciona. Qui\u00e9n lo us\u00f3 y qu\u00e9 gener\u00f3 aparecer\u00e1 aqu\u00ed pronto.",
+  "howItWorks.title": "Cómo funciona",
+  "howItWorks.default.1.title": "Ya está",
+  "howItWorks.default.1.text": "Tu pedido está confirmado y guardado en Mis Subs, con su recibo.",
+  "howItWorks.default.2.title": "El negocio lo recibe",
+  "howItWorks.default.2.text": "Tu pedido llega directo al negocio. Te contactarán si necesitan algo.",
+  "howItWorks.default.3.title": "Sucede a tiempo",
+  "howItWorks.default.3.text": "Entregas, visitas y reservas llegan según lo previsto. Si tu plan necesita una hora, resérvala desde Mis Subs.",
+  "howItWorks.default.4.title": "Muestra tu QR cuando te lo pidan",
+  "howItWorks.default.4.text": "Cada suscripción tiene su propio QR en Mis Subs. Te avisamos antes de que termine un plan.",
 };
 
 const dictionaries: Record<LanguageCode, Record<TranslationKey, string>> = { en, es };

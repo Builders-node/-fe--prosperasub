@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from "react";
-import { ArrowRight, ChevronRight, MapPin } from "lucide-react";
+import { ArrowRight, ChevronRight, ListOrdered, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeliveryDialog } from "@/components/account/DeliveryDialog";
 import { subscriberSourceFor } from "@/services/subscribers";
 import { DialogBlock } from "@/components/ui/dialog";
+import { HowItWorksSection } from "@/components/howItWorks/HowItWorksSection";
+import { useI18n } from "@/i18n";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
@@ -49,6 +51,8 @@ export interface PurchaseDetail {
   cancel?: { label: string; destructive?: boolean; onClick: () => void };
   /** Leave a tip — the same panel on every service. */
   tip?: { service: string; subscriptionRef: string; providerId?: string | null; providerName?: string | null; customerName?: string | null };
+  /** "How it works" after buying — the business's steps for this plan. */
+  howItWorks?: { providerId: string; planId?: string | null };
   /** Rate the provider — the same widget on every service. */
   review?: { service: Service; itemId?: string | null; subscriptionId: string; providerId?: string | null; customerName?: string | null };
   /**
@@ -94,6 +98,8 @@ export function SubscriptionDetailSheet({
   /** So the list behind the sheet reloads the address it is showing. */
   onDeliverySaved?: () => void;
 }) {
+  const { t } = useI18n();
+  const [showingHow, setShowingHow] = useState(false);
   const [editingDelivery, setEditingDelivery] = useState(false);
 
   // One block per thing the sheet answers — what you bought, the facts of it,
@@ -159,6 +165,14 @@ export function SubscriptionDetailSheet({
             <DialogBlock title="Access">
               <AccessQrCode subscriptionId={detail.accessId} />
             </DialogBlock>
+          )}
+
+          {/* What happens now, in the business's own words — behind a button so
+              the sheet stays about this purchase. */}
+          {detail.howItWorks && (
+            <Button variant="secondary" className="w-full gap-1.5" onClick={() => setShowingHow(true)}>
+              <ListOrdered className="h-4 w-4" /> How it works
+            </Button>
           )}
 
           {/* A delivered purchase: where it is and where it is going. */}
@@ -245,6 +259,12 @@ export function SubscriptionDetailSheet({
         </>
       )}
     </ResponsiveDialog>
+
+      {detail?.howItWorks && (
+        <ResponsiveDialog open={showingHow} onOpenChange={setShowingHow} title={t("howItWorks.title")} description={detail.title}>
+          <HowItWorksSection providerId={detail.howItWorks.providerId} planId={detail.howItWorks.planId} bare />
+        </ResponsiveDialog>
+      )}
 
       {/* The same dialog the business uses on its own subscriber list — one
           change, one form, whichever side of it you are on. */}
