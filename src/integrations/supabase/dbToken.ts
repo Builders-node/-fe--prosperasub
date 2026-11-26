@@ -68,5 +68,32 @@ export function createDbTokenSource(deps: DbTokenDeps) {
     },
     /** Forget everything — on sign-in, sign-out or a role change. */
     reset() { cached = null; unavailableUntil = 0; },
+    /** PostgREST refused our token: stop sending tokens for a while. */
+    rejected() { cached = null; unavailableUntil = deps.now() + UNAVAILABLE_BACKOFF_MS; },
+    /** Was this the token we just sent? */
+    isOurs(token: string | null | undefined) { return !!token && token === cached?.token; },
+  };
+}
+
+/**
+ * fetch for the Supabase client: if PostgREST answers 401 to a request that
+ * carried our token, the token is the problem (wrong secret, clock skew), not
+ * the query — so retry it once with the anon key and stop sending tokens for a
+ * while, rather than fail every signed-in screen.
+ */
+export function fetchWithAnonFallback(
+  source: ReturnType<typeof createDbTokenSource>,
+  anonKey: string,
+  baseFetch: typeof fetch,
+): typeof fetch {
+  return async (input, init) => {
+    const res = await baseFetch(input, init);
+    if (res.status !== 401) return res;
+    const headers = new Headers(init?.headers);
+    const sent = headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+    if (!source.isOurs(sent)) return res;
+    source.rejected();
+    headers.set("Authorization", `Bearer ${anonKey}`);
+    return baseFetch(input, { ...init, headers });
   };
 }

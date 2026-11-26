@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/config", () => ({ apiUrlFor: (p: string) => `https://api.test${p}` }));
 
-import { createDbTokenSource } from "./dbToken";
+import { createDbTokenSource, fetchWithAnonFallback } from "./dbToken";
 
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
@@ -53,5 +53,28 @@ describe("createDbTokenSource", () => {
     const fetch = vi.fn(async () => { throw new TypeError("offline"); });
     const src = createDbTokenSource({ getAccessToken: async () => "acc", fetch, now: () => 0 });
     expect(await src.get()).toBeNull();
+  });
+});
+
+describe("fetchWithAnonFallback", () => {
+  it("retries a 401 on our token with the anon key and stops sending tokens", async () => {
+    let t = 0;
+    const src = createDbTokenSource({ getAccessToken: async () => "acc", fetch: vi.fn(async () => ok({ access_token: "db1", expires_in: 900 })), now: () => t });
+    const token = await src.get();
+    const base = vi.fn(async (_i: RequestInfo | URL, init?: RequestInit) =>
+      new Headers(init?.headers).get("Authorization") === "Bearer db1" ? new Response("", { status: 401 }) : new Response("[]", { status: 200 }));
+    const f = fetchWithAnonFallback(src, "ANON", base as typeof fetch);
+    const res = await f("https://db/rest/v1/x", { headers: { Authorization: `Bearer ${token}` } });
+    expect(res.status).toBe(200);
+    expect(new Headers(base.mock.calls[1][1]?.headers).get("Authorization")).toBe("Bearer ANON");
+    expect(await src.get()).toBeNull();
+  });
+
+  it("leaves a 401 alone when it was not our token", async () => {
+    const src = createDbTokenSource({ getAccessToken: async () => null, fetch: vi.fn(), now: () => 0 });
+    const base = vi.fn(async () => new Response("", { status: 401 }));
+    const res = await fetchWithAnonFallback(src, "ANON", base as typeof fetch)("u", { headers: { Authorization: "Bearer ANON" } });
+    expect(res.status).toBe(401);
+    expect(base).toHaveBeenCalledTimes(1);
   });
 });

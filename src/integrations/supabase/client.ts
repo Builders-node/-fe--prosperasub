@@ -16,7 +16,7 @@ import {
   type StoredSession, type AuthStateChangeCallback,
 } from "@/integrations/supabase/session";
 import { tr } from "@/lib/tr";
-import { createDbTokenSource } from "@/integrations/supabase/dbToken";
+import { createDbTokenSource, fetchWithAnonFallback } from "@/integrations/supabase/dbToken";
 
 // The session layer moved to its own file; these stay exported from here so
 // no call site had to change.
@@ -34,6 +34,7 @@ const dbToken = createDbTokenSource({
 authStateListeners.add(() => dbToken.reset());
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   accessToken: () => dbToken.get(),
+  global: { fetch: fetchWithAnonFallback(dbToken, SUPABASE_ANON_KEY, (input, init) => fetch(input, init)) },
 });
 /** Direct Supabase client — use for queries that need real relation joins */
 export const supabaseDb = db;
