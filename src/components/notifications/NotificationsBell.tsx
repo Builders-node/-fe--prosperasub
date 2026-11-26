@@ -92,7 +92,7 @@ function Panel({ onClose }: { onClose: () => void }) {
             <CheckCheck className="h-5 w-5 sm:h-4 sm:w-4" /><span className="hidden sm:inline">{tr("Mark all read")}</span></button>
         )}
       </DrawerHeader>
-      <div className="shrink-0 px-5">
+      <div className="shrink-0 px-5 pb-1">
         <FilterPills value={filter} onChange={setFilter} unreadCount={feed.unreadCount} hasBusiness={feed.hasBusiness} size="sm" />
       </div>
 

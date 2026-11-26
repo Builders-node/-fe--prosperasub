@@ -56,10 +56,10 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
     // empty tab.
     ...(hasBusiness ? [{ key: "business" as const, label: tr("Business") }] : []),
   ];
-  // Tabs with an underline, not a row of filled pills: the filter is a quiet
-  // control above the list, not three buttons competing with it.
+  // The app's segmented control — the same track as My subscriptions and
+  // the provider page: an inset rail, the chosen tab a card on it.
   return (
-    <div role="tablist" className={cn("flex gap-5 border-b border-[hsl(var(--app-divider))]", size === "sm" && "gap-4")}>
+    <div role="tablist" className="flex w-full rounded-radius-md bg-inset p-0.5">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -68,14 +68,14 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
           aria-selected={value === t.key}
           onClick={() => onChange(t.key)}
           className={cn(
-            "relative -mb-px flex shrink-0 items-center gap-1.5 border-b-2 font-semibold transition-colors",
-            size === "sm" ? "h-10 text-body" : "h-11 text-base",
-            value === t.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+            "flex flex-1 items-center justify-center gap-1.5 rounded-radius-md px-3 text-center font-semibold leading-[22px] transition-colors",
+            size === "sm" ? "py-1.5 text-body" : "py-2 text-title",
+            value === t.key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground",
           )}
         >
           {t.label}
           {!!t.count && (
-            <span className={cn("min-w-5 rounded-full px-1.5 text-center text-meta leading-5 tabular-nums", value === t.key ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground")}>{t.count}</span>
+            <span className="min-w-5 rounded-full bg-primary px-1.5 text-center text-meta font-semibold leading-5 tabular-nums text-primary-foreground">{t.count}</span>
           )}
         </button>
       ))}
