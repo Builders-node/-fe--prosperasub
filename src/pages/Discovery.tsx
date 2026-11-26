@@ -193,7 +193,7 @@ const Discovery = () => {
         <DesktopCatalog className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pb-6" />
       </aside>
       <div className="min-w-0 flex-1">
-      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none lg:rounded-radius-lg">
+      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none lg:rounded-none lg:bg-transparent lg:pb-0 lg:![box-shadow:none]">
         <div className="app-container space-y-4 pt-4">
           {/* Hold the tabs' place while the services load — they only
               appear once there are two families, and arriving late pushed

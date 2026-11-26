@@ -36,7 +36,7 @@ export function SideBanner({ managesBusiness }: { managesBusiness: boolean }) {
   return (
     <Link
       to={content.to}
-      className="group flex h-full flex-col rounded-radius-lg bg-background p-4 transition-colors hover:bg-muted"
+      className="group flex h-full flex-col rounded-radius-lg bg-card p-4 shadow-figma transition-colors hover:bg-muted"
     >
       <span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground">
         <Icon className="h-6 w-6" />
