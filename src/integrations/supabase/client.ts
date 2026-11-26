@@ -16,14 +16,26 @@ import {
   type StoredSession, type AuthStateChangeCallback,
 } from "@/integrations/supabase/session";
 import { tr } from "@/lib/tr";
+import { createDbTokenSource, fetchWithAnonFallback } from "@/integrations/supabase/dbToken";
 
 // The session layer moved to its own file; these stay exported from here so
 // no call site had to change.
 export { adminApi, accountApi };
 export type { StoredSession };
 
-// Supabase client for direct DB access (uses anon key + permissive RLS policies)
-const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabase client for direct DB access. Signed in, requests carry the
+// person's database token (see dbToken.ts) so row-level security knows who is
+// asking; signed out, or before the backend issues tokens, it is the anon key.
+const dbToken = createDbTokenSource({
+  getAccessToken: async () => (await getValidStoredSession())?.access_token ?? null,
+  fetch: (input, init) => fetch(input, init),
+  now: () => Date.now(),
+});
+authStateListeners.add(() => dbToken.reset());
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  accessToken: () => dbToken.get(),
+  global: { fetch: fetchWithAnonFallback(dbToken, SUPABASE_ANON_KEY, (input, init) => fetch(input, init)) },
+});
 /** Direct Supabase client — use for queries that need real relation joins */
 export const supabaseDb = db;
 

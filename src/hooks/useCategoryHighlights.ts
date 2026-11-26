@@ -114,10 +114,10 @@ export function useCategoryHighlights() {
       };
 
       (cleaning.data ?? []).forEach((p: any) =>
-        offer(byUniversal.get(String(p.owner_provider_id)), num(resolveMonthlyPriceCents(p)), "/ month"));
+        offer(byUniversal.get(String(p.owner_provider_id)), num(resolveMonthlyPriceCents(p)), `/ ${periodNoun("monthly")}`));
 
       (food.data ?? []).forEach((p: any) =>
-        offer(byLegacy.get(String(p.provider_id)), num(p.weekly_price_cents), "/ week"));
+        offer(byLegacy.get(String(p.provider_id)), num(p.weekly_price_cents), `/ ${periodNoun("weekly")}`));
 
       (beach.data ?? []).forEach((p: any) =>
         offer(byUniversal.get(String(p.owner_provider_id)), num(p.price_per_person_cents), tr("/ person · month")));

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { dietaryTagMeta, DIETARY_TAGS } from "@/lib/foodDietaryTags";
 import type { LucideIcon } from "lucide-react";
-import { tr } from "@/lib/tr";
+import { tr, trData } from "@/lib/tr";
 
 /**
  * The tag dictionary — the words a plan can be tagged with, in groups.
@@ -53,12 +53,12 @@ async function fetchDictionary(): Promise<{ groups: TagGroup[]; fromDb: boolean 
   ]);
   if (groups.error || tags.error) return { groups: DEFAULT_TAG_GROUPS, fromDb: false };
   const out: TagGroup[] = (groups.data ?? []).map((r: any) => ({
-    key: r.key, label: r.label, sortOrder: r.sort_order ?? 0, isActive: r.is_active !== false, tags: [],
+    key: r.key, label: trData(r.label), sortOrder: r.sort_order ?? 0, isActive: r.is_active !== false, tags: [],
   }));
   const byKey = new Map(out.map((x) => [x.key, x]));
   for (const t of (tags.data ?? []) as any[]) {
     byKey.get(t.group_key)?.tags.push({
-      key: t.key, label: t.label, groupKey: t.group_key, sortOrder: t.sort_order ?? 0, isActive: t.is_active !== false,
+      key: t.key, label: trData(t.label), groupKey: t.group_key, sortOrder: t.sort_order ?? 0, isActive: t.is_active !== false,
     });
   }
   return { groups: out, fromDb: true };

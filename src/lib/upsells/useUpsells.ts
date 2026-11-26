@@ -74,9 +74,19 @@ export function useUpsells({ exclude = [], excludeProviderId, limit = 3 }: {
     queryKey: ["upsell-sales"],
     staleTime: 10 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabaseDb.from("subscriptions_unified").select("plan_id").eq("paid", true).limit(1000);
-      if (error) return new Map<string, number>();
+      // Counts only, from a database function: the rows behind them are
+      // other people's orders and are not readable while signed out.
       const m = new Map<string, number>();
+      const { data: counts, error: rpcError } = await supabaseDb.rpc("plan_sales_counts" as never);
+      if (!rpcError) {
+        for (const r of (counts ?? []) as Array<{ plan_id: string | null; sales: number }>) {
+          if (r.plan_id) m.set(String(r.plan_id), Number(r.sales) || 0);
+        }
+        return m;
+      }
+      // Before the function exists: the old way.
+      const { data, error } = await supabaseDb.from("subscriptions_unified").select("plan_id").eq("paid", true).limit(1000);
+      if (error) return m;
       for (const r of (data ?? []) as Array<{ plan_id: string | null }>) {
         if (r.plan_id) m.set(String(r.plan_id), (m.get(String(r.plan_id)) ?? 0) + 1);
       }

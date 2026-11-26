@@ -1,5 +1,5 @@
 import type { PlanPeriod } from "@/lib/services/planPeriod";
-import { tr } from "@/lib/tr";
+import { esUnit, isEs, tr } from "@/lib/tr";
 
 /**
  * What a plan gives you, as a list rather than a single number.
@@ -98,6 +98,7 @@ export function serializeEntitlements(list: Entitlement[]): unknown[] {
  */
 function plural(unit: string): string {
   const u = unit.trim();
+  if (isEs) return esUnit(u, true) ?? u;
   if (!u) return u;
   if (/(s|x|z|ch|sh)$/i.test(u)) return `${u}es`;
   if (/[^aeiou]y$/i.test(u)) return `${u.slice(0, -1)}ies`;
@@ -112,12 +113,12 @@ function plural(unit: string): string {
  */
 export function describeEntitlement(e: Entitlement, planPeriod: string | null): string {
   const period = e.period ?? planPeriod;
-  const per = period === "weekly" ? "a week"
-    : period === "monthly" ? "a month"
-    : period === "quarterly" ? "a quarter"
-    : period === "yearly" ? "a year" : "";
+  const per = period === "weekly" ? tr("a week")
+    : period === "monthly" ? tr("a month")
+    : period === "quarterly" ? tr("a quarter")
+    : period === "yearly" ? tr("a year") : "";
   if (e.unit === ACCESS_UNIT) return per ? tr("Unlimited access {per}", { per }) : tr("Unlimited access");
   if (e.quantity == null) return per ? tr("Unlimited {plural} {per}", { plural: plural(e.unit), per }) : tr("Unlimited {plural}", { plural: plural(e.unit) });
-  const noun = e.quantity === 1 ? e.unit : plural(e.unit);
+  const noun = e.quantity === 1 ? (isEs ? esUnit(e.unit, false) ?? e.unit : e.unit) : plural(e.unit);
   return per ? `${e.quantity} ${noun} ${per}` : `${e.quantity} ${noun}`;
 }

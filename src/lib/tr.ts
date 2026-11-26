@@ -15,7 +15,7 @@
  */
 import { createElement, Fragment, type ReactNode } from "react";
 import { es as esLocale } from "date-fns/locale";
-import { inSpanishUrl } from "@/lib/seo/lang";
+import { inSpanishUrl, isBilingual, langPath } from "@/lib/seo/lang";
 
 export type Lang = "en" | "es";
 
@@ -27,6 +27,15 @@ function detectLanguage(): Lang {
   if (inSpanishUrl()) return "es";
   try {
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    // A page written in both languages says which one it is by its address:
+    // the plain one is English. Someone who chose Spanish and lands on it (from
+    // a search result, a shared link) goes to its /es twin, instead of getting
+    // a Spanish header over English page text.
+    if (stored === "es" && isBilingual(window.location.pathname)) {
+      const { pathname, search, hash } = window.location;
+      window.location.replace(`${langPath(pathname, "es")}${search}${hash}`);
+      return "es";
+    }
     if (stored === "es" || stored === "en") return stored;
   } catch { /* private mode */ }
   const preferred = [navigator.language, ...(navigator.languages ?? [])];
@@ -99,7 +108,18 @@ const NOUNS_ES: Record<string, [string, string]> = {
   year: ["año", "años"], period: ["periodo", "periodos"], portion: ["porción", "porciones"],
   person: ["persona", "personas"], visit: ["visita", "visitas"], day: ["día", "días"],
   session: ["sesión", "sesiones"], meal: ["comida", "comidas"], vehicle: ["vehículo", "vehículos"],
+  item: ["artículo", "artículos"], cleaning: ["limpieza", "limpiezas"], massage: ["masaje", "masajes"],
+  dive: ["inmersión", "inmersiones"], coffee: ["café", "cafés"], bag: ["bolsa", "bolsas"],
+  basket: ["canasta", "canastas"], box: ["caja", "cajas"], jug: ["galón", "galones"], pack: ["paquete", "paquetes"],
+  bottle: ["botella", "botellas"], jar: ["frasco", "frascos"], hour: ["hora", "horas"], class: ["clase", "clases"],
+  lesson: ["lección", "lecciones"], wash: ["lavado", "lavados"], delivery: ["entrega", "entregas"],
 };
+
+/** A provider's own unit word in Spanish, or the word as typed when it isn't one we know. */
+export function esUnit(noun: string, plural: boolean): string | null {
+  const hit = esNoun(noun.trim().toLowerCase());
+  return hit ? hit[plural ? 1 : 0] : null;
+}
 const esNoun = (noun: string): [string, string] | undefined =>
   NOUNS_ES[noun] ?? Object.values(NOUNS_ES).find(([one]) => one === noun);
 
@@ -113,4 +133,15 @@ export function nounPlural(noun: string): string {
 export function countNoun(n: number, noun: string): string {
   if (n === 1) return `1 ${isEs ? esNoun(noun)?.[0] ?? noun : noun}`;
   return `${n} ${nounPlural(noun)}`;
+}
+
+/**
+ * A label stored in the database (category, tag, collection), in the page's
+ * language. Admin screens get the stored text as is: they edit it, and a
+ * translated label must never be saved back over the English one.
+ */
+export function trData(label: string): string {
+  if (!isEs || typeof window === "undefined") return label;
+  if (/^\/(es\/)?admin(\/|$)/.test(window.location.pathname)) return label;
+  return tr(label);
 }

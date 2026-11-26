@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { trData } from "@/lib/tr";
 import { supabaseDb } from "@/integrations/supabase/client";
 import type { HomePlan } from "@/components/discovery/homePlans";
 
@@ -45,7 +46,7 @@ async function readCollections(): Promise<Collection[]> {
   if (error) throw error;
   return ((data ?? []) as unknown as Row[]).map((r) => ({
     id: r.id,
-    title: r.title,
+    title: trData(r.title),
     subtitle: r.subtitle,
     description: r.description ?? null,
     coverUrl: r.cover_url ?? null,

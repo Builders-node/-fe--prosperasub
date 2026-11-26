@@ -33,7 +33,7 @@ import { isBilingual, langPath, splitLang } from "./src/lib/seo/lang";
 import { popularFor, popularText, type PopularGroup } from "./src/lib/seo/popular";
 
 export const config = {
-  matcher: ["/", "/services/:path*", "/businesses/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about", "/collections", "/collections/:path*", "/guides", "/guides/:path*", "/es", "/es/:path*"],
+  matcher: ["/", "/services/:path*", "/businesses/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about", "/collections", "/collections/:path*", "/guides", "/guides/:path*", "/terms", "/privacy", "/support", "/es", "/es/:path*"],
 };
 
 const PREVIEW_BOT = /facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|vkShare|redditbot|Embedly|Iframely|bitlybot|Applebot/i;
@@ -70,6 +70,15 @@ async function rows<T = any>(path: string): Promise<T[]> {
     headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
   });
   if (!res.ok) return [];
+  return (await res.json()) as T[];
+}
+
+/** The same, but `null` when the database could not answer — so "no such row" can be told from "no answer". */
+async function rowsOk<T = any>(path: string): Promise<T[] | null> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+  });
+  if (!res.ok) return null;
   return (await res.json()) as T[];
 }
 
@@ -127,6 +136,19 @@ interface Page {
   quotes?: Array<{ who: string; rating: number | null; text: string }>;
   /** Answer with a 301 to this path instead (an old uuid address of a business). */
   redirect?: string;
+  /** The address names a business, plan, car or collection that does not exist (or is no longer public): answer 404. */
+  notFound?: boolean;
+}
+
+/**
+ * A gone business or plan used to answer 200 with the site-wide page, so
+ * search engines kept every dead address as a thin duplicate ("soft 404").
+ */
+const NOT_FOUND: Page = { ...DEFAULT_PAGE(), notFound: true };
+function DEFAULT_PAGE(): Page {
+  return { title: "Page not found · EverySub", description: "This page is no longer on EverySub.", image: `${SITE}/icon-512.png`, type: "website", h1: "Page not found",
+    text: ["This business, plan or page is no longer on EverySub. Browse what is on offer in Roatán instead."],
+    lists: [{ heading: "EverySub", links: [{ href: "/discovery", label: "Discover services in Roatán" }] }] };
 }
 
 type Lang = "en" | "es";
@@ -199,8 +221,10 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
   if (provIdx >= 0 && (UUID.test(provSeg) || SLUG.test(provSeg))) {
     // select=* — `slug` arrives with the provider_slugs migration; naming it
     // before then would fail the whole query.
-    const [p] = await rows(`providers?${UUID.test(provSeg) ? "id" : "slug"}=eq.${provSeg}&select=*`);
-    if (!p || (p.status !== "active" && p.status !== "approved")) return null;
+    const found = await rowsOk(`providers?${UUID.test(provSeg) ? "id" : "slug"}=eq.${provSeg}&select=*`);
+    if (!found) return null;
+    const [p] = found;
+    if (!p || (p.status !== "active" && p.status !== "approved")) return NOT_FOUND;
     const self = providerPath(p) ?? path;
     // A uuid or an old address with the service in it: one 301 to /businesses/<slug>.
     if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
@@ -256,12 +280,16 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
   if ((parts[0] === "plans" || parts[0] === "services") && planIdx >= 0 && SAFE_ID.test(parts[planIdx + 1] ?? "")) {
     const id = parts[planIdx + 1];
     const no = publicNoOf(id);
-    let [plan] = no ? await rows(`provider_plans?public_no=eq.${no}&select=${PLAN_COLS}&limit=1`) : [];
+    const byNo = no ? await rowsOk(`provider_plans?public_no=eq.${no}&select=${PLAN_COLS}&limit=1`) : [];
+    if (!byNo) return null;
+    let [plan] = byNo;
     if (!plan) {
       const filter = UUID.test(id) ? `or=(id.eq.${id},source_plan_id.eq.${id})` : `source_plan_id=eq.${id}`;
-      [plan] = await rows(`provider_plans?${filter}&select=${PLAN_COLS}&limit=1`);
+      const byId = await rowsOk(`provider_plans?${filter}&select=${PLAN_COLS}&limit=1`);
+      if (!byId) return null;
+      [plan] = byId;
     }
-    if (!plan || plan.status !== "active") return null;
+    if (!plan || plan.status !== "active") return NOT_FOUND;
     // A combination of an offer is the offer: same page, same canonical address.
     if (plan.parent_plan_id) {
       const [parent] = await rows(`provider_plans?id=eq.${plan.parent_plan_id}&select=${PLAN_COLS}&limit=1`);
@@ -298,8 +326,10 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
     : parts[0] === "vehicles" && parts[1] === "vehicle" ? (parts[2] ?? "") : null;
   if (carSeg !== null && (UUID.test(carSeg) || publicNoOf(carSeg))) {
     const no = publicNoOf(carSeg);
-    const [v] = await rows(`rental_vehicles?${no ? `public_no=eq.${no}` : `id=eq.${carSeg}`}&select=*`);
-    if (!v || v.status !== "public") return null;
+    const found = await rowsOk(`rental_vehicles?${no ? `public_no=eq.${no}` : `id=eq.${carSeg}`}&select=*`);
+    if (!found) return null;
+    const [v] = found;
+    if (!v || v.status !== "public") return NOT_FOUND;
     const self = carHref(v);
     if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
     const [prov] = v.provider_id ? await rows(`providers?id=eq.${v.provider_id}&select=*`) : [];
@@ -439,7 +469,9 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
 
   // ── Collections: /collections and /collections/:slug ──
   if (parts[0] === "collections" && parts.length <= 2) {
-    const cols = await rows(`home_collections?is_active=eq.true&select=*,home_collection_plans(plan_id,sort_order)&order=sort_order`);
+    const colsOk = await rowsOk(`home_collections?is_active=eq.true&select=*,home_collection_plans(plan_id,sort_order)&order=sort_order`);
+    if (!colsOk) return null;
+    const cols = colsOk;
     const href = (c: { slug?: string | null; id: string }) => `/collections/${c.slug || c.id}`;
     const home = { href: "/discovery", label: "EverySub" }, index = { href: "/collections", label: "Collections" };
     if (parts.length === 1) {
@@ -453,7 +485,7 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
       };
     }
     const c = cols.find((x) => x.slug === parts[1]) ?? cols.find((x) => x.id === parts[1]);
-    if (!c) return null;
+    if (!c) return NOT_FOUND;
     if (href(c) !== path) return { ...DEFAULT, type: "website", redirect: href(c) };
     const ids = [...(c.home_collection_plans ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order).map((x: any) => x.plan_id);
     const plans = ids.length ? await rows(`provider_plans?id=in.(${ids.join(",")})&${PUBLIC_PLANS}&select=${PLAN_COLS}`) : [];
@@ -518,6 +550,32 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
     };
   }
 
+  if (parts[0] === "terms" || parts[0] === "privacy") {
+    const terms = parts[0] === "terms";
+    const description = terms
+      ? "These terms apply when you use EverySub — the website and app at everysub.net — to find, buy and manage services in Roatán."
+      : "What EverySub collects when you use everysub.net, why, who it is shared with, and what you can ask us to do with it.";
+    const headings = terms
+      ? ["What EverySub is", "Your account", "Buying a plan or a booking", "Payments", "Changing, pausing and cancelling", "Refunds", "Providers", "Featured places and ads", "Reviews and what you post", "Fair use", "Liability", "Changes to these terms"]
+      : ["What we collect", "How we use it", "Who we share it with", "Cookies and storage on your device", "How long we keep it", "Your choices and rights", "Security", "Children", "Changes to this policy"];
+    const title = terms ? "Terms of Service" : "Privacy Policy";
+    return {
+      title: `${title} · EverySub`, description, image: DEFAULT.image, type: "website",
+      h1: title, text: [description],
+      sections: [{ h: "Contents", p: headings }],
+      lists: [{ heading: "More", links: [terms ? { href: "/privacy", label: "Privacy Policy" } : { href: "/terms", label: "Terms of Service" }, { href: "/support", label: "Support" }] }],
+    };
+  }
+
+  if (parts[0] === "support" && parts.length === 1) {
+    const description = "Questions about an order, a payment or a business on EverySub? Write to us on WhatsApp or by email.";
+    return {
+      title: "Support · EverySub", description, image: DEFAULT.image, type: "website",
+      h1: "How can we help?", text: [description],
+      lists: [{ heading: "More", links: [{ href: "/how-it-works", label: "How it works" }, { href: "/terms", label: "Terms of Service" }, { href: "/privacy", label: "Privacy Policy" }] }],
+    };
+  }
+
   if (parts[0] === "become-a-provider") {
     const description = "Apply to put your Roatán business on EverySub — subscriptions, bookings and rentals, paid up front. No setup or monthly fee.";
     return {
@@ -552,8 +610,7 @@ function html(path: string, lang: Lang, p: Page, popular: PopularGroup[] = []) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${t}</title>
 <meta name="description" content="${d}">
-<link rel="canonical" href="${u}">
-${alt}
+${p.notFound ? `<meta name="robots" content="noindex">` : `<link rel="canonical" href="${u}">\n${alt}`}
 <meta property="og:site_name" content="EverySub">
 <meta property="og:type" content="${p.type}">
 <meta property="og:locale" content="${lang === "es" ? "es_HN" : "en_US"}">
@@ -589,9 +646,11 @@ export default async function middleware(request: Request) {
     const page = await pageFor(path, lang);
     if (!page) return pass();
     if (page.redirect) return Response.redirect(`${SITE}${langPath(page.redirect, lang)}`, 301);
-    const popular = await popularFor(path, lang, rows).catch(() => []);
+    const popular = page.notFound ? [] : await popularFor(path, lang, rows).catch(() => []);
     return new Response(html(path, lang, page, popular), {
+      status: page.notFound ? 404 : 200,
       headers: {
+        ...(page.notFound ? { "x-robots-tag": "noindex" } : {}),
         "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600", vary: "user-agent",
         // dev.everysub.net and preview deployments are copies: keep them out of the index.
         ...(url.hostname === "everysub.net" ? {} : { "x-robots-tag": "noindex, nofollow" }),
