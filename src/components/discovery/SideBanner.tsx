@@ -4,6 +4,7 @@ import { BusinessCenterIcon } from "@/components/icons/FigmaIcons";
 import { useI18n } from "@/i18n";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The tall banner beside the home slider on a laptop, the slot a marketplace
@@ -16,18 +17,18 @@ export function SideBanner({ managesBusiness }: { managesBusiness: boolean }) {
   const content = managesBusiness
     ? {
         to: "/my-business",
-        eyebrow: "Your business",
+        eyebrow: tr("Your business"),
         title: t("discovery.myBusiness"),
-        body: "Plans, bookings and payouts in one place.",
-        cta: "Open",
+        body: tr("Plans, bookings and payouts in one place."),
+        cta: tr("Open"),
         Icon: BusinessCenterIcon,
       }
     : {
         to: "/for-business",
-        eyebrow: "For business",
-        title: "Sell subscriptions on EverySub",
-        body: "Turn one-off customers into regulars with monthly plans.",
-        cta: "Start selling",
+        eyebrow: tr("For business"),
+        title: tr("Sell subscriptions on EverySub"),
+        body: tr("Turn one-off customers into regulars with monthly plans."),
+        cta: tr("Start selling"),
         Icon: Store,
       };
   const { Icon } = content;

@@ -60,7 +60,7 @@ export function PaymentTermsNote({ priceCents, oneTime, pausable, className }: P
     <div className={className}>
       <p className="text-meta leading-4 text-muted-foreground">{tr("Pay with")}{" "}{parts.map((p, i) => (
           <span key={p.label}>
-            {i > 0 && (i === parts.length - 1 ? " or " : ", ")}
+            {i > 0 && (i === parts.length - 1 ? tr(" or ") : ", ")}
             <span className="text-foreground">{p.label}</span> · {p.text}
           </span>
         ))}

@@ -1,5 +1,5 @@
 import { addDays, addMonths, addYears } from "date-fns";
-import { tr } from "@/lib/tr";
+import { esUnit, isEs, tr } from "@/lib/tr";
 
 /**
  * The vocabulary of `provider_plans.period`, in one place.
@@ -100,13 +100,14 @@ export function includedLabel(
   if (typeof quantity !== "number" || quantity <= 0) return null;
   const noun = (unit ?? "").trim();
   const counted = noun
-    ? `${quantity} ${quantity === 1 ? noun : pluralise(noun)}`
+    ? `${quantity} ${quantity === 1 ? (isEs ? esUnit(noun, false) ?? noun : noun) : pluralise(noun)}`
     : String(quantity);
   const per = periodNoun(period);
   return per ? tr("{counted} a {per}", { counted, per }) : counted;
 }
 
 function pluralise(noun: string): string {
+  if (isEs) return esUnit(noun, true) ?? noun;
   return /(s|x|ch|sh)$/i.test(noun) ? `${noun}es` : `${noun}s`;
 }
 

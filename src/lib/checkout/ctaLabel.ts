@@ -30,14 +30,14 @@ import { tr } from "@/lib/tr";
  * owed did not.
  */
 
-export const SUBSCRIBE = "Subscribe";
-export const BUY = "Buy";
+export const SUBSCRIBE = tr("Subscribe");
+export const BUY = tr("Buy");
 export const ADD_TO_CART = tr("Add to cart");
 
 /** "" · "/ person" · "/ month" · "/ person / month" */
 export function unitSuffix(opts?: { perPerson?: boolean; period?: string | null }): string {
   const parts: string[] = [];
-  if (opts?.perPerson) parts.push("/ person");
+  if (opts?.perPerson) parts.push(tr("/ person"));
   // The one period vocabulary — a private copy here is how the same period
   // could word itself two ways on one screen. one_time yields no noun, so a
   // one-off price carries no "/ month" it doesn't have.
@@ -101,5 +101,5 @@ export function fromLabel(cents?: number | null, suffix = ""): string | null {
 export function decideLabel(cents: number | null | undefined, suffix = "", opts: { oneTime?: boolean; from?: boolean } = {}): string {
   const verb = opts.oneTime ? BUY : SUBSCRIBE;
   if (typeof cents !== "number" || cents <= 0) return verb;
-  return `${verb} · ${opts.from ? "from " : ""}${formatUSD(cents)}${suffix ? ` ${suffix}` : ""}`;
+  return `${verb} · ${opts.from ? tr("from ") : ""}${formatUSD(cents)}${suffix ? ` ${suffix}` : ""}`;
 }
