@@ -105,8 +105,10 @@ const Notifications = () => {
     >
       {/* A column, not the full 1280px: a notification is a sentence, and a
           sentence across the whole screen is hard to read. */}
-      <div className="app-container pb-space-8 pt-4 md:pt-8">
-        <div className="mx-auto w-full max-w-[720px] space-y-5">
+      {/* On a phone the feed runs edge to edge (still a rounded panel) — a card inside the page's
+          gutters wasted 32px of every line. A desktop keeps the column. */}
+      <div className="pb-space-8 pt-4 md:app-container md:pt-8">
+        <div className="mx-auto w-full max-w-[720px] space-y-4 md:space-y-5">
           <div className="hidden items-end justify-between gap-4 md:flex">
             <h1 className="text-[28px] font-bold tracking-tight text-foreground">{tr("Notifications")}</h1>
             {unreadCount > 0 && (
@@ -121,11 +123,11 @@ const Notifications = () => {
             )}
           </div>
 
-          {/* One panel: the tabs are its header, the feed its body. */}
+          <div className="px-4 md:px-0">
+            <FilterPills value={filter} onChange={setFilter} unreadCount={unreadCount} hasBusiness={feed.hasBusiness} />
+          </div>
+
           <div className="overflow-hidden rounded-radius-lg bg-card">
-            <div className="px-6">
-              <FilterPills value={filter} onChange={setFilter} unreadCount={unreadCount} hasBusiness={feed.hasBusiness} />
-            </div>
 
             {isLoading ? (
               <Skeleton />
