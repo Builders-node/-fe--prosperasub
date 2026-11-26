@@ -87,12 +87,12 @@ function Banner({ item, badge, big }: { item: CategoryHighlight; badge?: CardBad
     >
       {/* A soft light from the top right, the only flourish. */}
       <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_10%,rgba(255,255,255,0.18),transparent_60%)]" />
-      <div className={cn("relative z-10 flex min-w-0 flex-1 flex-col justify-center", big ? "gap-3 py-8 pl-12 pr-4" : "gap-1 py-4 pl-4 pr-1")}>
+      <div className={cn("relative z-10 flex min-w-0 flex-1 flex-col justify-center", big ? "gap-2 py-6 pl-8 pr-4" : "gap-1 py-4 pl-4 pr-1")}>
         <Badge badge={badge} big={big} />
         {item.archetype && (
           <p className={cn("truncate text-white/75", big ? "text-title" : "text-meta")}>{item.archetype.label}</p>
         )}
-        <p className={cn("font-bold leading-[1.05] tracking-tight text-white", big ? "line-clamp-2 text-5xl" : "line-clamp-2 text-title")}>
+        <p className={cn("font-bold leading-[1.05] tracking-tight text-white", big ? "line-clamp-2 text-4xl" : "line-clamp-2 text-title")}>
           {item.label}
         </p>
         {item.fromCents !== null && (
@@ -102,7 +102,7 @@ function Banner({ item, badge, big }: { item: CategoryHighlight; badge?: CardBad
           </p>
         )}
         {big && (
-          <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-radius-md bg-white px-5 py-2.5 text-title font-semibold text-[#1f1a14] transition-transform group-hover:translate-x-0.5">
+          <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-white px-4 py-2 text-body font-semibold text-[#1f1a14] transition-transform group-hover:translate-x-0.5">
             See plans <ChevronRight className="h-5 w-5" />
           </span>
         )}
@@ -113,7 +113,7 @@ function Banner({ item, badge, big }: { item: CategoryHighlight; badge?: CardBad
         glow={tone.glow}
         className={cn(
           "relative h-full shrink-0 origin-bottom-right transition-transform duration-500 group-hover:scale-[1.03]",
-          big ? "w-[48%] py-4 pr-6" : "w-[46%] max-w-[180px]",
+          big ? "w-[46%] py-3 pr-4" : "w-[46%] max-w-[180px]",
         )}
       />
     </Link>
@@ -215,7 +215,7 @@ export function CategoryCarousel({ family, side }: {
   };
 
   if (isLoading) {
-    return <Skeleton className="h-[160px] md:h-[300px]" />;
+    return <Skeleton className="h-[160px] md:h-[260px]" />;
   }
   if (count === 0) return side ? <div className="hidden lg:block">{side}</div> : null;
 
@@ -224,7 +224,7 @@ export function CategoryCarousel({ family, side }: {
       <section
         aria-roledescription="carousel"
         aria-label="Browse by category"
-        className="group/slider relative h-[160px] overflow-hidden rounded-radius-md md:h-[300px] md:rounded-radius-lg"
+        className="group/slider relative h-[160px] overflow-hidden rounded-radius-md md:h-[260px] md:rounded-radius-lg"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={onTouchStart}

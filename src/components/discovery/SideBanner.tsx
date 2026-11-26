@@ -36,15 +36,15 @@ export function SideBanner({ managesBusiness }: { managesBusiness: boolean }) {
   return (
     <Link
       to={content.to}
-      className="group flex h-full flex-col rounded-radius-lg bg-background p-5 transition-colors hover:bg-muted"
+      className="group flex h-full flex-col rounded-radius-lg bg-background p-4 transition-colors hover:bg-muted"
     >
-      <span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground">
+      <span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground">
         <Icon className="h-6 w-6" />
       </span>
-      <p className="mt-4 text-meta font-semibold text-primary">{content.eyebrow}</p>
+      <p className="mt-3 text-meta font-semibold text-primary">{content.eyebrow}</p>
       <p className="mt-1 text-heading font-semibold leading-tight text-foreground">{content.title}</p>
       <p className="mt-2 text-meta text-muted-foreground">{content.body}</p>
-      <span className={cn(buttonVariants({ size: "default" }), "mt-auto w-full")}>
+      <span className={cn(buttonVariants({ size: "sm" }), "mt-auto w-full")}>
         {content.cta} <ChevronRight />
       </span>
     </Link>
