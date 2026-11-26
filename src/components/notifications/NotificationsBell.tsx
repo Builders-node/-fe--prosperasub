@@ -92,15 +92,15 @@ function Panel({ onClose }: { onClose: () => void }) {
             <CheckCheck className="h-5 w-5 sm:h-4 sm:w-4" /><span className="hidden sm:inline">{tr("Mark all read")}</span></button>
         )}
       </DrawerHeader>
-      <div className="shrink-0 px-5 pb-3">
+      <div className="shrink-0 px-5">
         <FilterPills value={filter} onChange={setFilter} unreadCount={feed.unreadCount} hasBusiness={feed.hasBusiness} size="sm" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {feed.isLoading ? (
           <div className="flex justify-center py-10"><Spinner className="text-primary" /></div>
         ) : feed.isError ? (
-          <p className="px-3 py-8 text-center text-[14px] text-muted-foreground">{tr("Couldn't load notifications.")}{" "}<button type="button" className="font-semibold text-foreground underline" onClick={() => feed.refetch()}>{tr("Retry")}</button>
+          <p className="px-3 py-8 text-center text-body text-muted-foreground">{tr("Couldn't load notifications.")}{" "}<button type="button" className="font-semibold text-foreground underline" onClick={() => feed.refetch()}>{tr("Retry")}</button>
           </p>
         ) : feed.groups.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
@@ -123,7 +123,7 @@ function Panel({ onClose }: { onClose: () => void }) {
       <Link
         to="/notifications"
         onClick={onClose}
-        className="flex h-14 shrink-0 items-center justify-center border-t border-[hsl(var(--app-divider))] pb-[env(safe-area-inset-bottom)] text-[14px] font-semibold text-primary transition-colors hover:bg-inset"
+        className="flex h-14 shrink-0 items-center justify-center border-t border-[hsl(var(--app-divider))] pb-[env(safe-area-inset-bottom)] text-body font-semibold text-primary transition-colors hover:bg-inset"
       >{tr("See all notifications")}</Link>
     </>
   );
@@ -142,7 +142,7 @@ function GuestPanel({ onClose }: { onClose: () => void }) {
       <DrawerHeader />
       <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-8 pt-8 text-center sm:px-10">
         <BellIllustration className="h-44 w-44" />
-        <h3 className="mt-6 text-[22px] font-bold leading-tight text-foreground">{tr("Every update in one place")}</h3>
+        <h3 className="mt-6 text-heading font-bold leading-tight text-foreground">{tr("Every update in one place")}</h3>
         <p className="mt-3 max-w-[340px] text-body text-muted-foreground">
           {tr("Log in or sign up to get renewal reminders, booking and order updates, and news from the businesses you follow.")}
         </p>
