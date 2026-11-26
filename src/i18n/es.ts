@@ -4196,4 +4196,6 @@ export const ES: Record<string, string> = {
   "Banner {n} of {count}": "Banner {n} de {count}",
   "Next banner": "Siguiente banner",
   "Previous banner": "Banner anterior",
+  "Added · {count} items in your cart": "Añadido · {count} artículos en tu carrito",
+  "Added to your cart": "Añadido a tu carrito",
 };
