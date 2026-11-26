@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { LayoutGrid, Plus } from "lucide-react";
-import { toast } from "sonner";
+import { showCartToast } from "@/components/cart/cartToast";
 import { Button } from "@/components/ui/button";
 import { Photo } from "@/components/patterns/Photo";
 import { useCart } from "@/contexts/CartContext";
@@ -32,7 +32,7 @@ export function UpsellSection({
   gridClassName?: string;
 }) {
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, count: cartCount, has } = useCart();
   const upsells = useUpsells({ exclude, excludeProviderId, limit });
   if (!upsells.length) return null;
 
@@ -57,7 +57,7 @@ export function UpsellSection({
     });
     // In the cart the line appearing above is the feedback; elsewhere say so.
     if (placement !== "cart") {
-      toast.success(tr("Saved to your cart"), { action: { label: tr("View cart"), onClick: () => navigate("/cart") } });
+      showCartToast({ name: u.name, priceCents: u.priceCents, cartCount: has(u.id) ? cartCount : cartCount + 1, onViewCart: () => navigate("/cart") });
     }
   };
 

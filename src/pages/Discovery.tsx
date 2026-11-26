@@ -18,6 +18,7 @@ import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
 import { CarFront as CarFrontIcon } from "lucide-react";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
+import { SideBanner } from "@/components/discovery/SideBanner";
 import { AllPlansSection } from "@/components/discovery/AllPlansSection";
 import { AllVehiclesSection } from "@/components/discovery/AllVehiclesSection";
 import { AboutEverySub } from "@/components/layout/SiteFooter";
@@ -194,7 +195,7 @@ const Discovery = () => {
         <DesktopCatalog className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pb-6" />
       </aside>
       <div className="min-w-0 flex-1">
-      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none lg:rounded-radius-lg">
+      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none lg:rounded-none lg:bg-transparent lg:pb-0 lg:![box-shadow:none]">
         <div className="app-container space-y-4 pt-4">
           {/* Hold the tabs' place while the services load — they only
               appear once there are two families, and arriving late pushed
@@ -216,13 +217,18 @@ const Discovery = () => {
               ))}
             </div>
           )}
-          <CategoryCarousel family={showFamilies ? family : undefined} />
+          <CategoryCarousel
+            family={showFamilies ? family : undefined}
+            side={<SideBanner managesBusiness={managesBusiness} />}
+          />
 
           {/* The home screen is for buying, so it only carries the door into a
               business you already run. Signing up to be a provider lives in
               the account menu — it is a once-ever action, not a shortcut. */}
           {managesBusiness && (
-            <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
+            <div className="lg:hidden">
+              <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
+            </div>
           )}
         </div>
       </section>

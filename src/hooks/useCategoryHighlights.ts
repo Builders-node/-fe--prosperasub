@@ -34,6 +34,10 @@ export interface CategoryHighlight {
   fromCents: number | null;
   /** "/ month", "/ week", "/ day" — whatever this service actually charges by. */
   unit: string | null;
+  /** When the category was added — a recent one wears a "New" badge. */
+  createdAt: string | null;
+  /** The live businesses in this category (universal provider ids), for matching discounts. */
+  providerIds: string[];
 }
 
 const num = (v: unknown) => {
@@ -51,6 +55,7 @@ export function useCategoryHighlights() {
     queryFn: async (): Promise<{
       prices: Record<string, { cents: number; unit: string }>;
       photos: Record<string, string>;
+      providers: Record<string, string[]>;
     }> => {
       // ONE round of requests, all at once. This used to be three in a row —
       // providers first, then the offers and photos filtered by their ids,
@@ -147,7 +152,10 @@ export function useCategoryHighlights() {
         photo(cat, gallery[0]);
       });
 
-      return { prices: out, photos };
+      const providers: Record<string, string[]> = {};
+      byUniversal.forEach((cat, id) => { (providers[cat] ??= []).push(id); });
+
+      return { prices: out, photos, providers };
     },
   });
 
@@ -169,6 +177,8 @@ export function useCategoryHighlights() {
         imageIsChosen: !!c.image_url,
         fromCents: price?.cents ?? null,
         unit: price?.unit ?? null,
+        createdAt: c.created_at ?? null,
+        providerIds: facts?.providers?.[c.key] ?? [],
       };
     })
     // A category whose archetype was switched off should not be advertised on

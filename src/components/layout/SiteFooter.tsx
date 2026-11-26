@@ -12,6 +12,7 @@ import { tr, trx, LANG, LANGUAGE_STORAGE_KEY, type Lang } from "@/lib/tr";
 import { langPath, splitLang } from "@/lib/seo/lang";
 import { cn } from "@/lib/utils";
 import { PopularLinks } from "@/components/seo/PopularLinks";
+import { SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_HREF } from "@/lib/support";
 
 /**
  * The site footer, at the foot of every browsing and account page.
@@ -32,8 +33,8 @@ import { PopularLinks } from "@/components/seo/PopularLinks";
  * the visitor is already holding the phone.
  */
 
-const WHATSAPP_NUMBER = "+504 9706-7865";
-const WHATSAPP_HREF = "https://wa.me/50497067865";
+const WHATSAPP_NUMBER = SUPPORT_WHATSAPP;
+const WHATSAPP_HREF = SUPPORT_WHATSAPP_HREF;
 
 type FooterLink = { label: string; to: string; external?: boolean };
 

@@ -18,7 +18,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
+            // The page's own card surface with a hairline, not a black slab
+            // with a hard border: on a dark page bg-background is darker than
+            // the card the toast lands on and read as a hole.
+            "group toast group-[.toaster]:rounded-radius-lg group-[.toaster]:bg-popover group-[.toaster]:text-popover-foreground group-[.toaster]:border-border/70 group-[.toaster]:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.25)] dark:group-[.toaster]:shadow-[0_10px_34px_-6px_rgba(0,0,0,0.7)]",
           description: "group-[.toast]:text-muted-foreground",
           actionButton: "group-[.toast]:!bg-primary group-[.toast]:!text-primary-foreground group-[.toast]:!font-semibold",
           cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
