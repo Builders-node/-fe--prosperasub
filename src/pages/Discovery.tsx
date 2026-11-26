@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/patterns/Skeleton";
 import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 import { CollectionsSection } from "@/components/discovery/CollectionsSection";
 import { BusinessesRail } from "@/components/discovery/BusinessesRail";
+import { GuidesRail } from "@/components/discovery/GuidesRail";
 import { ForYouSection } from "@/components/discovery/ForYouSection";
 import { DesktopCatalog } from "@/components/discovery/DesktopCatalog";
 import { useHomePlans } from "@/components/discovery/homePlans";
@@ -302,6 +303,7 @@ const Discovery = () => {
           <ForYouSection />
           <CollectionsSection />
           <BusinessesRail />
+          <GuidesRail />
           </>
         )}
 
