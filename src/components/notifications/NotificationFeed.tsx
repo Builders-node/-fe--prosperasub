@@ -69,13 +69,13 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
           onClick={() => onChange(t.key)}
           className={cn(
             "relative -mb-px flex shrink-0 items-center gap-1.5 border-b-2 font-semibold transition-colors",
-            size === "sm" ? "h-10 text-[14px]" : "h-11 text-[15px]",
+            size === "sm" ? "h-10 text-body" : "h-11 text-base",
             value === t.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           {t.label}
           {!!t.count && (
-            <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[12px] leading-5 tabular-nums", value === t.key ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground")}>{t.count}</span>
+            <span className={cn("min-w-5 rounded-full px-1.5 text-center text-meta leading-5 tabular-nums", value === t.key ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground")}>{t.count}</span>
           )}
         </button>
       ))}
@@ -99,7 +99,7 @@ export function NotificationList({ groups, filter, onRead, onArchive, onNavigate
     <div>
       {days.map(({ day, items }) => (
         <section key={day} aria-label={tr(day)}>
-          <h2 className={cn("pb-1 pt-4 text-[13px] font-medium text-muted-foreground", compact ? "px-5" : "px-6")}>{tr(day)}</h2>
+          <h2 className={cn("pb-1 pt-4 text-sm font-medium text-muted-foreground", compact ? "px-5" : "px-6")}>{tr(day)}</h2>
           <div>
             {items.map((g, i) => (
               <NotificationCard

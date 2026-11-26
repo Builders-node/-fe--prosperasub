@@ -114,7 +114,7 @@ const Notifications = () => {
                 type="button"
                 onClick={handleMarkAllRead}
                 disabled={markAllRead.isPending}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] font-semibold text-muted-foreground transition-colors hover:bg-inset hover:text-foreground disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-body font-semibold text-muted-foreground transition-colors hover:bg-inset hover:text-foreground disabled:opacity-50"
               >
                 <CheckCheck className="h-4 w-4" />{tr("Mark all read")}
               </button>
@@ -141,8 +141,8 @@ const Notifications = () => {
             ) : groups.length === 0 ? (
               <div className="flex flex-col items-center px-6 py-16 text-center">
                 <span className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-inset text-foreground/70"><Bell className="h-6 w-6" strokeWidth={1.75} /></span>
-                <p className="mt-4 text-[17px] font-semibold text-foreground">{filter === "unread" ? tr("You're all caught up") : tr("No notifications")}</p>
-                <p className="mt-1 max-w-[300px] text-[14px] text-muted-foreground">
+                <p className="mt-4 text-title font-semibold text-foreground">{filter === "unread" ? tr("You're all caught up") : tr("No notifications")}</p>
+                <p className="mt-1 max-w-[300px] text-body text-muted-foreground">
                   {filter === "unread" ? tr("Nothing new since you last looked.") : tr("Activity on your account will appear here.")}
                 </p>
               </div>

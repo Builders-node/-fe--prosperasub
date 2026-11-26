@@ -149,12 +149,12 @@ export function NotificationCard({
 
         <div className="relative min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
-            <p className={cn("min-w-0 flex-1 text-[15px] leading-5", isRead ? "font-normal text-foreground/80" : "font-semibold text-foreground")}>
+            <p className={cn("min-w-0 flex-1 text-base leading-5", isRead ? "font-normal text-foreground/80" : "font-semibold text-foreground")}>
               {p.title}
             </p>
             {/* Time, swapped for Archive on hover with a mouse. */}
             <span className="relative flex shrink-0 items-center">
-              <span className="text-[13px] tabular-nums text-muted-foreground md:group-focus-within:opacity-0 md:group-hover:opacity-0">
+              <span className="text-sm tabular-nums text-muted-foreground md:group-focus-within:opacity-0 md:group-hover:opacity-0">
                 {shortTime(lead.createdAt, now)}
               </span>
               <button
@@ -173,12 +173,12 @@ export function NotificationCard({
           </div>
 
           {p.body && (
-            <p className={cn("mt-1 text-[14px] leading-5 text-muted-foreground", compact ? "line-clamp-2" : "line-clamp-3")}>
+            <p className={cn("mt-1 text-body leading-5 text-muted-foreground", compact ? "line-clamp-2" : "line-clamp-3")}>
               {p.body}
             </p>
           )}
           {showBusinessTag && p.isBusiness && (
-            <p className="mt-1.5 text-[13px] font-medium text-muted-foreground">{tr("Your business")}</p>
+            <p className="mt-1.5 text-sm font-medium text-muted-foreground">{tr("Your business")}</p>
           )}
 
           {(p.action || earlier.length > 0) && (
@@ -188,7 +188,7 @@ export function NotificationCard({
                   type="button"
                   onClick={(e) => { e.stopPropagation(); go(p.action!.url); }}
                   className={cn(
-                    "inline-flex h-8 items-center rounded-full px-3.5 text-[13px] font-semibold transition-colors",
+                    "inline-flex h-8 items-center rounded-full px-3.5 text-sm font-semibold transition-colors",
                     p.action.primary ? "bg-foreground text-background hover:bg-foreground/90" : "bg-inset text-foreground hover:bg-muted",
                   )}
                 >
