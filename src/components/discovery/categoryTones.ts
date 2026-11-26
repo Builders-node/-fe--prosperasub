@@ -1,45 +1,47 @@
 /**
- * One colour per category on the home page's banner cards.
+ * One colour per category for the home page's banner slider.
  *
- * Every card used to be the same orange, so four of them in a row read as one
- * long orange strip and nothing told Coffee from Cleaning at a glance. Each
- * category now has its own soft tone: the tile behind its drawing, with a
- * lighter halo inside it (see categoryBannerArt). The card around the tile
- * stays the app's plain surface, so the colour is an accent, not the card.
- * Fixed colours, the same in both themes, like the drawings they carry.
+ * Every banner used to be the same orange, so the strip read as one long
+ * orange block and nothing told Coffee from Cleaning at a glance. Each
+ * category now has its own deep tone: the banner's background, with white
+ * words on it, and a faint lighter halo behind the drawing (see
+ * categoryBannerArt). Fixed colours, the same in both themes, like the
+ * drawings they carry.
  *
  * A category not listed here gets a tone from the rotation by its key, so a
  * new one added in the admin is still coloured without a code change, and
  * always the same colour.
  */
 export interface CategoryTone {
-  /** The tile behind the drawing. */
+  /** Banner background. Deep enough for white text. */
   bg: string;
-  /** The halo behind the drawing: a lighter shade of bg. */
+  /** The halo behind the drawing. */
   glow: string;
 }
 
-const SUN: CategoryTone = { bg: "#f6d29a", glow: "#fbe6c4" };
-const CORAL: CategoryTone = { bg: "#f5c4b0", glow: "#fadcd0" };
-const MINT: CategoryTone = { bg: "#bfe3d3", glow: "#dcf0e7" };
-const LILAC: CategoryTone = { bg: "#d3cdf0", glow: "#e8e4f8" };
-const LIME: CategoryTone = { bg: "#d5e6b5", glow: "#e8f2d6" };
-const LEMON: CategoryTone = { bg: "#f4e2a1", glow: "#faefc9" };
-const ROSE: CategoryTone = { bg: "#f3c9d1", glow: "#f9e1e6" };
-const SAGE: CategoryTone = { bg: "#c9ddd5", glow: "#e1ece8" };
+const HALO = "rgba(255,255,255,0.16)";
+
+const EMBER: CategoryTone = { bg: "#c4621d", glow: HALO };
+const TEAL: CategoryTone = { bg: "#1d7f69", glow: HALO };
+const CORAL: CategoryTone = { bg: "#d4583a", glow: HALO };
+const INDIGO: CategoryTone = { bg: "#5a49d6", glow: HALO };
+const FERN: CategoryTone = { bg: "#4b7f2a", glow: HALO };
+const COBALT: CategoryTone = { bg: "#2c66c9", glow: HALO };
+const BERRY: CategoryTone = { bg: "#c13a63", glow: HALO };
+const PINE: CategoryTone = { bg: "#2f6f66", glow: HALO };
 
 const BY_KEY: Record<string, CategoryTone> = {
   beach_membership: CORAL,
-  apartment_cleaning: MINT,
-  diving: LILAC,
-  coffee: SUN,
-  meal_subscription: LIME,
-  car_wash: LEMON,
-  healthcare: ROSE,
-  massage: SAGE,
+  apartment_cleaning: TEAL,
+  diving: INDIGO,
+  coffee: EMBER,
+  meal_subscription: FERN,
+  car_wash: COBALT,
+  healthcare: BERRY,
+  massage: PINE,
 };
 
-const ROTATION = [SUN, MINT, LILAC, CORAL, LIME, LEMON, ROSE, SAGE];
+const ROTATION = [EMBER, TEAL, INDIGO, CORAL, FERN, COBALT, BERRY, PINE];
 
 export function categoryTone(key: string): CategoryTone {
   if (BY_KEY[key]) return BY_KEY[key];

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
@@ -19,9 +19,11 @@ import { categoryDealBadge, useActiveDiscounts } from "@/lib/discounts";
  * category on the front page, priced, and links each one straight to its
  * listing already narrowed to it.
  *
- * On a desktop it is a bento block (DesktopBento): one big card, the others
- * beside it, every category in its own colour (categoryTones) and badged
- * when there is a reason to tap — a live deal, or "New".
+ * It is a banner slider, the way a marketplace's front page has one: one
+ * wide banner at a time, each category in its own colour (categoryTones),
+ * a big headline on the left and its drawing on the right, dots to move
+ * between them. On a laptop an optional tall banner sits beside it (`side`).
+ * A banner is badged when there is a reason to tap — a live deal, or "New".
  *
  * RULE: these cards are always illustrated, never a photo. Not an admin's
  * picture, not a provider's, not as a fallback. One photo card in a row of
@@ -30,7 +32,7 @@ import { categoryDealBadge, useActiveDiscounts } from "@/lib/discounts";
  * categoryBannerArt; one without gets that file's illustrated fallback.
  */
 
-const ROTATE_MS = 3000;
+const ROTATE_MS = 5000;
 /** A category added this recently wears a "New" badge. */
 const NEW_FOR_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -52,103 +54,112 @@ function useBadges(items: CategoryHighlight[]): Map<string, CardBadge> {
   }, [items, discounts]);
 }
 
-/** A word above the name, in colour — not a sticker. */
-function Badge({ badge }: { badge?: CardBadge }) {
+/** The small chip above the headline: "−20%", "New". */
+function Badge({ badge, big }: { badge?: CardBadge; big?: boolean }) {
   if (!badge) return null;
   return (
-    <span className={cn("truncate text-meta font-semibold", badge.deal ? "text-destructive" : "text-primary")}>
+    <span
+      className={cn(
+        "inline-flex w-fit items-center rounded-full font-semibold",
+        big ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-2xs",
+        badge.deal ? "bg-white text-destructive" : "bg-white/20 text-white",
+      )}
+    >
       {badge.text}
     </span>
   );
 }
 
-function Price({ item }: { item: CategoryHighlight }) {
-  if (item.fromCents === null) return null;
-  return (
-    <p className="text-meta text-muted-foreground">
-      from <span className="font-semibold tabular-nums text-foreground">{formatUSD(item.fromCents)}</span>
-      {item.unit ? ` ${item.unit}` : ""}
-    </p>
-  );
-}
-
 /**
- * The drawing on its own tinted tile. The card itself is the app's plain
- * surface, so the colour is a small accent per category rather than a whole
- * wall of it — and the words, in the theme's own ink, sit beside the tile,
- * never on top of the drawing.
+ * One banner. Words on the left half, the drawing on the right half — two
+ * columns, so the headline never runs under the drawing.
+ * item.imageUrl is deliberately NOT used here (see the note at the top of
+ * the file); the catalog sidebar still shows it.
  */
-function ArtTile({ item, className }: { item: CategoryHighlight; className?: string }) {
+function Banner({ item, badge, big }: { item: CategoryHighlight; badge?: CardBadge; big?: boolean }) {
   const tone = categoryTone(item.key);
   return (
-    <span
-      className={cn("relative block shrink-0 overflow-hidden rounded-radius-md", className)}
+    <Link
+      to={item.href}
+      aria-label={item.label}
+      className="group relative flex h-full w-full overflow-hidden"
       style={{ backgroundColor: tone.bg }}
     >
+      {/* A soft light from the top right, the only flourish. */}
+      <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_10%,rgba(255,255,255,0.18),transparent_60%)]" />
+      <div className={cn("relative z-10 flex min-w-0 flex-1 flex-col justify-center", big ? "gap-3 py-8 pl-12 pr-4" : "gap-1 py-4 pl-4 pr-1")}>
+        <Badge badge={badge} big={big} />
+        {item.archetype && (
+          <p className={cn("truncate text-white/75", big ? "text-title" : "text-meta")}>{item.archetype.label}</p>
+        )}
+        <p className={cn("font-bold leading-[1.05] tracking-tight text-white", big ? "line-clamp-2 text-5xl" : "line-clamp-2 text-title")}>
+          {item.label}
+        </p>
+        {item.fromCents !== null && (
+          <p className={cn("text-white/80", big ? "text-title" : "text-meta")}>
+            from <span className="font-bold text-white">{formatUSD(item.fromCents)}</span>
+            {item.unit ? ` ${item.unit}` : ""}
+          </p>
+        )}
+        {big && (
+          <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-radius-md bg-white px-5 py-2.5 text-title font-semibold text-[#1f1a14] transition-transform group-hover:translate-x-0.5">
+            See plans <ChevronRight className="h-5 w-5" />
+          </span>
+        )}
+      </div>
       <CategoryBannerArt
         categoryKey={item.key}
         icon={item.archetype?.Icon}
         glow={tone.glow}
-        className="absolute inset-0 h-full w-full transition-transform duration-300 group-hover:scale-[1.04]"
+        className={cn(
+          "relative h-full shrink-0 origin-bottom-right transition-transform duration-500 group-hover:scale-[1.03]",
+          big ? "w-[48%] py-4 pr-6" : "w-[46%] max-w-[180px]",
+        )}
       />
-    </span>
+    </Link>
   );
 }
 
-/**
- * One category card: words on the left, the drawing's tile on the right.
- * item.imageUrl is deliberately NOT used here (see the note at the top of
- * the file); the catalog sidebar still shows it.
- */
-function Slide({ item, badge, className }: { item: CategoryHighlight; badge?: CardBadge; className?: string }) {
+/** Dots in a frosted pill, centred at the bottom of the banner. */
+function Dots({ count, index, onPick }: { count: number; index: number; onPick: (i: number) => void }) {
+  if (count <= 1) return null;
   return (
-    <Link
-      to={item.href}
-      aria-label={item.label}
+    <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/20 px-2.5 py-1.5 backdrop-blur-sm">
+      {Array.from({ length: count }, (_, i) => (
+        <button
+          key={i}
+          type="button"
+          aria-label={`Banner ${i + 1} of ${count}`}
+          aria-current={i === index}
+          onClick={(e) => { e.preventDefault(); onPick(i); }}
+          className={cn("h-1.5 rounded-full transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80")}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SlideArrow({ dir, onClick }: { dir: 1 | -1; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={dir === 1 ? "Next banner" : "Previous banner"}
       className={cn(
-        "group flex h-[140px] w-full shrink-0 gap-3 overflow-hidden rounded-radius-md bg-background p-2 transition-colors hover:bg-muted",
-        className,
+        "absolute top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[#1f1a14] opacity-0 shadow-figma transition-opacity hover:bg-white group-hover/slider:opacity-100 md:grid",
+        dir === 1 ? "right-3" : "left-3",
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-col justify-end gap-0.5 py-2 pl-2">
-        <span className="mb-auto"><Badge badge={badge} /></span>
-        {item.archetype && <p className="truncate text-meta text-muted-foreground">{item.archetype.label}</p>}
-        <p className="line-clamp-2 text-title font-semibold leading-tight text-foreground">{item.label}</p>
-        <Price item={item} />
-      </div>
-      <ArtTile item={item} className="h-full w-[45%] max-w-[180px]" />
-    </Link>
+      {dir === 1 ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+    </button>
   );
 }
 
-/**
- * The big card of the desktop block: the one category with a reason to look
- * today (a deal, else something new). Same card as the others, just larger —
- * no button, the whole card is the link.
- */
-function FeatureCard({ item, badge }: { item: CategoryHighlight; badge?: CardBadge }) {
-  return (
-    <Link
-      to={item.href}
-      aria-label={item.label}
-      className="group flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-radius-md bg-background p-2 transition-colors hover:bg-muted"
-    >
-      <ArtTile item={item} className="min-h-0 w-full flex-1" />
-      <div className="flex items-end justify-between gap-3 px-2 pb-2">
-        <div className="min-w-0">
-          {item.archetype && <p className="truncate text-meta text-muted-foreground">{item.archetype.label}</p>}
-          <p className="truncate text-heading font-semibold text-foreground">{item.label}</p>
-          <Price item={item} />
-        </div>
-        <Badge badge={badge} />
-      </div>
-    </Link>
-  );
-}
-
-export function CategoryCarousel({ family }: {
+export function CategoryCarousel({ family, side }: {
   /** Show only categories whose service belongs to this family (home tabs). */
   family?: string;
+  /** A tall banner beside the slider on a laptop (lg+), like a marketplace's side promo. */
+  side?: ReactNode;
 } = {}) {
   const { highlights: allHighlights, isLoading } = useCategoryHighlights();
   const inFamily = family
@@ -158,14 +169,20 @@ export function CategoryCarousel({ family }: {
   // Healthcare slide said "Healthcare" and nothing else. Hide it until it has
   // a price; if no price loaded at all (a failed lookup), keep everything
   // rather than blank the banner.
-  const highlights = inFamily.some((h) => h.fromCents !== null)
+  const filtered = inFamily.some((h) => h.fromCents !== null)
     ? inFamily.filter((h) => h.fromCents !== null)
     : inFamily;
+  const badges = useBadges(filtered);
+  // Banners with news first: a deal, then something new, then the rest in
+  // the admin's order.
+  const highlights = useMemo(() => {
+    const rank = (h: CategoryHighlight) => (badges.get(h.key)?.deal ? 0 : badges.has(h.key) ? 1 : 2);
+    return [...filtered].sort((a, b) => rank(a) - rank(b));
+  }, [filtered, badges]);
+
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-
   const count = highlights.length;
-  const badges = useBadges(highlights);
   const go = useCallback((dir: 1 | -1) => {
     setIndex((i) => (count ? (i + dir + count) % count : 0));
   }, [count]);
@@ -178,7 +195,7 @@ export function CategoryCarousel({ family }: {
   }, [count, paused]);
 
   // Reset when the set changes, so an admin deactivating a category can't
-  // leave the strip parked past its own end.
+  // leave the slider parked past its own end.
   useEffect(() => { setIndex(0); }, [count]);
 
   // Swipe. Threshold in pixels rather than a fraction of width so it feels the
@@ -198,131 +215,38 @@ export function CategoryCarousel({ family }: {
   };
 
   if (isLoading) {
-    return <Skeleton className="h-[140px]" />;
+    return <Skeleton className="h-[160px] md:h-[300px]" />;
   }
-  if (count === 0) return null;
+  if (count === 0) return side ? <div className="hidden lg:block">{side}</div> : null;
 
   return (
-    <>
-      {/*
-        A carousel earns its place on a phone, where one card is all that
-        fits. On a desktop it was one rotating card in a page of empty space,
-        then four identical orange cards in a row that read as one strip. Now
-        one big card for the category with a reason to look today, and the
-        rest smaller beside it, each in its own colour. The carousel below
-        keeps the phones.
-      */}
-      {count > 1 && <DesktopBento items={highlights} badges={badges} />}
-    <section
-      aria-roledescription="carousel"
-      aria-label="Browse by category"
-      className={cn("relative", count > 1 && "md:hidden")}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      {/* Arrows used to float over the slide for desktop; the desktop now
-          gets the grid above, so the swipe is the only gesture left and the
-          buttons would never be seen. */}
-      <div
-        className="relative overflow-hidden rounded-radius-md"
+    <div className={cn("grid gap-2", side && "lg:grid-cols-[minmax(0,1fr)_240px]")}>
+      <section
+        aria-roledescription="carousel"
+        aria-label="Browse by category"
+        className="group/slider relative h-[160px] overflow-hidden rounded-radius-md md:h-[300px] md:rounded-radius-lg"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {/* Peek, not dots. The design keeps ~8px of the next card visible at
-            each edge — that sliver is the affordance that says "there is more
-            here", and it does it without a row of controls under the banner. */}
         <div
-          className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(calc(-${index} * (100% - 16px)))` }}
+          className="flex h-full transition-transform duration-500 ease-out"
+          style={{ transform: `translateX(-${index * 100}%)` }}
         >
-          {highlights.map((h) => (
-            <div key={h.key} className="w-[calc(100%-16px)] shrink-0 pr-2">
-              <Slide item={h} badge={badges.get(h.key)} />
+          {highlights.map((h, i) => (
+            <div key={h.key} className="h-full w-full shrink-0" aria-hidden={i !== index}>
+              {/* Phones get the compact banner, md+ the big one. */}
+              <div className="h-full md:hidden"><Banner item={h} badge={badges.get(h.key)} /></div>
+              <div className="hidden h-full md:block"><Banner item={h} badge={badges.get(h.key)} big /></div>
             </div>
           ))}
         </div>
-      </div>
-
-    </section>
-    </>
-  );
-}
-
-/**
- * Desktop: a bento block two cards tall. The feature card takes the left; the
- * others fill a two-row grid on the right, two across on a laptop, scrolled
- * by an arrow when there are more than fit.
- *
- * The feature is the first category with a live deal, else the first new
- * one, else simply the first — so it changes when there is news and stays
- * put when there isn't.
- */
-function DesktopBento({ items, badges }: { items: CategoryHighlight[]; badges: Map<string, CardBadge> }) {
-  const feature =
-    items.find((h) => badges.get(h.key)?.deal) ??
-    items.find((h) => badges.has(h.key)) ??
-    items[0];
-  const rest = items.filter((h) => h !== feature);
-
-  const ref = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ start: true, end: true });
-  const measure = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
-  }, []);
-  useEffect(() => {
-    measure();
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [measure, rest.length]);
-  const page = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * (ref.current.clientWidth + 8), behavior: "smooth" });
-
-  return (
-    <section
-      aria-label="Browse by category"
-      className="hidden h-[288px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 md:grid lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]"
-    >
-      <FeatureCard item={feature} badge={badges.get(feature.key)} />
-      <div className="relative min-w-0">
-        <div
-          ref={ref}
-          onScroll={measure}
-          className={cn(
-            "grid h-full snap-x snap-mandatory grid-flow-col grid-rows-2 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            "auto-cols-[100%] lg:auto-cols-[calc((100%-8px)/2)]",
-            // One card left over fills the column rather than leaving a hole.
-            rest.length === 1 && "grid-rows-1",
-          )}
-        >
-          {rest.map((h) => (
-            <div key={h.key} className="min-h-0 snap-start">
-              <Slide item={h} badge={badges.get(h.key)} className="h-full" />
-            </div>
-          ))}
-        </div>
-        {!edges.start && <RowArrow dir={-1} onClick={() => page(-1)} />}
-        {!edges.end && <RowArrow dir={1} onClick={() => page(1)} />}
-      </div>
-    </section>
-  );
-}
-
-function RowArrow({ dir, onClick }: { dir: 1 | -1; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={dir === 1 ? "More categories" : "Previous categories"}
-      className={cn(
-        "absolute top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card text-foreground shadow-figma transition-colors hover:bg-muted",
-        dir === 1 ? "-right-3" : "-left-3",
-      )}
-    >
-      {dir === 1 ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
-    </button>
+        {count > 1 && <SlideArrow dir={-1} onClick={() => go(-1)} />}
+        {count > 1 && <SlideArrow dir={1} onClick={() => go(1)} />}
+        <Dots count={count} index={index} onPick={setIndex} />
+      </section>
+      {side && <div className="hidden min-w-0 lg:block">{side}</div>}
+    </div>
   );
 }
