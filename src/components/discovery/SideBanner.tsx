@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { ChevronRight, Store } from "lucide-react";
 import { BusinessCenterIcon } from "@/components/icons/FigmaIcons";
 import { useI18n } from "@/i18n";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * The tall banner beside the home slider on a laptop, the slot a marketplace
@@ -29,21 +31,21 @@ export function SideBanner({ managesBusiness }: { managesBusiness: boolean }) {
         Icon: Store,
       };
   const { Icon } = content;
+  // Built from the site's own parts: the plain card surface, the orange icon
+  // disc the catalog uses, and the primary button. No decoration of its own.
   return (
     <Link
       to={content.to}
-      className="group relative flex h-full flex-col overflow-hidden rounded-radius-lg bg-[#1f1a14] p-5 text-white"
+      className="group flex h-full flex-col rounded-radius-lg bg-background p-5 transition-colors hover:bg-muted"
     >
-      <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/30" />
-      <span aria-hidden className="pointer-events-none absolute -bottom-16 -left-8 h-36 w-36 rounded-full bg-primary/15" />
-      <span className="relative grid h-11 w-11 place-items-center rounded-radius-md bg-primary text-[#1f1a14]">
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground">
         <Icon className="h-6 w-6" />
       </span>
-      <p className="relative mt-4 text-meta font-semibold text-primary">{content.eyebrow}</p>
-      <p className="relative mt-1 text-heading font-bold leading-tight">{content.title}</p>
-      <p className="relative mt-2 text-meta text-white/70">{content.body}</p>
-      <span className="relative mt-auto inline-flex w-full items-center justify-center gap-1 rounded-radius-md bg-white py-2.5 text-title font-semibold text-[#1f1a14] transition-colors group-hover:bg-white/90">
-        {content.cta} <ChevronRight className="h-5 w-5" />
+      <p className="mt-4 text-meta font-semibold text-primary">{content.eyebrow}</p>
+      <p className="mt-1 text-heading font-semibold leading-tight text-foreground">{content.title}</p>
+      <p className="mt-2 text-meta text-muted-foreground">{content.body}</p>
+      <span className={cn(buttonVariants({ size: "default" }), "mt-auto w-full")}>
+        {content.cta} <ChevronRight />
       </span>
     </Link>
   );
