@@ -3,12 +3,9 @@ import type { LucideIcon } from "lucide-react";
 
 /**
  * The drawn half of the home page's category banners, keyed by
- * service_categories.key. Flat shapes on a tinted promo card, right-aligned
- * and clear of the words on the left. The fixed colours are the point: each
- * card keeps its tone in both themes (see categoryTones), so a theme token
- * would only drift from it. The halo behind each drawing is currentColor —
- * the card's own lighter shade — so the drawing sits on its card, not on a
- * patch of orange.
+ * service_categories.key. Flat shapes on the orange promo card, right-aligned
+ * and clear of the words on the left. The fixed colours are the point: the card
+ * is the same orange in both themes, so a theme token would only drift from it.
  *
  * These cards are ALWAYS drawn, never photographed. A photo on one card next to
  * drawings on the others is exactly what must not happen, so there is no photo
@@ -19,6 +16,7 @@ import type { LucideIcon } from "lucide-react";
 
 const INK = "#2a2118";
 const PAPER = "#fff8ec";
+const SHADE = "#d9860b";
 const GLOW = "#ffc766";
 const TOMATO = "#e5482d";
 const LEAF = "#2f9e5b";
@@ -42,7 +40,7 @@ function Sparkle({ x, y, r, fill = PAPER }: { x: number; y: number; r: number; f
 function Meal() {
   return (
     <>
-      <circle cx="124" cy="70" r="64" fill="currentColor" />
+      <circle cx="124" cy="70" r="64" fill={SHADE} />
       <circle cx="124" cy="70" r="58" fill={PAPER} />
       <circle cx="124" cy="70" r="44" fill="#f3e4c8" />
       <path d="M92 74c-4-18 10-32 26-30 4 14-8 32-26 30Z" fill={LEAF} />
@@ -63,7 +61,7 @@ function Meal() {
 function Cleaning() {
   return (
     <>
-      <circle cx="122" cy="82" r="50" fill="currentColor" />
+      <circle cx="122" cy="82" r="50" fill={GLOW} />
       <path d="M100 58h44l10 18v50a8 8 0 0 1-8 8h-48a8 8 0 0 1-8-8V76Z" fill={PAPER} />
       <rect x="90" y="88" width="64" height="26" fill={WATER} />
       <rect x="108" y="40" width="28" height="18" fill={INK} />
@@ -132,7 +130,7 @@ function Membership() {
 function Healthcare() {
   return (
     <>
-      <circle cx="122" cy="70" r="58" fill="currentColor" />
+      <circle cx="122" cy="70" r="58" fill={GLOW} />
       <path d="M122 124c-32-22-54-42-54-68 0-16 12-28 27-28 11 0 21 6 27 16 6-10 16-16 27-16 15 0 27 12 27 28 0 26-22 46-54 68Z" fill={TOMATO} />
       <path d="M78 74h22l8-18 13 34 11-24 6 8h22" fill="none" stroke={PAPER} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="42" cy="42" r="18" fill={PAPER} />
@@ -145,7 +143,7 @@ function Healthcare() {
 function Diving() {
   return (
     <>
-      <circle cx="118" cy="72" r="56" fill="currentColor" />
+      <circle cx="118" cy="72" r="56" fill={GLOW} />
       {/* Snorkel: rises behind the mask on the right, mouthpiece tucked under. */}
       <path d="M160 18h10v74c0 14-10 24-24 24h-10v-10h10c8 0 14-6 14-14Z" fill={INK} />
       <rect x="157" y="12" width="16" height="10" rx="3" fill={TOMATO} />
@@ -176,7 +174,7 @@ function Diving() {
 function Coffee() {
   return (
     <>
-      <circle cx="118" cy="74" r="56" fill="currentColor" />
+      <circle cx="118" cy="74" r="56" fill={GLOW} />
       {/* Steam, three soft curls rising off the cup. */}
       <g fill="none" stroke={PAPER} strokeWidth="5" strokeLinecap="round">
         <path d="M100 44c-8-8 8-14 0-24" />
@@ -210,7 +208,7 @@ function Coffee() {
 function Massage() {
   return (
     <>
-      <circle cx="120" cy="70" r="56" fill="currentColor" />
+      <circle cx="120" cy="70" r="56" fill={GLOW} />
       {/* A stack of warm stones, the classic spa still life. */}
       <ellipse cx="120" cy="120" rx="50" ry="14" fill={STONE} />
       <ellipse cx="120" cy="116" rx="46" ry="10" fill={STONE_LIGHT} />
@@ -240,7 +238,7 @@ function Massage() {
 function Fallback({ Icon }: { Icon?: LucideIcon }) {
   return (
     <>
-      <circle cx="120" cy="72" r="56" fill="currentColor" />
+      <circle cx="120" cy="72" r="56" fill={GLOW} />
       <circle cx="120" cy="72" r="36" fill={PAPER} />
       {Icon && <Icon x={96} y={48} width={48} height={48} color={INK} strokeWidth={2} />}
       <g fill={PAPER}>
@@ -272,18 +270,15 @@ export function hasCategoryBannerArt(key: string): boolean {
 }
 
 /** Always renders a drawing: the category's own, or the illustrated fallback. */
-export function CategoryBannerArt({ categoryKey, icon, className, glow = GLOW }: {
+export function CategoryBannerArt({ categoryKey, icon, className }: {
   categoryKey: string;
   /** The service's icon, drawn by the fallback when the category has no art. */
   icon?: LucideIcon;
   className?: string;
-  /** The halo behind the drawing — a lighter shade of the card it sits on. */
-  glow?: string;
 }) {
   const Art = ART[categoryKey];
-  // The halo is drawn in currentColor, so each card's tone sets it.
   return (
-    <svg viewBox="0 0 180 140" aria-hidden className={className} style={{ color: glow }} preserveAspectRatio="xMaxYMid meet">
+    <svg viewBox="0 0 180 140" aria-hidden className={className} preserveAspectRatio="xMaxYMid meet">
       {Art ? <Art /> : <Fallback Icon={icon} />}
     </svg>
   );

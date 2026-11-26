@@ -6,7 +6,6 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
-import { categoryTone } from "@/components/discovery/categoryTones";
 import { categoryDealBadge, useActiveDiscounts } from "@/lib/discounts";
 
 /**
@@ -20,7 +19,7 @@ import { categoryDealBadge, useActiveDiscounts } from "@/lib/discounts";
  * listing already narrowed to it.
  *
  * It is a banner slider, the way a marketplace's front page has one: one
- * wide banner at a time, each category in its own colour (categoryTones),
+ * wide banner at a time, all in the brand yellow like the cards before them,
  * a big headline on the left and its drawing on the right, dots to move
  * between them. On a laptop an optional tall banner sits beside it (`side`).
  * A banner is badged when there is a reason to tap — a live deal, or "New".
@@ -62,7 +61,7 @@ function Badge({ badge, big }: { badge?: CardBadge; big?: boolean }) {
       className={cn(
         "inline-flex w-fit items-center rounded-full font-semibold",
         big ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-2xs",
-        badge.deal ? "bg-white text-destructive" : "bg-white/20 text-white",
+        badge.deal ? "bg-white text-destructive" : "bg-primary-foreground/10 text-primary-foreground",
       )}
     >
       {badge.text}
@@ -77,27 +76,23 @@ function Badge({ badge, big }: { badge?: CardBadge; big?: boolean }) {
  * the file); the catalog sidebar still shows it.
  */
 function Banner({ item, badge, big }: { item: CategoryHighlight; badge?: CardBadge; big?: boolean }) {
-  const tone = categoryTone(item.key);
   return (
     <Link
       to={item.href}
       aria-label={item.label}
-      className="group relative flex h-full w-full overflow-hidden"
-      style={{ backgroundColor: tone.bg }}
+      className="group relative flex h-full w-full overflow-hidden bg-primary"
     >
-      {/* A soft light from the top right, the only flourish. */}
-      <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_10%,rgba(255,255,255,0.18),transparent_60%)]" />
       <div className={cn("relative z-10 flex min-w-0 flex-1 flex-col justify-center", big ? "gap-2 py-6 pl-8 pr-4" : "gap-1 py-4 pl-4 pr-1")}>
         <Badge badge={badge} big={big} />
         {item.archetype && (
-          <p className={cn("truncate text-white/75", big ? "text-title" : "text-meta")}>{item.archetype.label}</p>
+          <p className={cn("truncate text-primary-foreground/70", big ? "text-title" : "text-meta")}>{item.archetype.label}</p>
         )}
-        <p className={cn("font-bold leading-[1.05] tracking-tight text-white", big ? "line-clamp-2 text-4xl" : "line-clamp-2 text-title")}>
+        <p className={cn("font-bold leading-[1.05] tracking-tight text-primary-foreground", big ? "line-clamp-2 text-4xl" : "line-clamp-2 text-title")}>
           {item.label}
         </p>
         {item.fromCents !== null && (
-          <p className={cn("text-white/80", big ? "text-title" : "text-meta")}>
-            from <span className="font-bold text-white">{formatUSD(item.fromCents)}</span>
+          <p className={cn("text-primary-foreground/70", big ? "text-title" : "text-meta")}>
+            from <span className="font-bold text-primary-foreground">{formatUSD(item.fromCents)}</span>
             {item.unit ? ` ${item.unit}` : ""}
           </p>
         )}
@@ -110,7 +105,6 @@ function Banner({ item, badge, big }: { item: CategoryHighlight; badge?: CardBad
       <CategoryBannerArt
         categoryKey={item.key}
         icon={item.archetype?.Icon}
-        glow={tone.glow}
         className={cn(
           "relative h-full shrink-0 origin-bottom-right transition-transform duration-500 group-hover:scale-[1.03]",
           big ? "w-[46%] py-3 pr-4" : "w-[46%] max-w-[180px]",
