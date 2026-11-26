@@ -497,3 +497,10 @@ export const GUIDES_INDEX = {
     all: "Todas las guías",
   },
 };
+
+/** Minutes to read a guide, at 200 words a minute — never under two. */
+export const guideMinutes = (g: Guide, lang: "en" | "es") => {
+  const t = g[lang];
+  const words = [t.intro, ...t.sections.flatMap((s) => [s.h, ...s.p])].join(" ").split(/\s+/).length;
+  return Math.max(2, Math.round(words / 200));
+};
