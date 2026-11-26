@@ -67,7 +67,7 @@ function Row({ group, more, less }: { group: PopularGroup; more: string; less: s
           <li key={l.href} className={cn("min-w-0 max-w-full", !open && i >= POPULAR_VISIBLE && "hidden")}>
             <Link
               to={l.href}
-              className="inline-flex h-8 max-w-full items-center rounded-full bg-inset px-3 text-[14px] font-medium md:h-9 md:max-w-[24rem] md:px-3.5 md:text-body text-foreground outline-none transition-colors hover:bg-primary/15 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex h-8 max-w-full items-center rounded-full bg-inset px-3 text-sm font-medium md:h-9 md:max-w-[24rem] md:px-3.5 md:text-body text-foreground outline-none transition-colors hover:bg-primary/15 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="truncate">{l.label}</span>
             </Link>
@@ -79,7 +79,7 @@ function Row({ group, more, less }: { group: PopularGroup; more: string; less: s
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="inline-flex h-8 items-center gap-1 rounded-full px-3 text-[14px] font-semibold md:h-9 md:text-body text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex h-8 items-center gap-1 rounded-full px-3 text-sm font-semibold md:h-9 md:text-body text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
             >
               {open ? less : `${more} (${extra})`}
               <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
