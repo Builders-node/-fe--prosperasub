@@ -51,7 +51,7 @@ import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PaymentTermsNote } from "@/components/plans/PaymentTermsNote";
-import { tr, trx } from "@/lib/tr";
+import { countNoun, tr, trx } from "@/lib/tr";
 
 /**
  * The plan, before the till.
@@ -798,7 +798,7 @@ const PlanDetail = () => {
           cart never opens by itself. */}
       {cartCount > 0 && !alreadyInCart && (
         <button type="button" onClick={() => navigate("/cart")} className="block w-full text-center text-meta text-muted-foreground hover:text-foreground">
-          {cartCount} {cartCount === 1 ? "item" : "items"}{" "}{tr("in your cart · Check out together")}</button>
+          {countNoun(cartCount, "item")}{" "}{tr("in your cart · Check out together")}</button>
       )}
     </div>
   );

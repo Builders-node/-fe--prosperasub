@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { trData } from "@/lib/tr";
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
@@ -50,7 +51,7 @@ export function useServiceArchetypes(activeOnly = true) {
   });
 
   const archetypes = useMemo<ServiceArchetype[]>(
-    () => rows.map((r) => ({ ...r, Icon: resolveCategoryIcon(r.icon ?? "Store") })),
+    () => rows.map((r) => ({ ...r, label: trData(r.label), Icon: resolveCategoryIcon(r.icon ?? "Store") })),
     [rows],
   );
 

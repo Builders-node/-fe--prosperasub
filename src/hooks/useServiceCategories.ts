@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { trData } from "@/lib/tr";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
 import type { LucideIcon } from "lucide-react";
@@ -36,7 +37,7 @@ export function useServiceCategories(onlyActive: boolean = true) {
       const { data, error } = await q;
       if (error) throw error;
       return ((data ?? []) as ServiceCategoryRow[]).map<ServiceCategoryResolved>((r) => ({
-        ...r, Icon: resolveCategoryIcon(r.icon),
+        ...r, label: trData(r.label), Icon: resolveCategoryIcon(r.icon),
       }));
     },
   });
