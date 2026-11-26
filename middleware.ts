@@ -30,6 +30,7 @@
 import { faqJsonLd, serviceSeo } from "./src/lib/seo/serviceSeo";
 import { GUIDES, GUIDES_INDEX, guideBySlug, guideExtras } from "./src/lib/seo/guides";
 import { isBilingual, langPath, splitLang } from "./src/lib/seo/lang";
+import { popularFor, popularText, type PopularGroup } from "./src/lib/seo/popular";
 
 export const config = {
   matcher: ["/", "/services/:path*", "/businesses/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about", "/collections", "/collections/:path*", "/guides", "/guides/:path*", "/es", "/es/:path*"],
@@ -528,7 +529,7 @@ async function pageFor(path: string, lang: Lang = "en"): Promise<Page | null> {
   return null;
 }
 
-function html(path: string, lang: Lang, p: Page) {
+function html(path: string, lang: Lang, p: Page, popular: PopularGroup[] = []) {
   const url = `${SITE}${langPath(path, lang)}`;
   const t = esc(p.title), d = esc(p.description), i = esc(p.image), u = esc(url);
   const ui = UI[lang];
@@ -543,7 +544,9 @@ function html(path: string, lang: Lang, p: Page) {
     + (p.sections ?? []).map((s2) => `<h2>${esc(s2.h)}</h2>${s2.p.map((x) => `<p>${esc(x)}</p>`).join("")}`).join("")
     + (p.quotes?.length ? `<h2>${ui.reviews}</h2>${p.quotes.map((q) => `<blockquote><p>${esc(q.text)}</p><footer>${esc(q.who)}${q.rating ? ` · ${q.rating}/5` : ""}</footer></blockquote>`).join("")}` : "");
   const lists = (p.lists ?? []).map((l) => `<h2>${esc(l.heading)}</h2><ul>${l.links.map((x) => `<li>${a(x)}</li>`).join("")}</ul>`).join("")
-    + (p.faq?.length ? `<h2>${ui.questions}</h2>${p.faq.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("")}` : "");
+    + (p.faq?.length ? `<h2>${ui.questions}</h2>${p.faq.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("")}` : "")
+    // The "Popular" chips the app shows above its footer — the same rows (src/lib/seo/popular.ts).
+    + (popular.length ? `<section><h2>${esc(popularText(lang).title)}</h2>${popular.map((g) => `<h3>${esc(g.heading)}</h3><ul>${g.links.map((x) => `<li>${a({ ...x, href: hrefIn(x.href, lang) })}</li>`).join("")}</ul>`).join("")}</section>` : "");
   const ld = (p.jsonLd ?? []).map((j) => `<script type="application/ld+json">${JSON.stringify(j).replace(/</g, "\\u003c")}</script>`).join("");
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -586,7 +589,8 @@ export default async function middleware(request: Request) {
     const page = await pageFor(path, lang);
     if (!page) return pass();
     if (page.redirect) return Response.redirect(`${SITE}${langPath(page.redirect, lang)}`, 301);
-    return new Response(html(path, lang, page), {
+    const popular = await popularFor(path, lang, rows).catch(() => []);
+    return new Response(html(path, lang, page, popular), {
       headers: {
         "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600", vary: "user-agent",
         // dev.everysub.net and preview deployments are copies: keep them out of the index.

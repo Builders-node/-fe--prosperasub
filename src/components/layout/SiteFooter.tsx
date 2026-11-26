@@ -11,6 +11,7 @@ import { serviceListingHref } from "@/lib/services/serviceUrls";
 import { tr, trx, LANG, LANGUAGE_STORAGE_KEY, type Lang } from "@/lib/tr";
 import { langPath, splitLang } from "@/lib/seo/lang";
 import { cn } from "@/lib/utils";
+import { PopularLinks } from "@/components/seo/PopularLinks";
 
 /**
  * The site footer, at the foot of every browsing and account page.
@@ -256,6 +257,8 @@ export function SiteFooter({ sellBanner = true }: {
 
   return (
     <footer className="mt-space-8 bg-card">
+      {/* Page-aware link chips — popular businesses, plans, services (SEO). */}
+      <PopularLinks />
       {sellBanner && (
         <div className="app-container pt-6 md:pt-8">
           <SellBanner />
