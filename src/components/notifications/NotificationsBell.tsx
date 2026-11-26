@@ -92,11 +92,11 @@ function Panel({ onClose }: { onClose: () => void }) {
             <CheckCheck className="h-5 w-5 sm:h-4 sm:w-4" /><span className="hidden sm:inline">{tr("Mark all read")}</span></button>
         )}
       </DrawerHeader>
-      <div className="shrink-0 px-5 pb-3">
+      <div className="shrink-0 px-5">
         <FilterPills value={filter} onChange={setFilter} unreadCount={feed.unreadCount} hasBusiness={feed.hasBusiness} size="sm" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {feed.isLoading ? (
           <div className="flex justify-center py-10"><Spinner className="text-primary" /></div>
         ) : feed.isError ? (

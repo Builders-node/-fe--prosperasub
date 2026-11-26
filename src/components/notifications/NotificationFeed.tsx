@@ -56,8 +56,10 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
     // empty tab.
     ...(hasBusiness ? [{ key: "business" as const, label: tr("Business") }] : []),
   ];
+  // Tabs with an underline, not a row of filled pills: the filter is a quiet
+  // control above the list, not three buttons competing with it.
   return (
-    <div role="tablist" className="flex gap-1.5">
+    <div role="tablist" className={cn("flex gap-5 border-b border-[hsl(var(--app-divider))]", size === "sm" && "gap-4")}>
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -66,13 +68,15 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
           aria-selected={value === t.key}
           onClick={() => onChange(t.key)}
           className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-full font-semibold transition-colors",
-            size === "sm" ? "h-8 px-3 text-sm" : "h-9 px-4 text-[14px]",
-            value === t.key ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
+            "relative -mb-px flex shrink-0 items-center gap-1.5 border-b-2 font-semibold transition-colors",
+            size === "sm" ? "h-10 text-[14px]" : "h-11 text-[15px]",
+            value === t.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           {t.label}
-          {!!t.count && <span className="tabular-nums opacity-60">{t.count}</span>}
+          {!!t.count && (
+            <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[12px] leading-5 tabular-nums", value === t.key ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground")}>{t.count}</span>
+          )}
         </button>
       ))}
     </div>
@@ -92,14 +96,15 @@ export function NotificationList({ groups, filter, onRead, onArchive, onNavigate
   const now = new Date();
   const days = groupByDay(limit ? groups.slice(0, limit) : groups, now);
   return (
-    <div className="space-y-4">
+    <div>
       {days.map(({ day, items }) => (
         <section key={day} aria-label={tr(day)}>
-          <h2 className={cn("mb-1.5 text-sm font-semibold text-muted-foreground", compact ? "px-3" : "px-1")}>{tr(day)}</h2>
-          <div className="space-y-1">
-            {items.map((g) => (
+          <h2 className={cn("pb-1 pt-4 text-[13px] font-medium text-muted-foreground", compact ? "px-5" : "px-6")}>{tr(day)}</h2>
+          <div>
+            {items.map((g, i) => (
               <NotificationCard
                 key={g.lead.id}
+                divider={i > 0}
                 group={g}
                 onRead={onRead}
                 onArchive={onArchive}

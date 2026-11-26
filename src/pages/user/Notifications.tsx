@@ -17,11 +17,11 @@ import { tr } from "@/lib/tr";
 
 function Skeleton() {
   return (
-    <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
+    <div className="pt-2">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="animate-pulse px-3 py-3.5">
+        <div key={i} className="animate-pulse py-4 pl-6 pr-5">
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 shrink-0 rounded-full bg-muted" />
+            <div className="h-9 w-9 shrink-0 rounded-[10px] bg-muted" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-48 rounded bg-muted" />
               <div className="h-2.5 w-72 max-w-full rounded bg-muted" />
@@ -106,47 +106,57 @@ const Notifications = () => {
       {/* A column, not the full 1280px: a notification is a sentence, and a
           sentence across the whole screen is hard to read. */}
       <div className="app-container pb-space-8 pt-4 md:pt-8">
-        <div className="mx-auto w-full max-w-[720px] space-y-4">
-          <div className="hidden items-center justify-between gap-4 md:flex">
+        <div className="mx-auto w-full max-w-[720px] space-y-5">
+          <div className="hidden items-end justify-between gap-4 md:flex">
             <h1 className="text-[28px] font-bold tracking-tight text-foreground">{tr("Notifications")}</h1>
             {unreadCount > 0 && (
-              <Button variant="secondary" size="sm" onClick={handleMarkAllRead} loading={markAllRead.isPending}>
-                <CheckCheck />{" "}{tr("Mark all read")}</Button>
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                disabled={markAllRead.isPending}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] font-semibold text-muted-foreground transition-colors hover:bg-inset hover:text-foreground disabled:opacity-50"
+              >
+                <CheckCheck className="h-4 w-4" />{tr("Mark all read")}
+              </button>
             )}
           </div>
 
-          <FilterPills value={filter} onChange={setFilter} unreadCount={unreadCount} hasBusiness={feed.hasBusiness} />
-
-          {isLoading ? (
-            <Skeleton />
-          ) : isError ? (
-            <QueryError
-              title={tr("Couldn't load notifications")}
-              error={error instanceof Error ? error.message : undefined}
-              onRetry={() => refetch()}
-              retrying={isFetching}
-            />
-          ) : groups.length === 0 ? (
-            <YdEmptyState
-              icon={Bell}
-              title={filter === "unread" ? tr("You're all caught up") : tr("No notifications")}
-              subtitle={filter === "unread"
-                ? tr("Nothing new since you last looked.")
-                : tr("Activity on your account will appear here.")}
-            />
-          ) : (
-            <div className="rounded-radius-lg bg-card p-1.5 md:p-2">
-              <NotificationList
-                groups={groups}
-                filter={filter}
-                onRead={feed.onRead}
-                onArchive={feed.onArchive}
-              />
+          {/* One panel: the tabs are its header, the feed its body. */}
+          <div className="overflow-hidden rounded-radius-lg bg-card">
+            <div className="px-6">
+              <FilterPills value={filter} onChange={setFilter} unreadCount={unreadCount} hasBusiness={feed.hasBusiness} />
             </div>
-          )}
-          {groups.length > 0 && (
-            <p className="px-1 text-center text-meta text-muted-foreground md:hidden">{tr("Swipe a notification left to archive it.")}</p>
-          )}
+
+            {isLoading ? (
+              <Skeleton />
+            ) : isError ? (
+              <div className="p-4">
+                <QueryError
+                  title={tr("Couldn't load notifications")}
+                  error={error instanceof Error ? error.message : undefined}
+                  onRetry={() => refetch()}
+                  retrying={isFetching}
+                />
+              </div>
+            ) : groups.length === 0 ? (
+              <div className="flex flex-col items-center px-6 py-16 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-inset text-foreground/70"><Bell className="h-6 w-6" strokeWidth={1.75} /></span>
+                <p className="mt-4 text-[17px] font-semibold text-foreground">{filter === "unread" ? tr("You're all caught up") : tr("No notifications")}</p>
+                <p className="mt-1 max-w-[300px] text-[14px] text-muted-foreground">
+                  {filter === "unread" ? tr("Nothing new since you last looked.") : tr("Activity on your account will appear here.")}
+                </p>
+              </div>
+            ) : (
+              <div className="pb-2">
+                <NotificationList
+                  groups={groups}
+                  filter={filter}
+                  onRead={feed.onRead}
+                  onArchive={feed.onArchive}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </UserLayout>
