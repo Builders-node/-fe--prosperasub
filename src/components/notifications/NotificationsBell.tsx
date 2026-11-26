@@ -44,7 +44,7 @@ export function NotificationsBell({ count, signedIn }: { count: number; signedIn
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => e.preventDefault()}
           className={cn(
-            "fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col bg-card text-card-foreground outline-none sm:w-[440px] sm:rounded-l-radius-xl",
+            "fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col bg-card text-card-foreground outline-none sm:w-[440px]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=closed]:duration-300 data-[state=open]:duration-300 ease-out",
           )}
         >
