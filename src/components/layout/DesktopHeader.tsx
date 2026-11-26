@@ -71,7 +71,7 @@ export function DesktopHeader({ breadcrumb }: DesktopHeaderProps) {
         location={<LocationSelector always />}
         search={<HeaderSearch />}
         account={<AccountMenu />}
-        bell={<NotificationsBell count={session.unread} />}
+        bell={<NotificationsBell count={session.unread} signedIn={session.status === "signedIn"} />}
         onLogin={() => openAuthModal("login")}
       />
       {breadcrumb && (
@@ -90,7 +90,7 @@ interface DesktopHeaderViewProps {
   search?: ReactNode;
   /** What a signed-in person sees in the account slot (the menu). */
   account: ReactNode;
-  /** The live bar's bell opens a panel; the states sheet draws the plain link. */
+  /** The live bar's bell opens the drawer; the states sheet draws the plain link. */
   bell?: ReactNode;
   onLogin: () => void;
   subRow?: ReactNode;
@@ -119,8 +119,11 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
         <div className="flex shrink-0 items-center gap-1">
           <HeaderIconLink to="/favorites" label={tr("Favorites")} icon={FavoriteIcon} count={session.favorites} />
           <HeaderIconLink to="/cart" label={tr("Cart")} icon={ShoppingBagIcon} count={session.cart} />
-          {session.status === "signedIn" && (
-            bell ?? <HeaderIconLink to="/notifications" label={tr("Notifications")} icon={NotificationsIcon} count={session.unread} />
+          {/* A visitor gets the bell too: its drawer says what it is for and
+              offers Log in / Sign up. The states sheet (no `bell`) keeps the
+              plain link for a signed-in person only. */}
+          {bell ? session.status !== "loading" && bell : session.status === "signedIn" && (
+            <HeaderIconLink to="/notifications" label={tr("Notifications")} icon={NotificationsIcon} count={session.unread} />
           )}
           {session.status === "signedIn" && (
             <div className="ml-2"><HeaderBonusChip cents={session.bonusCents} /></div>
