@@ -105,7 +105,7 @@ const Notifications = () => {
     >
       {/* A column, not the full 1280px: a notification is a sentence, and a
           sentence across the whole screen is hard to read. */}
-      {/* On a phone the feed runs edge to edge — a card inside the page's
+      {/* On a phone the feed runs edge to edge (still a rounded panel) — a card inside the page's
           gutters wasted 32px of every line. A desktop keeps the column. */}
       <div className="pb-space-8 pt-4 md:app-container md:pt-8">
         <div className="mx-auto w-full max-w-[720px] space-y-4 md:space-y-5">
@@ -127,7 +127,7 @@ const Notifications = () => {
             <FilterPills value={filter} onChange={setFilter} unreadCount={unreadCount} hasBusiness={feed.hasBusiness} />
           </div>
 
-          <div className="overflow-hidden bg-card md:rounded-radius-lg">
+          <div className="overflow-hidden rounded-radius-lg bg-card">
 
             {isLoading ? (
               <Skeleton />
