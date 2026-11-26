@@ -164,7 +164,7 @@ export default function Support() {
       <div className="app-container pb-space-8 pt-4 md:pt-8">
         <div className="mx-auto w-full max-w-[720px] space-y-5">
           <div className="space-y-1">
-            <h1 className="hidden text-[28px] font-bold tracking-tight text-foreground md:block">{tr("How can we help?")}</h1>
+            <h1 className="hidden text-3xl font-bold tracking-tight text-foreground md:block">{tr("How can we help?")}</h1>
             <p className="text-sm leading-relaxed text-muted-foreground md:text-body">
               {tr("Write to us and a person replies by email, usually the same day. Urgent? WhatsApp is faster.")}
             </p>
