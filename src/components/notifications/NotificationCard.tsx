@@ -26,6 +26,7 @@ export function NotificationCard({
   onNavigate,
   showBusinessTag = false,
   compact = false,
+  divider = false,
   now,
 }: {
   group: NotificationGroup;
@@ -35,6 +36,8 @@ export function NotificationCard({
   onNavigate?: () => void;
   showBusinessTag?: boolean;
   compact?: boolean;
+  /** A hairline above, starting where the text starts. */
+  divider?: boolean;
   now?: Date;
 }) {
   const navigate = useNavigate();
@@ -92,7 +95,7 @@ export function NotificationCard({
   };
 
   return (
-    <div className={cn("group relative overflow-hidden rounded-radius-md", leaving && "pointer-events-none")}>
+    <div className={cn("group relative overflow-hidden", leaving && "pointer-events-none")}>
       {/* What the swipe uncovers. */}
       <div
         aria-hidden
@@ -118,38 +121,40 @@ export function NotificationCard({
           transition: drag.current?.active ? "none" : "transform 180ms ease, background-color 150ms",
         }}
         className={cn(
-          "relative flex touch-pan-y select-none items-start gap-3 bg-card outline-none md:select-auto",
-          compact ? "px-3 py-3" : "px-3 py-3.5 md:px-4",
-          lead.actionUrl && "cursor-pointer",
+          "relative flex touch-pan-y select-none items-start gap-3 bg-card outline-none transition-colors md:select-auto",
+          compact ? "py-3 pl-5 pr-4" : "py-4 pl-6 pr-4 md:pr-5",
+          lead.actionUrl && "cursor-pointer hover:bg-inset/60",
           "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         )}
       >
-        {/* Unread: the whole card warms up. A layer, so the solid card below
-            still covers the swipe's red. */}
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-0 transition-colors",
-            isRead ? "group-hover:bg-inset" : "bg-primary/[0.08] group-hover:bg-primary/[0.12]",
-          )}
-        />
+        {divider && (
+          <span aria-hidden className={cn("pointer-events-none absolute right-0 top-0 h-px bg-[hsl(var(--app-divider))]", compact ? "left-[68px]" : "left-[72px]")} />
+        )}
+        {/* Unread is a dot in the left margin and a heavier title — nothing
+            else. The old tinted card + dot + coloured circle said it three
+            times and made the feed look like a template. */}
+        {!isRead && (
+          <span aria-label={tr("Unread")} className={cn("absolute h-2 w-2 rounded-full bg-primary", compact ? "left-2 top-[26px]" : "left-2.5 top-[30px]")} />
+        )}
 
-        <span className={cn("relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full", TONE_CLASS[p.tone])}>
-          <Icon className="h-5 w-5" />
+        {/* One quiet tile for every kind; colour only when something is wrong. */}
+        <span
+          className={cn(
+            "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-inset",
+            p.tone === "negative" ? "text-negative" : p.tone === "attention" ? "text-attention" : "text-foreground/70",
+          )}
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </span>
 
         <div className="relative min-w-0 flex-1">
-          {showBusinessTag && p.isBusiness && (
-            <p className="mb-0.5 text-meta font-semibold uppercase text-muted-foreground">{tr("Your business")}</p>
-          )}
-          <div className="flex items-start gap-3">
-            <p className={cn("min-w-0 flex-1 text-title text-foreground", isRead ? "font-medium" : "font-semibold")}>
+          <div className="flex items-baseline gap-3">
+            <p className={cn("min-w-0 flex-1 text-base leading-5", isRead ? "font-normal text-foreground/80" : "font-semibold text-foreground")}>
               {p.title}
             </p>
             {/* Time, swapped for Archive on hover with a mouse. */}
-            <span className="relative mt-0.5 flex shrink-0 items-center gap-1.5">
-              {!isRead && <span className="h-2 w-2 rounded-full bg-primary" aria-label={tr("Unread")} />}
-              <span className="text-meta tabular-nums text-muted-foreground md:group-focus-within:opacity-0 md:group-hover:opacity-0">
+            <span className="relative flex shrink-0 items-center">
+              <span className="text-sm tabular-nums text-muted-foreground md:group-focus-within:opacity-0 md:group-hover:opacity-0">
                 {shortTime(lead.createdAt, now)}
               </span>
               <button
@@ -158,7 +163,7 @@ export function NotificationCard({
                 title={tr("Archive")}
                 onClick={(e) => { e.stopPropagation(); onArchive(ids); }}
                 className={cn(
-                  "absolute -right-1.5 -top-1.5 hidden h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground md:flex",
+                  "absolute -right-2 -top-2 hidden h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground md:flex",
                   "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
                 )}
               >
@@ -168,9 +173,12 @@ export function NotificationCard({
           </div>
 
           {p.body && (
-            <p className={cn("mt-0.5 text-[14px] leading-5 text-muted-foreground", compact ? "line-clamp-2" : "line-clamp-3")}>
+            <p className={cn("mt-1 text-body leading-5 text-muted-foreground", compact ? "line-clamp-2" : "line-clamp-3")}>
               {p.body}
             </p>
+          )}
+          {showBusinessTag && p.isBusiness && (
+            <p className="mt-1.5 text-sm font-medium text-muted-foreground">{tr("Your business")}</p>
           )}
 
           {(p.action || earlier.length > 0) && (
@@ -180,8 +188,8 @@ export function NotificationCard({
                   type="button"
                   onClick={(e) => { e.stopPropagation(); go(p.action!.url); }}
                   className={cn(
-                    "inline-flex h-8 items-center rounded-full px-3.5 text-sm font-semibold transition-opacity hover:opacity-90",
-                    p.action.primary ? "bg-primary text-primary-foreground" : "bg-inset text-foreground hover:bg-muted",
+                    "inline-flex h-8 items-center rounded-full px-3.5 text-sm font-semibold transition-colors",
+                    p.action.primary ? "bg-foreground text-background hover:bg-foreground/90" : "bg-inset text-foreground hover:bg-muted",
                   )}
                 >
                   {p.action.label}
