@@ -12,6 +12,7 @@ import {
   HeaderAccountSkeleton, HeaderBonusChip, HeaderIconLink, HeaderLoginButton, useHeaderSession, type HeaderSession,
 } from "@/components/layout/HeaderParts";
 import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { tr } from "@/lib/tr";
 
 interface HomeHeaderProps {
@@ -55,6 +56,7 @@ export function HomeHeader(props: HomeHeaderProps) {
       onBack={props.onBack ?? (() => navigate(-1))}
       onSearch={() => navigate("/search")}
       onLogin={() => openAuthModal("login")}
+      bell={<NotificationsBell count={session.unread} signedIn />}
       location={props.noLocation ? undefined : <LocationSelector variant="row" className={props.variant === "brand" ? undefined : "py-2"} />}
     />
   );
@@ -75,9 +77,11 @@ export function HomeHeader(props: HomeHeaderProps) {
  */
 export function HomeHeaderView({
   title, showBackButton = false, onBack, variant = "title", bare = false, rightAction,
-  session, searchLabel = "Search", onSearch, onLogin, location, sticky = true, className,
+  session, searchLabel = "Search", onSearch, onLogin, location, sticky = true, className, bell,
 }: HomeHeaderProps & {
   className?: string;
+  /** The live bar's bell opens the notifications drawer; the states sheet draws the plain link. */
+  bell?: ReactNode;
   session: HeaderSession;
   searchLabel?: string;
   onSearch?: () => void;
@@ -87,7 +91,7 @@ export function HomeHeaderView({
 }) {
   const account = session.status === "loading" ? <HeaderAccountSkeleton />
     : session.status === "signedOut" ? <HeaderLoginButton onClick={onLogin} />
-    : (
+    : bell ?? (
       <HeaderIconLink
         to="/notifications"
         label={tr("Notifications")}

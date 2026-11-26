@@ -23,7 +23,6 @@ import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
 import { useProviderItems } from "@/lib/services/providerItems";
 import { useCart } from "@/contexts/CartContext";
-import { toast } from "sonner";
 import {
   CheckIcon, KeyboardArrowLeftIcon, } from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
@@ -45,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { Check, SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
+import { showCartToast } from "@/components/cart/cartToast";
 import { DeliveryRow, useOfferDelivery } from "@/components/delivery/DeliveryRow";
 import { useSeo, offerJsonLd, breadcrumbJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
@@ -773,7 +773,10 @@ const PlanDetail = () => {
         unitPriceCents: priceCents ?? 0, periods: 1,
       } as never, 1);
     }
-    toast.success(tr("Saved to your cart"), { action: { label: tr("View cart"), onClick: () => navigate("/cart") } });
+    showCartToast({
+      name: chosen?.name ?? plan.title, priceCents, cartCount: cartCount + 1,
+      onViewCart: () => navigate("/cart"),
+    });
   };
   // An offer received only by a visit or a delivery needs the customer's pin,
   // which only its checkout asks for.

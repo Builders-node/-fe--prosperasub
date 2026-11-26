@@ -413,7 +413,7 @@ export default function ForBusiness() {
         </section>
       </main>
 
-      <SiteFooter />
+      <SiteFooter sellBanner={false} />
     </div>
   );
 }

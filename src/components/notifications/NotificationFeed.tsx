@@ -94,8 +94,8 @@ export function NotificationList({ groups, filter, onRead, onArchive, onNavigate
   return (
     <div className="space-y-4">
       {days.map(({ day, items }) => (
-        <section key={day} aria-label={day}>
-          <h2 className={cn("mb-1.5 text-sm font-semibold text-muted-foreground", compact ? "px-3" : "px-1")}>{day}</h2>
+        <section key={day} aria-label={tr(day)}>
+          <h2 className={cn("mb-1.5 text-sm font-semibold text-muted-foreground", compact ? "px-3" : "px-1")}>{tr(day)}</h2>
           <div className="space-y-1">
             {items.map((g) => (
               <NotificationCard
