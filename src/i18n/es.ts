@@ -4192,4 +4192,8 @@ export const ES: Record<string, string> = {
   "Sell your services as subscriptions": "Vende tus servicios como suscripciones",
   "Customers pay up front, you withdraw in Bitcoin whenever you want.": "Los clientes pagan por adelantado y tú retiras en Bitcoin cuando quieras.",
   "Scan the QR code to open this page on your phone": "Escanea el código QR para abrir esta página en tu teléfono",
+  "from {price}": "desde {price}",
+  "Banner {n} of {count}": "Banner {n} de {count}",
+  "Next banner": "Siguiente banner",
+  "Previous banner": "Banner anterior",
 };
