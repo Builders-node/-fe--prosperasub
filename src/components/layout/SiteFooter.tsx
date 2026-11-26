@@ -28,9 +28,10 @@ import { SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_HREF } from "@/lib/support";
  * them would be the first broken thing a visitor finds. WhatsApp is the one
  * channel we answer on, so it is the one icon.
  *
- * On a phone the columns fold into tap-to-open sections (plain <details>, so
- * every link is still in the HTML for crawlers) and the QR code is left out —
- * the visitor is already holding the phone.
+ * Desktop only (`hidden md:block`): on a phone the tab bar is the site map.
+ * Hidden with CSS, not left out, so the footer links and the "Popular" chips
+ * stay in the rendered HTML that Google's phone crawler reads; raw-HTML
+ * robots get the same chips from middleware.ts.
  */
 
 const WHATSAPP_NUMBER = SUPPORT_WHATSAPP;
@@ -146,26 +147,13 @@ function FooterLinkItem({ l }: { l: FooterLink }) {
   );
 }
 
-/** A link column: always open from md up, a tap-to-open section on a phone. */
 function Column({ title, links }: { title: string; links: FooterLink[] }) {
-  const list = (cls: string) => (
-    <ul className={cls}>
-      {links.map((l) => <li key={l.label}><FooterLinkItem l={l} /></li>)}
-    </ul>
-  );
   return (
     <div className="min-w-0">
-      <div className="hidden md:block">
-        <p className="text-title font-semibold text-foreground">{title}</p>
-        {list("mt-4 space-y-3")}
-      </div>
-      <details className="group md:hidden">
-        <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-title font-semibold text-foreground [&::-webkit-details-marker]:hidden">
-          {title}
-          <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-open:rotate-180" />
-        </summary>
-        {list("space-y-3 pb-4")}
-      </details>
+      <p className="text-title font-semibold text-foreground">{title}</p>
+      <ul className="mt-4 space-y-3">
+        {links.map((l) => <li key={l.label}><FooterLinkItem l={l} /></li>)}
+      </ul>
     </div>
   );
 }
@@ -184,8 +172,6 @@ function SellBanner() {
         loading="lazy"
         className="absolute inset-0 h-full w-full object-cover object-left"
       />
-      {/* On a phone the text sits over the bright petals; a scrim keeps it legible. */}
-      <div className="absolute inset-0 bg-black/55 md:hidden" aria-hidden />
       <div className="relative flex flex-col gap-5 p-6 md:ml-[47%] md:flex-row md:items-center md:justify-between md:gap-8 md:px-10 md:py-9">
         <div className="max-w-xl">
           <p className="text-meta font-semibold uppercase tracking-wide text-white/70">{tr("For businesses on Roatán")}</p>
@@ -257,7 +243,7 @@ export function SiteFooter({ sellBanner = true }: {
   ];
 
   return (
-    <footer className="mt-space-8 bg-card">
+    <footer className="mt-space-8 hidden bg-card md:block">
       {/* Page-aware link chips — popular businesses, plans, services (SEO). */}
       <PopularLinks />
       {sellBanner && (
@@ -266,7 +252,7 @@ export function SiteFooter({ sellBanner = true }: {
         </div>
       )}
 
-      <div className="app-container grid grid-cols-1 divide-y divide-border py-4 md:grid-cols-4 md:gap-8 md:divide-y-0 md:py-10">
+      <div className="app-container grid grid-cols-4 gap-8 py-10">
         <Column title={tr("For customers")} links={[
           { label: tr("How it works"), to: "/how-it-works" },
           { label: tr("Support"), to: "/support" },
