@@ -95,7 +95,7 @@ export function UserLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={cn("min-h-screen bg-background", showBottomNav && "pb-24 md:pb-0")}>
       {/* Desktop Header */}
       {!isMobile && (
         <DesktopHeader 
@@ -118,7 +118,7 @@ export function UserLayout({
       )}
 
       {/* Page Content */}
-      <main className={cn(showBottomNav ? "pb-space-24 md:pb-space-8" : "pb-space-8", isMobile && "min-h-[calc(100vh-3.5rem)]")}>
+      <main className={cn("pb-space-8", isMobile && "min-h-[calc(100vh-3.5rem)]")}>
         {/* On desktop the header row is different, so the extra row rides at the
             top of the content instead of being welded to a mobile header. */}
         {!isMobile && headerExtra && (
@@ -127,8 +127,9 @@ export function UserLayout({
         {children}
       </main>
 
-      {/* Desktop footer on account pages; a decision page (no tab bar) ends at
-          its own CTA, so it gets no footer either. */}
+      {/* The site footer on account pages (the wrapper pads it clear of the tab
+          bar on a phone); a decision page (no tab bar) ends at its own CTA,
+          so it gets no footer either. */}
       {showBottomNav && <SiteFooter />}
 
       {/* Bottom Navigation (mobile only) */}
