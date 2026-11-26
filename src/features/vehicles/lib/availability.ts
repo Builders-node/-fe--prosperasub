@@ -48,16 +48,27 @@ function stillHolds(b: BookingRow, now: number): boolean {
 
 /** The date ranges this vehicle is not available for, newest state from the DB. */
 export async function fetchHeldRanges(vehicleId: string): Promise<HeldRange[]> {
-  const { data, error } = await supabaseDb
-    .from("rental_bookings")
-    .select("start_date,end_date,status,payment_status,payment_reference,created_at")
-    .eq("vehicle_id", vehicleId)
-    .neq("status", "cancelled")
-    .is("deleted_at", null);
-  if (error) throw error;
+  // The dates only, from a database function: other renters' bookings (names,
+  // payment references) are not readable from the browser.
+  let rows: BookingRow[];
+  const { data: holds, error: rpcError } = await supabaseDb.rpc("rental_vehicle_holds" as never, { p_vehicle_id: vehicleId } as never);
+  if (!rpcError) {
+    rows = ((holds ?? []) as Array<Omit<BookingRow, "payment_reference"> & { has_reference: boolean }>)
+      .map(({ has_reference, ...b }) => ({ ...b, payment_reference: has_reference ? "held" : null }));
+  } else {
+    // Before the function exists: the old way.
+    const { data, error } = await supabaseDb
+      .from("rental_bookings")
+      .select("start_date,end_date,status,payment_status,payment_reference,created_at")
+      .eq("vehicle_id", vehicleId)
+      .neq("status", "cancelled")
+      .is("deleted_at", null);
+    if (error) throw error;
+    rows = (data ?? []) as BookingRow[];
+  }
 
   const now = Date.now();
-  const held = ((data ?? []) as BookingRow[])
+  const held = rows
     .filter((b) => stillHolds(b, now))
     .map((b) => ({ start: b.start_date, end: b.end_date }));
   // Days the fleet blocked (service, repair). Missing before the operations
