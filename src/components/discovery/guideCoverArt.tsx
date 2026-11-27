@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Anchor, Bitcoin, CalendarCheck, Car, ChefHat, Fish, Fuel, House, MapPin, Receipt, Salad,
-  Sparkles, SprayCan, TreePalm, UtensilsCrossed, Wallet, BookOpen, Waves,
+  Anchor, Bitcoin, CalendarCheck, Car, ChefHat, Compass, Fish, Fuel, House, KeyRound, MapPin, Receipt, Salad,
+  Shell, ShieldCheck, Sparkles, SprayCan, TreePalm, UtensilsCrossed, Wallet, BookOpen, Waves,
 } from "lucide-react";
 
 /**
@@ -31,8 +31,10 @@ interface Scene {
 }
 
 const SCENES: Record<string, Scene> = {
+  "things-to-do-in-roatan":  { sky: "#ffb38a", sun: "#fff0c2", sea: "#1f9fb5", ink: "#9a3b12", main: Compass, left: Shell, right: TreePalm },
   "moving-to-roatan":       { sky: "#9fd8f2", sun: "#ffd66b", sea: "#2f8fd8", ink: "#0f5f6e", main: TreePalm, left: House, right: Car },
   "getting-around-roatan":  { sky: "#ffcf73", sun: "#fff1c7", sea: "#3b9ae1", ink: "#b2580c", main: Car, left: MapPin, right: Fuel },
+  "renting-a-car-in-roatan": { sky: "#d6c8ff", sun: "#fff6d6", sea: "#4f7fe0", ink: "#4b2ea8", main: KeyRound, left: ShieldCheck, right: Car },
   "house-cleaning-roatan":  { sky: "#c9dcff", sun: "#ffffff", sea: "#5b8def", ink: "#3348b8", main: SprayCan, left: Sparkles, right: CalendarCheck },
   "meal-plans-roatan":      { sky: "#ffc2a8", sun: "#ffe5b0", sea: "#f07a52", ink: "#b8361c", main: UtensilsCrossed, left: ChefHat, right: Salad },
   "learn-to-dive-roatan":   { sky: "#7cc6ef", sun: "#e6f6ff", sea: "#1b5fae", ink: "#14508f", main: Fish, left: Anchor, right: Waves, bubbles: true },
