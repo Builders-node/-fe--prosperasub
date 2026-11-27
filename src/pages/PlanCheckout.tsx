@@ -138,10 +138,10 @@ const UniversalPlanCheckout = () => {
   const renewKeyRef = useRef<string | null>(null);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
-  // Renewals are verified server-side per rail, and the renewal endpoint does
-  // not know the crypto gateway yet — so it is offered on new purchases only.
+  // Renewals are verified server-side per rail; the renewal endpoint checks a
+  // crypto-gateway payment with NOWPayments too, so renewals offer it as well.
   const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods({
-    supported: renewSubId ? ["lightning", "onchain", "paypal"] : ["lightning", "onchain", "crypto_gateway", "paypal"],
+    supported: ["lightning", "onchain", "crypto_gateway", "paypal"],
   });
 
   useEffect(() => {
@@ -1285,7 +1285,22 @@ const UniversalPlanCheckout = () => {
         ) : showPayment && paymentMethod === "crypto_gateway" ? (
           <CryptoGatewayPanel
             totalCents={effectiveTotalCents}
-            meta={{ description: orderDescription, ...paymentMeta() }}
+            meta={{
+              description: orderDescription,
+              ...paymentMeta(),
+              // A renewal tells the server what it renews, so the server
+              // extends the subscription itself once paid — even if this tab
+              // is closed by then. Same split the renewal call sends.
+              ...(renewSubId && plan
+                ? {
+                    // Same routing as renewalEndpoint(): anything else is a universal plan.
+                    renew_service: (["food", "cleaning", "beach"] as string[]).includes(plan.service) ? plan.service : "plan",
+                    renew_subscription_id: renewSubId,
+                    renew_amount_cents: totalCents,
+                    renew_surcharge_cents: Math.max(0, effectiveTotalCents - totalCents - vatCents),
+                  }
+                : {}),
+            }}
             isPaid={isPaid}
             successLabel={tr("Activating subscription…")}
             onPaid={(id) => onExternalPaid(id, "crypto_gateway")}
