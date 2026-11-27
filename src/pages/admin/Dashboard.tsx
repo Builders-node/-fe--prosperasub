@@ -371,40 +371,11 @@ const AdminDashboard = () => {
               : tr("Awaiting payment")}
             count={(stats?.pending ?? 0) > pendingQueue.length ? undefined : pendingQueue.length}
           />
-          <div className="space-y-2">
-            {pendingQueue.map((row) => {
-              const Icon = row.ServiceIcon;
-              return (
-                <div
-                  key={`${row.service}-${row.id}`}
-                  className="flex items-center gap-3 rounded-radius-md bg-card p-4"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-muted">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-title font-semibold text-foreground">
-                      {row.userLabel} · {row.serviceLabel}
-                    </p>
-                    <p className="mt-0.5 text-meta text-muted-foreground">
-                      {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a", { locale: dfLocale })}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-title font-semibold tabular-nums text-primary">
-                    {formatUSD(row.amountCents)}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="ml-2 shrink-0 gap-1.5 font-semibold"
-                    disabled={approve.isPending}
-                    onClick={() => setApproving(row)}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />{tr("Approve")}</Button>
-                </div>
-              );
-            })}
-          </div>
+          <PendingQueueList
+            rows={pendingQueue}
+            disabled={approve.isPending}
+            onApprove={setApproving}
+          />
         </section>
       )}
 
@@ -437,45 +408,15 @@ const AdminDashboard = () => {
       {/* Per-service breakdown. */}
       <section className="mt-8">
         <YdSectionHeading title={tr("By service")} />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {(stats?.services ?? []).map((st) => {
-            const key = st.key;
-            const meta = { label: st.label };
-            const sp = pfByService(key);
-            const Icon = st.icon;
-            return (
-              <Link
-                key={key}
-                to={`/admin/analytics?service=${key}`}
-                className="group flex min-w-0 flex-col gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </span>
-                  <span className="truncate text-title font-semibold text-foreground">
-                    {meta.label}
-                  </span>
-                  <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </div>
-                <div className="flex items-end justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-heading font-semibold tabular-nums text-foreground">
-                      {formatUSD(sp.revenueCents)}
-                    </p>
-                    <p className="text-meta text-muted-foreground">{tr("Revenue")}</p>
-                  </div>
-                  <div className="min-w-0 text-right">
-                    <p className="text-heading font-semibold tabular-nums text-foreground">
-                      {st?.active ?? 0}
-                    </p>
-                    <p className="text-meta text-muted-foreground">{tr("Active")}</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <ServiceTiles
+          tiles={(stats?.services ?? []).map((st) => ({
+            key: st.key,
+            label: st.label,
+            Icon: st.icon,
+            revenueCents: pfByService(st.key).revenueCents,
+            active: st?.active ?? 0,
+          }))}
+        />
       </section>
 
       {/* Subscription-level, so a recurring purchase is one row and not five.
@@ -561,6 +502,95 @@ const AdminDashboard = () => {
   );
 };
 
+/**
+ * The awaiting-payment queue: one card of dense rows, the same shape as the
+ * Recent activity feed below it. It was a stack of 100px tiles — a 36px icon,
+ * a 16px title and a 40px button each — so seven unpaid orders filled the
+ * whole screen.
+ */
+export function PendingQueueList({
+  rows, disabled, onApprove,
+}: {
+  rows: PendingRow[];
+  disabled?: boolean;
+  onApprove: (row: PendingRow) => void;
+}) {
+  return (
+    <ul className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card">
+      {rows.map((row) => {
+        const Icon = row.ServiceIcon;
+        const d = new Date(row.createdAt);
+        return (
+          <li key={`${row.service}-${row.id}`} className="flex items-center gap-3 px-4 py-2.5">
+            {/* On a phone the name needs the room more than the icon does. */}
+            <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted sm:flex">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold leading-5 text-foreground">
+                {row.userLabel} · {row.serviceLabel}
+              </p>
+              <p className="truncate text-meta leading-4 text-muted-foreground">
+                {format(d, d.getFullYear() === new Date().getFullYear() ? "MMM d · h:mm a" : "MMM d, yyyy · h:mm a", { locale: dfLocale })}
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-primary">
+              {formatUSD(row.amountCents)}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 w-8 shrink-0 gap-1 px-0 text-meta font-semibold sm:w-auto sm:px-3 [&_svg]:size-4 sm:[&_svg]:size-3.5"
+              disabled={disabled}
+              aria-label={tr("Approve")}
+              onClick={() => onApprove(row)}
+            >
+              <CheckCircle2 /><span className="hidden sm:inline">{tr("Approve")}</span></Button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Per-service tiles: name, revenue and active count — kept to three lines. */
+export function ServiceTiles({
+  tiles,
+}: {
+  tiles: { key: string; label: string; Icon: LucideIcon; revenueCents: number; active: number }[];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {tiles.map(({ key, label, Icon, revenueCents, active }) => (
+        <Link
+          key={key}
+          to={`/admin/analytics?service=${key}`}
+          className="group flex min-w-0 flex-col gap-2 rounded-radius-md bg-card px-3 py-2.5 transition-colors hover:bg-muted/40"
+        >
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] bg-muted">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+            </span>
+            <span className="truncate text-sm font-semibold text-foreground">{label}</span>
+            <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+          </div>
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-title font-semibold leading-5 tabular-nums text-foreground">
+                {formatUSD(revenueCents)}
+              </p>
+              <p className="text-meta leading-4 text-muted-foreground">{tr("Revenue")}</p>
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="text-title font-semibold leading-5 tabular-nums text-foreground">{active}</p>
+              <p className="text-meta leading-4 text-muted-foreground">{tr("Active")}</p>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function MetricTile({
   label, value, href, accent, warning, className, change, loading,
