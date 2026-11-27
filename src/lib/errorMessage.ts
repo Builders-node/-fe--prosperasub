@@ -16,3 +16,14 @@ export function errorMessage(error: unknown): string {
   }
   return "";
 }
+
+/**
+ * A raw database error — PostgREST passes Postgres' own SQLSTATE through as
+ * `code` (e.g. 22P02 "invalid input syntax for type uuid"). Its text is for
+ * the console, not for a customer.
+ */
+export function isRawDatabaseError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && /^[0-9A-Z]{5}$/.test(code);
+}
