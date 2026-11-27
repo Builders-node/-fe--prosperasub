@@ -403,7 +403,10 @@ const UniversalPlanCheckout = () => {
   // each on the row it sits on — so they apply to single orders only.
   // Discounts never stack: the customer gets the larger of the code and the
   // business's own discount, and the row carries only that one.
-  const promoCents = multi ? 0 : Math.min(promo?.discountCents ?? 0, totalCents);
+  // A renewal is charged the plan's price: the server checks the payment
+  // against it (a renewal writes no row, so a code or bonus would neither be
+  // recorded nor accepted).
+  const promoCents = multi || renewSubId ? 0 : Math.min(promo?.discountCents ?? 0, totalCents);
   const offerCents = multi || renewSubId ? 0 : Math.min(Number(offer?.discount_cents) || 0, totalCents);
   const useOffer = offerCents > 0 && offerCents >= promoCents;
   const discountCents = useOffer ? offerCents : promoCents;
@@ -421,7 +424,7 @@ const UniversalPlanCheckout = () => {
   const afterPromoCents = Math.max(0, totalCents - discountCents);
   const bonusRules = useBonusRules();
   // Capped as the database caps it — asking for more refuses the whole order.
-  const bonusUsableCents = multi ? 0 : bonusSpendCents(balanceCents, totalCents, afterPromoCents, bonusRules.maxSharePct);
+  const bonusUsableCents = multi || renewSubId ? 0 : bonusSpendCents(balanceCents, totalCents, afterPromoCents, bonusRules.maxSharePct);
   const bonusCents = useBonus ? bonusUsableCents : 0;
   // What this order gives back once paid: on the goods actually paid for.
   const bonusEarnedCents = multi ? 0 : bonusEarnCents(afterPromoCents - bonusCents, bonusRules.cashbackPct);
@@ -1174,7 +1177,7 @@ const UniversalPlanCheckout = () => {
             customer can put one in, so it sits with the money rather than
             hidden behind a link. */}
         {/* Single orders only — see discountCents. */}
-        <section className={cn("rounded-radius-md bg-card p-4", (multi || showPayment) && "hidden")}>
+        <section className={cn("rounded-radius-md bg-card p-4", (multi || showPayment || !!renewSubId) && "hidden")}>
           <Label htmlFor="promo">{tr("Promo code")}</Label>
           <div className="mt-1 flex gap-2">
             <Input
