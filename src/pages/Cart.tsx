@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { CryptoGatewayPanel } from "@/components/payment/CryptoGatewayPanel";
 import { PayPalSubscriptionPanel } from "@/components/payment/PayPalSubscriptionPanel";
 import { termLabelFor, periodNoun } from "@/lib/services/planPeriod";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
@@ -132,7 +133,11 @@ export default function Cart() {
   const { openAuthModal } = useAuthModal();
   const userUuid = useUserUuid();
   const { btcPrice, convertToSats, isLoading: isPriceLoading } = useBtcPrice();
-  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
+  // The crypto gateway (USDT, USDC, ETH…) is opt-in per checkout; a basket is
+  // settled server-side by its payment reference like every other rail.
+  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods({
+    supported: ["lightning", "onchain", "crypto_gateway", "paypal"],
+  });
   const maxFeePct = Math.max(0, ...enabledMethods.map((m) => surchargePercent(m)));
   const { data: residences = [] } = useResidences();
   const { residence: globalResidence } = useSelectedResidence();
@@ -511,6 +516,12 @@ export default function Cart() {
         }
         if (!pendingBatchRef.current) { toast.error(tr("Could not prepare your subscription — try again.")); return; }
       }
+      setStep("pay");
+      return;
+    }
+
+    // The coin picker raises its own invoice; the basket is reserved when it does.
+    if (paymentMethod === "crypto_gateway") {
       setStep("pay");
       return;
     }
@@ -912,6 +923,22 @@ export default function Cart() {
                 // The same basket the other rails announce. Without it the
                 // admin's "payment received" said Not provided five times.
                 orderMeta={basketMeta()}
+              />
+            )}
+            {step === "pay" && paymentMethod === "crypto_gateway" && (
+              <CryptoGatewayPanel
+                totalCents={effectiveTotalCents}
+                meta={{
+                  description: `${basketMeta().service_name} — ${formatUSD(totalCents)}`,
+                  context: "cart",
+                  ...basketMeta(),
+                }}
+                isPaid={isPaid}
+                successLabel={tr("Creating your orders…")}
+                // Same as the Bitcoin rails: rows carry the reference before the
+                // customer pays, so a closed tab is still settled by the webhook.
+                onInvoiceReady={(id) => { void reserveRecords(id); }}
+                onPaid={(id) => { void onPaidComplete(id); }}
               />
             )}
             {step === "pay" && (inv.state.invoice || inv.state.address) && (

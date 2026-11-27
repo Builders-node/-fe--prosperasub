@@ -138,10 +138,10 @@ const UniversalPlanCheckout = () => {
   const renewKeyRef = useRef<string | null>(null);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
-  // Renewals are verified server-side per rail, and the renewal endpoint does
-  // not know the crypto gateway yet — so it is offered on new purchases only.
+  // Renewals are verified server-side per rail; the renewal endpoint checks a
+  // crypto-gateway payment with NOWPayments too, so renewals offer it as well.
   const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods({
-    supported: renewSubId ? ["lightning", "onchain", "paypal"] : ["lightning", "onchain", "crypto_gateway", "paypal"],
+    supported: ["lightning", "onchain", "crypto_gateway", "paypal"],
   });
 
   useEffect(() => {
