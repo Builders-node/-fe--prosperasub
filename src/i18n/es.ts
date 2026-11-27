@@ -933,6 +933,7 @@ export const ES: Record<string, string> = {
   "Couldn't load plans": "No se pudieron cargar los planes",
   "Couldn't load recent activity": "No se pudo cargar la actividad reciente",
   "Couldn't load some data": "No se pudieron cargar algunos datos",
+  "Please refresh the page. If it keeps happening, contact support.": "Actualiza la página. Si sigue pasando, contacta a soporte.",
   "Couldn't load support messages.": "No se pudieron cargar los mensajes de soporte.",
   "Couldn't load the businesses — retry": "No se pudieron cargar los negocios: reintenta",
   "Couldn't load the calendar kinds": "No se pudieron cargar los tipos de calendario",
