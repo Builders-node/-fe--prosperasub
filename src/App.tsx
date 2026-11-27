@@ -9,7 +9,7 @@ import { QueryClient, QueryCache } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { keepPublicQueries, persistOptions } from "@/lib/queryPersist";
 import { toast } from "sonner";
-import { errorMessage } from "@/lib/errorMessage";
+import { errorMessage, isRawDatabaseError } from "@/lib/errorMessage";
 import { ES_PREFIX, inSpanishUrl } from "@/lib/seo/lang";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { VersionWatcher } from "@/components/VersionWatcher";
@@ -175,6 +175,13 @@ const reportQueryFailure = (error: unknown) => {
   });
   if (recentlyReported.has(message)) return;
   recentlyReported.set(message, now);
+  // A raw Postgres message ("invalid input syntax for type uuid: …") tells a
+  // customer nothing and leaks internals: say it plainly, log the detail.
+  if (isRawDatabaseError(error)) {
+    console.error("[query]", error);
+    toast.error(tr("Couldn't load some data"), { description: tr("Please refresh the page. If it keeps happening, contact support.") });
+    return;
+  }
   toast.error(tr("Couldn't load some data"), { description: message });
 };
 

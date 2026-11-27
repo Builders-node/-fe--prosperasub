@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { supabase, accountApi } from '@/integrations/supabase/client';
 import { publicSiteUrl } from "@/integrations/supabase/config";
+import { fetchMyUuid } from "@/lib/account/myUuid";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Where to return after Google sign-in (see loginWithGoogle). */
 export const OAUTH_RETURN_KEY = "prospera_oauth_return";
@@ -142,6 +145,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             auth_provider: u.auth_provider || 'email',
             avatar_url: u.avatar_url || u.user_metadata?.picture || undefined,
           };
+          // A session minted before the server switched Google logins to the
+          // account uuid still says "google-…". Every screen keys database
+          // reads on userData.id, so resolve the real users.id here, once.
+          if (!UUID_RE.test(userRow.id)) {
+            const realId = await fetchMyUuid().catch(() => null);
+            if (realId) userRow.id = realId;
+          }
         }
 
         if (userRow) {
